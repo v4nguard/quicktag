@@ -10,6 +10,7 @@ mod texture;
 use std::sync::Arc;
 
 use destiny_pkg::{PackageVersion, TagHash};
+use eframe::egui::{TextEdit, Widget};
 use eframe::egui_wgpu::RenderState;
 use eframe::{
     egui::{self},
@@ -46,6 +47,9 @@ pub struct QuickTagApp {
     strings: Arc<StringCache>,
 
     tag_input: String,
+    tag_split: bool,
+    /// (pkg id, entry index)
+    tag_split_input: (String, String),
 
     toasts: Toasts,
 
@@ -87,6 +91,9 @@ impl QuickTagApp {
             cache: Default::default(),
             tag_view: None,
             tag_input: String::new(),
+            tag_split: false,
+            tag_split_input: (String::new(), String::new()),
+
             toasts: Toasts::default(),
 
             open_panel: Panel::Tag,
@@ -159,11 +166,46 @@ impl eframe::App for QuickTagApp {
             ui.add_enabled_ui(!is_loading_cache, |ui| {
                 ui.horizontal(|ui| {
                     ui.label("Tag:");
-                    let submitted = ui.text_edit_singleline(&mut self.tag_input).lost_focus()
-                        && ui.input(|i| i.key_pressed(egui::Key::Enter));
+                    let mut submitted = false;
+
+                    if self.tag_split {
+                        submitted |= TextEdit::singleline(&mut self.tag_split_input.0)
+                            .hint_text("PKG ID")
+                            .desired_width(64.)
+                            .ui(ui)
+                            .lost_focus()
+                            && ui.input(|i| i.key_pressed(egui::Key::Enter));
+
+                        submitted |= TextEdit::singleline(&mut self.tag_split_input.1)
+                            .hint_text("Index")
+                            .desired_width(64.)
+                            .ui(ui)
+                            .lost_focus()
+                            && ui.input(|i| i.key_pressed(egui::Key::Enter));
+                    } else {
+                        submitted |= TextEdit::singleline(&mut self.tag_input)
+                            .hint_text("32/64-bit hex tag")
+                            .desired_width(128. + 8.)
+                            .ui(ui)
+                            .lost_focus()
+                            && ui.input(|i| i.key_pressed(egui::Key::Enter));
+                    }
+
                     if ui.button("Open").clicked() || submitted {
                         let tag_input_trimmed = self.tag_input.trim();
-                        let tag = if tag_input_trimmed.len() >= 16 {
+                        let tag = if self.tag_split {
+                            let pkg_id = self.tag_split_input.0.trim();
+                            let entry_index = self.tag_split_input.1.trim();
+
+                            if pkg_id.is_empty() || entry_index.is_empty() {
+                                TagHash::NONE
+                            } else {
+                                let pkg_id: u16 =
+                                    u16::from_str_radix(pkg_id, 16).unwrap_or_default();
+                                let entry_index = str::parse(entry_index).unwrap_or_default();
+                                TagHash::new(pkg_id, entry_index)
+                            }
+                        } else if tag_input_trimmed.len() >= 16 {
                             let hash =
                                 u64::from_str_radix(tag_input_trimmed, 16).unwrap_or_default();
                             if let Some(t) = package_manager().hash64_table.get(&u64::from_be(hash))
@@ -185,6 +227,8 @@ impl eframe::App for QuickTagApp {
 
                         self.open_tag(tag);
                     }
+
+                    ui.checkbox(&mut self.tag_split, "Split pkg/entry");
                 });
 
                 ui.horizontal(|ui| {
