@@ -1,0 +1,31 @@
+name: Clippy
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+  push:
+    paths-ignore:
+      - "**/.md"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Clippy (${{ matrix.platform }})
+    runs-on: ${{ matrix.platform }}
+    strategy:
+      fail-fast: true
+      matrix:
+        platform: [windows-latest]
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Clippy
+        run: cargo clippy --all-features
