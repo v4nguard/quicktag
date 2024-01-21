@@ -284,7 +284,14 @@ impl View for TagView {
                         if self.scan.references.is_empty() {
                             ui.label(RichText::new("No incoming references found").italics());
                         } else {
+                            let mut references_collapsed = IntMap::<TagHash, UEntryHeader>::default();
                             for (tag, entry) in &self.scan.references {
+                                references_collapsed
+                                    .entry(*tag)
+                                    .or_insert_with(|| entry.clone());
+                            }
+
+                            for (tag, entry) in &references_collapsed {
                                 let fancy_tag = format_tag_entry(*tag, Some(entry));
                                 let response = ui.add_enabled(
                                     *tag != self.tag,
