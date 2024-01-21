@@ -20,6 +20,8 @@ use eframe::{
 use egui_notify::Toasts;
 use poll_promise::Promise;
 
+use crate::scanner::fnv1;
+use crate::text::RawStringHashCache;
 use crate::{
     packages::package_manager,
     scanner::{load_tag_cache, scanner_progress, ScanStatus, TagCache},
@@ -45,6 +47,7 @@ pub struct QuickTagApp {
     cache_load: Option<Promise<TagCache>>,
     cache: Arc<TagCache>,
     strings: Arc<StringCache>,
+    raw_strings: Arc<RawStringHashCache>,
 
     tag_input: String,
     tag_split: bool,
@@ -103,6 +106,7 @@ impl QuickTagApp {
             raw_strings_view: RawStringsView::new(Default::default()),
 
             strings,
+            raw_strings: Default::default(),
             wgpu_state: cc.wgpu_render_state.clone().unwrap(),
         }
     }
@@ -160,6 +164,30 @@ impl eframe::App for QuickTagApp {
 
             self.strings_view = StringsView::new(self.strings.clone(), self.cache.clone());
             self.raw_strings_view = RawStringsView::new(self.cache.clone());
+
+            let mut new_rsh_cache = RawStringHashCache::default();
+            for s in self
+                .cache
+                .hashes
+                .iter()
+                .flat_map(|(_, sc)| sc.raw_strings.iter().cloned())
+            {
+                let h = fnv1(s.as_bytes());
+                match new_rsh_cache.entry(h) {
+                    std::collections::hash_map::Entry::Occupied(mut o) => {
+                        let v = o.get_mut();
+                        if v.contains(&s) {
+                            continue;
+                        }
+                        v.push(s);
+                    }
+                    std::collections::hash_map::Entry::Vacant(v) => {
+                        v.insert(vec![s]);
+                    }
+                };
+            }
+
+            self.raw_strings = Arc::new(new_rsh_cache);
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -273,6 +301,7 @@ impl QuickTagApp {
         let new_view = TagView::create(
             self.cache.clone(),
             self.strings.clone(),
+            self.raw_strings.clone(),
             tag,
             self.wgpu_state.clone(),
         );

@@ -22,7 +22,10 @@ use nohash_hasher::{IntMap, IntSet};
 use poll_promise::Promise;
 use std::fmt::Write;
 
-use crate::{gui::texture::Texture, scanner::read_raw_string_blob, util::u32_from_endian};
+use crate::{
+    gui::texture::Texture, scanner::read_raw_string_blob, text::RawStringHashCache,
+    util::u32_from_endian,
+};
 use crate::{
     packages::package_manager,
     references::REFERENCE_NAMES,
@@ -41,7 +44,10 @@ use super::{
 pub struct TagView {
     cache: Arc<TagCache>,
     string_cache: Arc<StringCache>,
+    raw_string_hash_cache: Arc<RawStringHashCache>,
+
     string_hashes: Vec<(u64, u32)>,
+    raw_string_hashes: Vec<(u64, u32)>,
     raw_strings: Vec<(u64, String)>,
     arrays: Vec<(u64, TagArray)>,
 
@@ -65,6 +71,7 @@ impl TagView {
     pub fn create(
         cache: Arc<TagCache>,
         string_cache: Arc<StringCache>,
+        raw_string_hash_cache: Arc<RawStringHashCache>,
         tag: TagHash,
         render_state: RenderState,
     ) -> Option<TagView> {
@@ -72,6 +79,7 @@ impl TagView {
         let mut array_offsets = vec![];
         let mut raw_string_offsets = vec![];
         let mut string_hashes = vec![];
+        let mut raw_string_hashes = vec![];
 
         let endian = package_manager().version.endian();
         for (i, b) in tag_data.chunks_exact(4).enumerate() {
@@ -89,6 +97,10 @@ impl TagView {
 
             if string_cache.contains_key(&value) {
                 string_hashes.push((offset, value));
+            }
+
+            if raw_string_hash_cache.contains_key(&value) {
+                raw_string_hashes.push((offset, value));
             }
         }
 
@@ -179,6 +191,7 @@ impl TagView {
         Some(Self {
             arrays,
             string_hashes,
+            raw_string_hashes,
             tag,
             tag64,
             tag_type: TagType::from_type_subtype(tag_entry.file_type, tag_entry.file_subtype),
@@ -191,6 +204,7 @@ impl TagView {
             tag_traversal: None,
             traversal_show_strings: false,
             string_cache,
+            raw_string_hash_cache,
             raw_strings,
             start_time: Instant::now(),
             render_state,
@@ -202,6 +216,7 @@ impl TagView {
         if let Some(tv) = Self::create(
             self.cache.clone(),
             self.string_cache.clone(),
+            self.raw_string_hash_cache.clone(),
             tag,
             self.render_state.clone(),
         ) {
@@ -558,6 +573,53 @@ impl View for TagView {
                                 }
                             });
                         });
+
+                        CollapsingHeader::new(egui::RichText::new("Raw String Hashes").strong())
+                            .default_open(true)
+                            .show(ui, |ui| {
+                                ui.group(|ui| {
+                                    if self.raw_string_hashes.is_empty() {
+                                        ui.label(
+                                            RichText::new("No raw string hashes found").italics(),
+                                        );
+                                    } else {
+                                        for (offset, hash) in &self.raw_string_hashes {
+                                            if let Some(strings) =
+                                                self.raw_string_hash_cache.get(hash)
+                                            {
+                                                if strings.len() > 1 {
+                                                    ui.selectable_label(
+                                                        false,
+                                                        format!(
+                                                            "'{}' ({} collisions) {:08x} @ 0x{:X}",
+                                                            strings[(self
+                                                                .start_time
+                                                                .elapsed()
+                                                                .as_secs()
+                                                                as usize)
+                                                                % strings.len()],
+                                                            strings.len(),
+                                                            hash,
+                                                            offset
+                                                        ),
+                                                    )
+                                                    .on_hover_text(strings.join("\n"))
+                                                    .clicked();
+                                                } else {
+                                                    ui.selectable_label(
+                                                        false,
+                                                        format!(
+                                                            "'{}' {:08x} @ 0x{:X}",
+                                                            strings[0], hash, offset
+                                                        ),
+                                                    )
+                                                    .clicked();
+                                                }
+                                            }
+                                        }
+                                    }
+                                });
+                            });
                     });
                 });
         }

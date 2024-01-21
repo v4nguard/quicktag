@@ -429,3 +429,4 @@ pub fn create_stringmap_d1() -> anyhow::Result<StringCache> {
 
 pub type StringCache = IntMap<u32, Vec<String>>;
 pub type StringCacheVec = Vec<(u32, Vec<String>)>;
+pub type RawStringHashCache = StringCache;
