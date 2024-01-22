@@ -54,6 +54,8 @@ fn main() -> eframe::Result<()> {
             b.with_title(format!("Quicktag - {}", package_manager().version.name()))
         })),
         persist_window: true,
+        follow_system_theme: false,
+        default_theme: eframe::Theme::Dark,
         wgpu_options: WgpuConfiguration {
             supported_backends: wgpu::Backends::PRIMARY,
             device_descriptor: Arc::new(|_adapter| wgpu::DeviceDescriptor {
