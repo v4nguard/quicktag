@@ -45,6 +45,22 @@ impl TagType {
         )
     }
 
+    pub fn is_header(&self) -> bool {
+        matches!(
+            self,
+            TagType::Texture2D { is_header: true }
+                | TagType::TextureCube { is_header: true }
+                | TagType::Texture3D { is_header: true }
+                | TagType::TextureSampler { is_header: true }
+                | TagType::VertexBuffer { is_header: true }
+                | TagType::IndexBuffer { is_header: true }
+                | TagType::ConstantBuffer { is_header: true }
+                | TagType::PixelShader { is_header: true }
+                | TagType::VertexShader { is_header: true }
+                | TagType::ComputeShader { is_header: true }
+        )
+    }
+
     pub fn is_tag(&self) -> bool {
         matches!(self, TagType::Tag | TagType::TagGlobal)
     }

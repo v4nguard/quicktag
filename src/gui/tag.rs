@@ -8,9 +8,9 @@ use std::{
 
 use binrw::{binread, BinReaderExt};
 use destiny_pkg::{package::UEntryHeader, TagHash, TagHash64};
-use eframe::egui::load::SizedTexture;
 use eframe::egui::{vec2, TextureId};
 use eframe::egui_wgpu::RenderState;
+use eframe::{egui::load::SizedTexture, epaint::Vec2};
 use eframe::{
     egui::{self, CollapsingHeader, RichText},
     epaint::Color32,
@@ -52,6 +52,8 @@ pub struct TagView {
     arrays: Vec<(u64, TagArray)>,
 
     textures: IntMap<TagHash, (Texture, TextureId)>,
+    /// Used if this tag is a texture header
+    texture: anyhow::Result<(Texture, TextureId)>,
 
     tag: TagHash,
     tag64: Option<TagHash64>,
@@ -162,6 +164,7 @@ impl TagView {
             .map(|(&h64, _)| TagHash64(h64));
 
         let tag_entry = package_manager().get_entry(tag)?;
+        let tag_type = TagType::from_type_subtype(tag_entry.file_type, tag_entry.file_subtype);
         let scan = ExtendedScanResult::from_scanresult(cache.hashes.get(&tag).cloned()?);
 
         let mut textures: IntMap<TagHash, (Texture, TextureId)> = Default::default();
@@ -188,15 +191,31 @@ impl TagView {
             }
         }
 
+        let texture = if tag_type.is_texture() && tag_type.is_header() {
+            Texture::load(&render_state, tag).map(|t| {
+                let egui_handle = render_state.renderer.write().register_native_texture(
+                    &render_state.device,
+                    &t.view,
+                    wgpu::FilterMode::Linear,
+                );
+
+                (t, egui_handle)
+            })
+        } else {
+            Err(anyhow::anyhow!("Tag is not a texture header"))
+        };
+
         Some(Self {
             arrays,
             string_hashes,
             raw_string_hashes,
             tag,
             tag64,
-            tag_type: TagType::from_type_subtype(tag_entry.file_type, tag_entry.file_subtype),
+            tag_type,
             tag_entry,
+
             textures,
+            texture,
 
             scan,
             cache,
@@ -454,6 +473,36 @@ impl View for TagView {
                         ui.label("Traversing tags");
                     }
                 }
+            } else if self.tag_type.is_texture() && self.tag_type.is_header() {
+                match &self.texture {
+                    Ok((t, egui_texture)) => {
+                        let min_dimension = ui.available_size().min_elem();
+                        let size = if t.width > t.height {
+                            vec2(
+                                min_dimension,
+                                min_dimension * t.height as f32 / t.width as f32,
+                            )
+                        } else {
+                            vec2(
+                                min_dimension * t.width as f32 / t.height as f32,
+                                min_dimension,
+                            )
+                        };
+                        ui.image(SizedTexture {
+                            id: *egui_texture,
+                            size,
+                        });
+
+                        ui.label(format!(
+                            "{}x{}x{} {:?}",
+                            t.width, t.height, t.depth, t.format
+                        ));
+                    }
+                    Err(e) => {
+                        ui.colored_label(Color32::RED, "⚠ Failed to load texture");
+                        ui.colored_label(Color32::RED, format!("{e:?}"));
+                    }
+                }
             } else {
                 ui.label(RichText::new("Traversal not available for non-8080 tags").italics());
             }
@@ -638,6 +687,19 @@ impl View for TagView {
         }
 
         None
+    }
+}
+
+impl Drop for TagView {
+    fn drop(&mut self) {
+        for (_, (_, t)) in self.textures.iter() {
+            self.render_state.renderer.write().free_texture(t)
+        }
+
+        if let Ok((_, egui_tex)) = self.texture {
+            self.render_state.renderer.write().free_texture(&egui_tex);
+            self.texture = Err(anyhow::anyhow!("Texture dropped"));
+        }
     }
 }
 
@@ -900,14 +962,6 @@ fn traverse_tag(
     }
 
     writeln!(out, "{line_header}").ok();
-}
-
-impl Drop for TagView {
-    fn drop(&mut self) {
-        for (_, (_, t)) in self.textures.iter() {
-            self.render_state.renderer.write().free_texture(t)
-        }
-    }
 }
 
 pub fn format_tag_entry(tag: TagHash, entry: Option<&UEntryHeader>) -> String {
