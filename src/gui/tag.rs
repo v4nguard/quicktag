@@ -212,7 +212,7 @@ impl TagView {
 
     /// Replaces this view with another tag
     pub fn open_tag(&mut self, tag: TagHash) {
-        if let Some(tv) = Self::create(
+        if let Some(mut tv) = Self::create(
             self.cache.clone(),
             self.string_cache.clone(),
             self.raw_string_hash_cache.clone(),
@@ -220,6 +220,10 @@ impl TagView {
             self.render_state.clone(),
             self.texture_cache.clone(),
         ) {
+            tv.traversal_depth_limit = self.traversal_depth_limit;
+            tv.traversal_show_strings = self.traversal_show_strings;
+            tv.traversal_interactive = self.traversal_interactive;
+
             *self = tv;
         } else {
             error!("Could not open new tag view for {tag} (tag not found in cache)");
