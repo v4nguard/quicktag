@@ -61,9 +61,10 @@ pub struct TagView {
     tag_type: TagType,
 
     scan: ExtendedScanResult,
-    tag_traversal: Option<Promise<String>>,
+    tag_traversal: Option<Promise<(TraversedTag, String)>>,
     traversal_depth_limit: usize,
     traversal_show_strings: bool,
+    traversal_interactive: bool,
     start_time: Instant,
 
     render_state: RenderState,
@@ -199,6 +200,7 @@ impl TagView {
             traversal_depth_limit: 16,
             tag_traversal: None,
             traversal_show_strings: false,
+            traversal_interactive: false,
             string_cache,
             raw_string_hash_cache,
             raw_strings,
@@ -222,6 +224,58 @@ impl TagView {
         } else {
             error!("Could not open new tag view for {tag} (tag not found in cache)");
         }
+    }
+
+    pub fn traverse_interactive_ui(
+        &self,
+        ui: &mut eframe::egui::Ui,
+        traversed: &TraversedTag,
+        depth: usize,
+    ) -> Option<TagHash> {
+        let mut open_new_tag = None;
+        let mut is_texture = false;
+
+        let tag_label = if let Some(entry) = &traversed.entry {
+            let tagtype = TagType::from_type_subtype(entry.file_type, entry.file_subtype);
+            is_texture = tagtype.is_texture();
+
+            let fancy_tag = format_tag_entry(traversed.tag, Some(entry));
+
+            egui::RichText::new(fancy_tag).color(tagtype.display_color())
+        } else {
+            egui::RichText::new(format!("{} (pkg entry not found)", traversed.tag))
+                .color(Color32::LIGHT_RED)
+        };
+
+        let response = ui.add_enabled(depth > 0, egui::SelectableLabel::new(false, tag_label));
+
+        if response
+            .context_menu(|ui| tag_context(ui, traversed.tag, None))
+            .on_hover_ui(|ui| {
+                if is_texture {
+                    self.texture_cache.texture_preview(traversed.tag, ui);
+                }
+            })
+            .clicked()
+        {
+            open_new_tag = Some(traversed.tag);
+        }
+
+        if !traversed.subtags.is_empty() {
+            ui.style_mut().spacing.indent = 36.0;
+            ui.indent(
+                format!("traversed_tag{}_depth{}", traversed.tag, depth),
+                |ui| {
+                    for t in &traversed.subtags {
+                        if let Some(new_tag) = self.traverse_interactive_ui(ui, t, depth + 1) {
+                            open_new_tag = Some(new_tag);
+                        }
+                    }
+                },
+            );
+        }
+
+        open_new_tag
     }
 }
 
@@ -408,7 +462,7 @@ impl View for TagView {
 
                     if ui.button("Copy traversal").clicked() {
                         if let Some(traversal) = self.tag_traversal.as_ref() {
-                            if let Some(result) = traversal.ready() {
+                            if let Some((_, result)) = traversal.ready() {
                                 ui.output_mut(|o| o.copied_text = result.clone());
                             }
                         }
@@ -423,15 +477,24 @@ impl View for TagView {
                         &mut self.traversal_show_strings,
                         "Find strings (currently only shows raw strings)",
                     );
+                    ui.checkbox(&mut self.traversal_interactive, "Interactive");
                 });
 
                 if let Some(traversal) = self.tag_traversal.as_ref() {
-                    if let Some(result) = traversal.ready() {
+                    if let Some((trav_interactive, trav_static)) = traversal.ready() {
                         egui::ScrollArea::both()
                             .auto_shrink([false; 2])
                             .show(ui, |ui| {
-                                ui.style_mut().wrap = Some(false);
-                                ui.label(RichText::new(result).monospace());
+                                if self.traversal_interactive {
+                                    open_new_tag = open_new_tag.or(self.traverse_interactive_ui(
+                                        ui,
+                                        trav_interactive,
+                                        0,
+                                    ));
+                                } else {
+                                    ui.style_mut().wrap = Some(false);
+                                    ui.label(RichText::new(trav_static).monospace());
+                                }
                             });
                     } else {
                         ui.spinner();
@@ -750,12 +813,12 @@ fn traverse_tags(
     depth_limit: usize,
     cache: Arc<TagCache>,
     show_strings: bool,
-) -> String {
+) -> (TraversedTag, String) {
     let mut result = String::new();
     let mut seen_tags = Default::default();
     let mut pipe_stack = vec![];
 
-    traverse_tag(
+    let traversed = traverse_tag(
         &mut result,
         starting_tag,
         TagHash::NONE,
@@ -767,7 +830,13 @@ fn traverse_tags(
         show_strings,
     );
 
-    result
+    (traversed, result)
+}
+
+pub struct TraversedTag {
+    pub tag: TagHash,
+    pub entry: Option<UEntryHeader>,
+    pub subtags: Vec<TraversedTag>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -781,7 +850,7 @@ fn traverse_tag(
     depth_limit: usize,
     cache: Arc<TagCache>,
     show_strings: bool,
-) {
+) -> TraversedTag {
     let depth = pipe_stack.len();
 
     let pm = package_manager();
@@ -800,11 +869,19 @@ fn traverse_tag(
 
         writeln!(out, "{line_header}└ Depth limit reached ({})", depth_limit).ok();
 
-        return;
+        return TraversedTag {
+            tag,
+            entry,
+            subtags: vec![],
+        };
     }
 
     let Some(scan_result) = cache.hashes.get(&tag).cloned() else {
-        return;
+        return TraversedTag {
+            tag,
+            entry,
+            subtags: vec![],
+        };
     };
 
     let scan = ExtendedScanResult::from_scanresult(scan_result);
@@ -827,7 +904,11 @@ fn traverse_tag(
         .collect_vec();
 
     if all_hashes.is_empty() {
-        return;
+        return TraversedTag {
+            tag,
+            entry,
+            subtags: vec![],
+        };
     }
 
     let mut line_header = String::new();
@@ -857,6 +938,7 @@ fn traverse_tag(
         }
     }
 
+    let mut subtags = vec![];
     for (i, (t, offset)) in all_hashes.iter().enumerate() {
         let branch = if i + 1 == all_hashes.len() {
             "└"
@@ -907,7 +989,7 @@ fn traverse_tag(
             }
         } else {
             write!(out, "{line_header}{branch}──").ok();
-            traverse_tag(
+            let traversed = traverse_tag(
                 out,
                 *t,
                 tag,
@@ -918,11 +1000,19 @@ fn traverse_tag(
                 cache.clone(),
                 show_strings,
             );
+
+            subtags.push(traversed);
         }
         pipe_stack.pop();
     }
 
     writeln!(out, "{line_header}").ok();
+
+    TraversedTag {
+        tag,
+        entry,
+        subtags,
+    }
 }
 
 pub fn format_tag_entry(tag: TagHash, entry: Option<&UEntryHeader>) -> String {
