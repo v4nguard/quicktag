@@ -3,11 +3,16 @@ use crate::packages::package_manager;
 use anyhow::Context;
 use binrw::BinRead;
 use destiny_pkg::TagHash;
+use eframe::egui::load::SizedTexture;
 use eframe::egui_wgpu::RenderState;
+use eframe::epaint::mutex::RwLock;
+use eframe::epaint::{vec2, Color32, TextureId};
 use eframe::wgpu;
 use eframe::wgpu::util::DeviceExt;
 use eframe::wgpu::TextureDimension;
+use linked_hash_map::LinkedHashMap;
 use std::io::SeekFrom;
+use std::sync::Arc;
 
 #[derive(BinRead)]
 pub struct CafeMarker(#[br(assert(self_0 == 0xcafe))] u16);
@@ -86,7 +91,18 @@ impl Texture {
             anyhow::bail!("Textures are not supported for D1");
         }
 
-        let (texture, texture_data) = Self::load_data(hash, true)?;
+        let (texture, mut texture_data) = Self::load_data(hash, true)?;
+        // Pre-multiply alpha where possible
+        if matches!(
+            texture.format,
+            DxgiFormat::R8G8B8A8_UNORM_SRGB | DxgiFormat::R8G8B8A8_UNORM
+        ) {
+            for c in texture_data.chunks_exact_mut(4) {
+                c[0] = (c[0] as f32 * c[3] as f32 / 255.) as u8;
+                c[1] = (c[1] as f32 * c[3] as f32 / 255.) as u8;
+                c[2] = (c[2] as f32 * c[3] as f32 / 255.) as u8;
+            }
+        }
 
         let handle = rs.device.create_texture_with_data(
             &rs.queue,
@@ -139,5 +155,80 @@ impl Texture {
             height: texture.height as u32,
             depth: texture.depth as u32,
         })
+    }
+}
+
+type TextureCacheMap =
+    LinkedHashMap<TagHash, (Arc<Texture>, TextureId), nohash_hasher::BuildNoHashHasher<TagHash>>;
+
+#[derive(Clone)]
+pub struct TextureCache {
+    render_state: RenderState,
+    cache: Arc<RwLock<TextureCacheMap>>,
+}
+
+impl TextureCache {
+    pub fn new(render_state: RenderState) -> Self {
+        Self {
+            render_state,
+            cache: Arc::new(RwLock::new(TextureCacheMap::default())),
+        }
+    }
+
+    pub fn get_or_load(&self, hash: TagHash) -> anyhow::Result<(Arc<Texture>, TextureId)> {
+        let mut cache = self.cache.write();
+        if let Some(t) = cache.get(&hash) {
+            return Ok(t.clone());
+        }
+
+        let texture = Texture::load(&self.render_state, hash)?;
+        let id = self.render_state.renderer.write().register_native_texture(
+            &self.render_state.device,
+            &texture.view,
+            wgpu::FilterMode::Linear,
+        );
+
+        cache.insert(hash, (Arc::new(texture), id));
+        drop(cache);
+
+        self.truncate();
+        Ok(self.cache.read().get(&hash).cloned().unwrap())
+    }
+
+    pub fn texture_preview(&self, hash: TagHash, ui: &mut eframe::egui::Ui) {
+        if let Ok((tex, egui_tex)) = self.get_or_load(hash) {
+            let max_height = ui.available_height() * 0.90;
+
+            let tex_size = if ui.input(|i| i.modifiers.ctrl) {
+                vec2(max_height * tex.aspect_ratio, max_height)
+            } else {
+                ui.label("ℹ Hold ctrl to enlarge");
+                vec2(256. * tex.aspect_ratio, 256.)
+            };
+
+            ui.image(SizedTexture::new(egui_tex, tex_size));
+
+            ui.label(format!(
+                "{}x{}x{} {:?}",
+                tex.width, tex.height, tex.depth, tex.format
+            ));
+        } else {
+            ui.colored_label(
+                Color32::RED,
+                "⚠ Texture not found, check log for more information",
+            );
+        }
+    }
+}
+
+impl TextureCache {
+    const MAX_TEXTURES: usize = 64;
+    fn truncate(&self) {
+        let mut cache = self.cache.write();
+        while cache.len() > Self::MAX_TEXTURES {
+            if let Some((_, (_, tid))) = cache.pop_front() {
+                self.render_state.renderer.write().free_texture(&tid);
+            }
+        }
     }
 }

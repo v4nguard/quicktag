@@ -60,7 +60,8 @@ fn main() -> eframe::Result<()> {
             supported_backends: wgpu::Backends::PRIMARY,
             device_descriptor: Arc::new(|_adapter| wgpu::DeviceDescriptor {
                 features: wgpu::Features::TEXTURE_COMPRESSION_BC
-                    | wgpu::Features::TEXTURE_BINDING_ARRAY,
+                    | wgpu::Features::TEXTURE_BINDING_ARRAY
+                    | wgpu::Features::TEXTURE_FORMAT_16BIT_NORM,
                 limits: wgpu::Limits::default(),
                 ..Default::default()
             }),

@@ -33,6 +33,7 @@ use self::packages::PackagesView;
 use self::raw_strings::RawStringsView;
 use self::strings::StringsView;
 use self::tag::TagView;
+use self::texture::TextureCache;
 
 #[derive(PartialEq)]
 pub enum Panel {
@@ -48,6 +49,8 @@ pub struct QuickTagApp {
     cache: Arc<TagCache>,
     strings: Arc<StringCache>,
     raw_strings: Arc<RawStringHashCache>,
+
+    texture_cache: TextureCache,
 
     tag_input: String,
     tag_split: bool,
@@ -86,6 +89,7 @@ impl QuickTagApp {
         cc.egui_ctx.set_fonts(fonts);
 
         let strings = Arc::new(create_stringmap().unwrap());
+        let texture_cache = TextureCache::new(cc.wgpu_render_state.clone().unwrap());
 
         QuickTagApp {
             cache_load: Some(Promise::spawn_thread("load_cache", move || {
@@ -98,10 +102,11 @@ impl QuickTagApp {
             tag_split_input: (String::new(), String::new()),
 
             toasts: Toasts::default(),
+            texture_cache: texture_cache.clone(),
 
             open_panel: Panel::Tag,
             named_tags_view: NamedTagView::new(),
-            packages_view: PackagesView::new(),
+            packages_view: PackagesView::new(texture_cache),
             strings_view: StringsView::new(strings.clone(), Default::default()),
             raw_strings_view: RawStringsView::new(Default::default()),
 
@@ -304,6 +309,7 @@ impl QuickTagApp {
             self.raw_strings.clone(),
             tag,
             self.wgpu_state.clone(),
+            self.texture_cache.clone(),
         );
         if new_view.is_some() {
             self.tag_view = new_view;

@@ -38,6 +38,7 @@ use super::{
     common::{
         open_audio_file_in_default_application, open_tag_in_default_application, tag_context,
     },
+    texture::TextureCache,
     View, ViewAction,
 };
 
@@ -51,7 +52,6 @@ pub struct TagView {
     raw_strings: Vec<(u64, String)>,
     arrays: Vec<(u64, TagArray)>,
 
-    textures: IntMap<TagHash, (Texture, TextureId)>,
     /// Used if this tag is a texture header
     texture: anyhow::Result<(Texture, TextureId)>,
 
@@ -67,6 +67,7 @@ pub struct TagView {
     start_time: Instant,
 
     render_state: RenderState,
+    texture_cache: TextureCache,
 }
 
 impl TagView {
@@ -76,6 +77,7 @@ impl TagView {
         raw_string_hash_cache: Arc<RawStringHashCache>,
         tag: TagHash,
         render_state: RenderState,
+        texture_cache: TextureCache,
     ) -> Option<TagView> {
         let tag_data = package_manager().read_tag(tag).ok()?;
         let mut array_offsets = vec![];
@@ -167,30 +169,6 @@ impl TagView {
         let tag_type = TagType::from_type_subtype(tag_entry.file_type, tag_entry.file_subtype);
         let scan = ExtendedScanResult::from_scanresult(cache.hashes.get(&tag).cloned()?);
 
-        let mut textures: IntMap<TagHash, (Texture, TextureId)> = Default::default();
-        for hash in &scan.file_hashes {
-            if let Some(t) = &hash.entry {
-                let tagtype = TagType::from_type_subtype(t.file_type, t.file_subtype);
-                if tagtype.is_texture() {
-                    match Texture::load(&render_state, hash.hash.hash32()) {
-                        Ok(t) => {
-                            let egui_handle =
-                                render_state.renderer.write().register_native_texture(
-                                    &render_state.device,
-                                    &t.view,
-                                    wgpu::FilterMode::Linear,
-                                );
-
-                            textures.insert(hash.hash.hash32(), (t, egui_handle));
-                        }
-                        Err(e) => {
-                            error!("Failed to load texture {}: {e}", hash.hash);
-                        }
-                    }
-                }
-            }
-        }
-
         let texture = if tag_type.is_texture() && tag_type.is_header() {
             Texture::load(&render_state, tag).map(|t| {
                 let egui_handle = render_state.renderer.write().register_native_texture(
@@ -214,7 +192,6 @@ impl TagView {
             tag_type,
             tag_entry,
 
-            textures,
             texture,
 
             scan,
@@ -227,6 +204,7 @@ impl TagView {
             raw_strings,
             start_time: Instant::now(),
             render_state,
+            texture_cache,
         })
     }
 
@@ -238,6 +216,7 @@ impl TagView {
             self.raw_string_hash_cache.clone(),
             tag,
             self.render_state.clone(),
+            self.texture_cache.clone(),
         ) {
             *self = tv;
         } else {
@@ -303,7 +282,8 @@ impl View for TagView {
                         if self.scan.references.is_empty() {
                             ui.label(RichText::new("No incoming references found").italics());
                         } else {
-                            let mut references_collapsed = IntMap::<TagHash, UEntryHeader>::default();
+                            let mut references_collapsed =
+                                IntMap::<TagHash, UEntryHeader>::default();
                             for (tag, entry) in &self.scan.references {
                                 references_collapsed
                                     .entry(*tag)
@@ -369,7 +349,9 @@ impl View for TagView {
                                     egui::SelectableLabel::new(false, tag_label),
                                 );
 
-                                ctx.style_mut(|s| s.interaction.show_tooltips_only_when_still = false);
+                                ctx.style_mut(|s| {
+                                    s.interaction.show_tooltips_only_when_still = false
+                                });
                                 if response
                                     .context_menu(|ui| {
                                         tag_context(
@@ -383,25 +365,8 @@ impl View for TagView {
                                     })
                                     .on_hover_ui(|ui| {
                                         if is_texture {
-                                            if let Some((tex, egui_tex)) =
-                                                self.textures.get(&tag.hash.hash32())
-                                            {
-                                                let max_height = ui.available_height() * 0.90;
-
-                                                let tex_size = if ui.input(|i| i.modifiers
-                                                    .ctrl) {
-                                                    vec2(max_height * tex.aspect_ratio, max_height)
-                                                } else {
-                                                    ui.label("ℹ Hold ctrl to enlarge");
-                                                    vec2(256. * tex.aspect_ratio, 256.)
-                                                };
-
-                                                ui.image(SizedTexture::new(*egui_tex, tex_size));
-
-                                                ui.label(format!("{}x{}x{} {:?}", tex.width, tex.height, tex.depth, tex.format));
-                                            } else {
-                                                ui.colored_label(Color32::RED, "⚠ Texture not found, check log for more information");
-                                            }
+                                            self.texture_cache
+                                                .texture_preview(tag.hash.hash32(), ui);
                                         }
                                     })
                                     .clicked()
@@ -692,10 +657,6 @@ impl View for TagView {
 
 impl Drop for TagView {
     fn drop(&mut self) {
-        for (_, (_, t)) in self.textures.iter() {
-            self.render_state.renderer.write().free_texture(t)
-        }
-
         if let Ok((_, egui_tex)) = self.texture {
             self.render_state.renderer.write().free_texture(&egui_tex);
             self.texture = Err(anyhow::anyhow!("Texture dropped"));

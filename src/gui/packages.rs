@@ -5,22 +5,24 @@ use eframe::egui::{self, RichText};
 
 use crate::{packages::package_manager, tagtypes::TagType};
 
-use super::{common::tag_context, tag::format_tag_entry, View, ViewAction};
+use super::{common::tag_context, tag::format_tag_entry, texture::TextureCache, View, ViewAction};
 
 pub struct PackagesView {
     selected_package: u16,
     package_entry_search_cache: Vec<(String, TagType)>,
     package_filter: String,
     package_entry_filter: String,
+    texture_cache: TextureCache,
 }
 
 impl PackagesView {
-    pub fn new() -> Self {
+    pub fn new(texture_cache: TextureCache) -> Self {
         Self {
             selected_package: u16::MAX,
             package_entry_search_cache: vec![],
             package_filter: String::new(),
             package_entry_filter: String::new(),
+            texture_cache,
         }
     }
 }
@@ -28,7 +30,7 @@ impl PackagesView {
 impl View for PackagesView {
     fn view(
         &mut self,
-        _ctx: &eframe::egui::Context,
+        ctx: &eframe::egui::Context,
         ui: &mut eframe::egui::Ui,
     ) -> Option<super::ViewAction> {
         egui::SidePanel::left("packages_left_panel")
@@ -107,6 +109,9 @@ impl View for PackagesView {
                                 })
                             {
                                 let tag = TagHash::new(self.selected_package, i as u16);
+                                ctx.style_mut(|s| {
+                                    s.interaction.show_tooltips_only_when_still = false
+                                });
                                 if ui
                                     .add(egui::SelectableLabel::new(
                                         false,
@@ -114,6 +119,11 @@ impl View for PackagesView {
                                             .color(tag_type.display_color()),
                                     ))
                                     .context_menu(|ui| tag_context(ui, tag, None))
+                                    .on_hover_ui(|ui| {
+                                        if tag_type.is_texture() && tag_type.is_header() {
+                                            self.texture_cache.texture_preview(tag, ui);
+                                        }
+                                    })
                                     .clicked()
                                 {
                                     return Some(ViewAction::OpenTag(tag));
