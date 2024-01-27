@@ -8,7 +8,7 @@ use std::{
 
 use binrw::{binread, BinReaderExt};
 use destiny_pkg::{package::UEntryHeader, TagHash, TagHash64};
-use eframe::egui::{vec2, TextureId};
+use eframe::egui::{collapsing_header::CollapsingState, vec2, TextureId};
 use eframe::egui_wgpu::RenderState;
 use eframe::{egui::load::SizedTexture, epaint::Vec2};
 use eframe::{
@@ -232,6 +232,7 @@ impl TagView {
 
     pub fn traverse_interactive_ui(
         &self,
+        ctx: &eframe::egui::Context,
         ui: &mut eframe::egui::Ui,
         traversed: &TraversedTag,
         depth: usize,
@@ -251,32 +252,58 @@ impl TagView {
                 .color(Color32::LIGHT_RED)
         };
 
-        let response = ui.add_enabled(depth > 0, egui::SelectableLabel::new(false, tag_label));
+        if traversed.subtags.is_empty() {
+            ui.horizontal(|ui| {
+                let response =
+                    ui.add_enabled(depth > 0, egui::SelectableLabel::new(false, tag_label));
 
-        if response
-            .context_menu(|ui| tag_context(ui, traversed.tag, None))
-            .on_hover_ui(|ui| {
-                if is_texture {
-                    self.texture_cache.texture_preview(traversed.tag, ui);
-                }
-            })
-            .clicked()
-        {
-            open_new_tag = Some(traversed.tag);
-        }
-
-        if !traversed.subtags.is_empty() {
-            ui.style_mut().spacing.indent = 36.0;
-            ui.indent(
-                format!("traversed_tag{}_depth{}", traversed.tag, depth),
-                |ui| {
-                    for t in &traversed.subtags {
-                        if let Some(new_tag) = self.traverse_interactive_ui(ui, t, depth + 1) {
-                            open_new_tag = Some(new_tag);
+                if response
+                    .context_menu(|ui| tag_context(ui, traversed.tag, None))
+                    .on_hover_ui(|ui| {
+                        if is_texture {
+                            self.texture_cache.texture_preview(traversed.tag, ui);
                         }
+                    })
+                    .clicked()
+                {
+                    open_new_tag = Some(traversed.tag);
+                }
+            });
+        } else {
+            CollapsingState::load_with_default_open(
+                ctx,
+                ui.make_persistent_id(format!(
+                    "traversed_tag{}_collapse_depth{depth}",
+                    traversed.tag
+                )),
+                true,
+            )
+            .show_header(ui, |ui| {
+                ui.horizontal(|ui| {
+                    let response =
+                        ui.add_enabled(depth > 0, egui::SelectableLabel::new(false, tag_label));
+
+                    if response
+                        .context_menu(|ui| tag_context(ui, traversed.tag, None))
+                        .on_hover_ui(|ui| {
+                            if is_texture {
+                                self.texture_cache.texture_preview(traversed.tag, ui);
+                            }
+                        })
+                        .clicked()
+                    {
+                        open_new_tag = Some(traversed.tag);
                     }
-                },
-            );
+                });
+            })
+            .body(|ui| {
+                ui.style_mut().spacing.indent = 18.0;
+                for t in &traversed.subtags {
+                    if let Some(new_tag) = self.traverse_interactive_ui(ctx, ui, t, depth + 1) {
+                        open_new_tag = Some(new_tag);
+                    }
+                }
+            });
         }
 
         open_new_tag
@@ -491,6 +518,7 @@ impl View for TagView {
                             .show(ui, |ui| {
                                 if self.traversal_interactive {
                                     open_new_tag = open_new_tag.or(self.traverse_interactive_ui(
+                                        ctx,
                                         ui,
                                         trav_interactive,
                                         0,
