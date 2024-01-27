@@ -82,38 +82,39 @@ pub fn open_tag_in_default_application(tag: TagHash) {
 }
 
 pub fn open_audio_file_in_default_application(tag: TagHash, ext: &str) {
-    let data = package_manager().read_tag(tag).unwrap();
-
     let filename = format!(".\\{tag}.{ext}");
+    std::thread::spawn(move || {
+        let data = package_manager().read_tag(tag).unwrap();
 
-    let (samples, desc) =
-        match vgmstream::read_file_to_samples_no_questions_asked(&data, Some(filename)) {
-            Ok(o) => o,
-            Err(e) => {
-                error!("Failed to decode audio file: {e}");
-                return;
-            }
-        };
+        let (samples, desc) =
+            match vgmstream::read_file_to_samples_no_questions_asked(&data, Some(filename)) {
+                Ok(o) => o,
+                Err(e) => {
+                    error!("Failed to decode audio file: {e}");
+                    return;
+                }
+            };
 
-    let filename_wav = format!("{tag}.wav");
+        let filename_wav = format!("{tag}.wav");
 
-    let path = std::env::temp_dir().join(filename_wav);
-    // std::fs::write(&path, data).ok();
-    if let Ok(mut f) = File::create(&path) {
-        wav::write(
-            wav::Header {
-                audio_format: wav::WAV_FORMAT_PCM,
-                channel_count: desc.channels as u16,
-                sampling_rate: desc.sample_rate as u32,
-                bytes_per_second: desc.bitrate as u32,
-                bytes_per_sample: 2,
-                bits_per_sample: 16,
-            },
-            &wav::BitDepth::Sixteen(samples),
-            &mut f,
-        )
-        .unwrap();
+        let path = std::env::temp_dir().join(filename_wav);
+        // std::fs::write(&path, data).ok();
+        if let Ok(mut f) = File::create(&path) {
+            wav::write(
+                wav::Header {
+                    audio_format: wav::WAV_FORMAT_PCM,
+                    channel_count: desc.channels as u16,
+                    sampling_rate: desc.sample_rate as u32,
+                    bytes_per_second: desc.bitrate as u32,
+                    bytes_per_sample: 2,
+                    bits_per_sample: 16,
+                },
+                &wav::BitDepth::Sixteen(samples),
+                &mut f,
+            )
+            .unwrap();
 
-        opener::open(path).ok();
-    }
+            opener::open(path).ok();
+        }
+    });
 }
