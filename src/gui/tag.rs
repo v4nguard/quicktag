@@ -1,5 +1,5 @@
 use std::{
-    fmt::Display,
+    fmt::{format, Display},
     io::{Cursor, Seek, SeekFrom},
     path::Path,
     sync::Arc,
@@ -65,6 +65,7 @@ pub struct TagView {
     traversal_depth_limit: usize,
     traversal_show_strings: bool,
     traversal_interactive: bool,
+    hide_already_traversed: bool,
     start_time: Instant,
 
     render_state: RenderState,
@@ -201,6 +202,7 @@ impl TagView {
             tag_traversal: None,
             traversal_show_strings: false,
             traversal_interactive: false,
+            hide_already_traversed: true,
             string_cache,
             raw_string_hash_cache,
             raw_strings,
@@ -240,13 +242,22 @@ impl TagView {
         let mut open_new_tag = None;
         let mut is_texture = false;
 
+        if self.hide_already_traversed && traversed.reason.is_some() {
+            return None;
+        }
+
         let tag_label = if let Some(entry) = &traversed.entry {
             let tagtype = TagType::from_type_subtype(entry.file_type, entry.file_subtype);
             is_texture = tagtype.is_texture();
 
             let fancy_tag = format_tag_entry(traversed.tag, Some(entry));
+            let reason = traversed
+                .reason
+                .as_ref()
+                .map(|r| format!(" ({r})"))
+                .unwrap_or_default();
 
-            egui::RichText::new(fancy_tag).color(tagtype.display_color())
+            egui::RichText::new(format!("{fancy_tag}{reason}")).color(tagtype.display_color())
         } else {
             egui::RichText::new(format!("{} (pkg entry not found)", traversed.tag))
                 .color(Color32::LIGHT_RED)
@@ -509,6 +520,7 @@ impl View for TagView {
                         "Find strings (currently only shows raw strings)",
                     );
                     ui.checkbox(&mut self.traversal_interactive, "Interactive");
+                    ui.checkbox(&mut self.hide_already_traversed, "Hide already traversed");
                 });
 
                 if let Some(traversal) = self.tag_traversal.as_ref() {
@@ -868,6 +880,7 @@ fn traverse_tags(
 pub struct TraversedTag {
     pub tag: TagHash,
     pub entry: Option<UEntryHeader>,
+    pub reason: Option<String>,
     pub subtags: Vec<TraversedTag>,
 }
 
@@ -904,6 +917,7 @@ fn traverse_tag(
         return TraversedTag {
             tag,
             entry,
+            reason: Some(format!("Depth limit reached ({depth_limit})")),
             subtags: vec![],
         };
     }
@@ -912,6 +926,7 @@ fn traverse_tag(
         return TraversedTag {
             tag,
             entry,
+            reason: Some("Tag not found in cache".to_string()),
             subtags: vec![],
         };
     };
@@ -939,6 +954,7 @@ fn traverse_tag(
         return TraversedTag {
             tag,
             entry,
+            reason: None,
             subtags: vec![],
         };
     }
@@ -996,6 +1012,7 @@ fn traverse_tag(
             };
 
             if entry
+                .as_ref()
                 .map(|e| e.file_type != 8 && e.file_subtype != 16)
                 .unwrap_or_default()
             {
@@ -1006,18 +1023,38 @@ fn traverse_tag(
                     "{line_header}{branch}──{fancy_tag} @ {offset_label} (parent)"
                 )
                 .ok();
+
+                // subtags.push(TraversedTag {
+                //     tag: *t,
+                //     entry: Right(format!("Parent")),
+                //     subtags: vec![],
+                // });
             } else if *t == tag {
                 writeln!(
                     out,
                     "{line_header}{branch}──{fancy_tag} @ {offset_label} (self reference)"
                 )
                 .ok();
+
+                // subtags.push(TraversedTag {
+                //     tag: *t,
+                //     entry: Right(format!("Self reference")),
+                //     subtags: vec![],
+                // });
             } else {
                 writeln!(
                     out,
                     "{line_header}{branch}──{fancy_tag} @ {offset_label} (already traversed)"
                 )
                 .ok();
+
+                subtags.push(TraversedTag {
+                    tag: *t,
+                    entry,
+
+                    reason: Some("Already traversed".to_string()),
+                    subtags: vec![],
+                });
             }
         } else {
             write!(out, "{line_header}{branch}──").ok();
@@ -1043,6 +1080,7 @@ fn traverse_tag(
     TraversedTag {
         tag,
         entry,
+        reason: None,
         subtags,
     }
 }
