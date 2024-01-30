@@ -195,18 +195,38 @@ pub struct StringContainer {
     pub file_size: u64,
     pub string_hashes: TablePointer<u32>,
     pub language_english: TagHash,
-    // pub language_unk1: TagHash,
-    // pub language_german: TagHash,
-    // pub language_french: TagHash,
-    // pub language_unk4: TagHash,
-    // pub language_unk5: TagHash,
-    // pub language_italian: TagHash,
-    // pub language_unk7: TagHash,
-    // pub language_unk8: TagHash,
-    // pub language_unk9: TagHash,
-    // pub language_unk10: TagHash,
-    // pub language_polish: TagHash,
-    // pub language_unk12: TagHash,
+    pub language_japanese: TagHash,
+    pub language_german: TagHash,
+    pub language_french: TagHash,
+    pub language_spanish: TagHash,
+    pub language_spanish_latam: TagHash,
+    pub language_italian: TagHash,
+    pub language_korean: TagHash,
+    pub language_chinese_traditional: TagHash,
+    pub language_chinese_simplified: TagHash,
+    pub language_portuguese: TagHash,
+    pub language_polish: TagHash,
+    pub language_russian: TagHash,
+}
+
+impl StringContainer {
+    pub fn all_languages(&self) -> Vec<(&'static str, TagHash)> {
+        vec![
+            ("en", self.language_english),
+            ("jp", self.language_japanese),
+            ("de", self.language_german),
+            ("fr", self.language_french),
+            ("es", self.language_spanish),
+            ("es_latam", self.language_spanish_latam),
+            ("it", self.language_italian),
+            ("ko", self.language_korean),
+            ("zh_t", self.language_chinese_traditional),
+            ("zh_s", self.language_chinese_simplified),
+            ("pt", self.language_portuguese),
+            ("pl", self.language_polish),
+            ("ru", self.language_russian),
+        ]
+    }
 }
 
 #[derive(BinRead, Debug)]
