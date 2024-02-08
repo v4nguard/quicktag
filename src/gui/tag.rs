@@ -936,6 +936,17 @@ fn traverse_tag(
     let fancy_tag = format_tag_entry(tag, entry.as_ref());
     writeln!(out, "{fancy_tag} @ 0x{offset:X}",).ok();
 
+    if let Some(entry) = &entry {
+        if matches!(entry.reference, 0x808099F1 | 0x80808BE0) {
+            return TraversedTag {
+                tag,
+                entry: Some(entry.clone()),
+                reason: None,
+                subtags: vec![],
+            };
+        }
+    }
+
     if depth >= depth_limit {
         let mut line_header = String::new();
         for s in pipe_stack.iter() {
