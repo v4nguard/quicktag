@@ -1,16 +1,16 @@
 use std::{
-    fmt::{format, Display},
+    fmt::Display,
     io::{Cursor, Seek, SeekFrom},
     path::Path,
     sync::Arc,
     time::{Duration, Instant},
 };
 
-use binrw::{binread, BinReaderExt};
+use binrw::{binread, BinReaderExt, Endian};
 use destiny_pkg::{package::UEntryHeader, TagHash, TagHash64};
+use eframe::egui::load::SizedTexture;
 use eframe::egui::{collapsing_header::CollapsingState, vec2, TextureId};
 use eframe::egui_wgpu::RenderState;
-use eframe::{egui::load::SizedTexture, epaint::Vec2};
 use eframe::{
     egui::{self, CollapsingHeader, RichText},
     epaint::Color32,
@@ -22,10 +22,7 @@ use nohash_hasher::{IntMap, IntSet};
 use poll_promise::Promise;
 use std::fmt::Write;
 
-use crate::{
-    gui::texture::Texture, scanner::read_raw_string_blob, text::RawStringHashCache,
-    util::u32_from_endian,
-};
+use crate::{gui::texture::Texture, scanner::read_raw_string_blob, text::RawStringHashCache};
 use crate::{
     packages::package_manager,
     references::REFERENCE_NAMES,
@@ -49,7 +46,7 @@ pub struct TagView {
 
     string_hashes: Vec<(u64, u32)>,
     raw_string_hashes: Vec<(u64, u32)>,
-    raw_strings: Vec<(u64, String)>,
+    raw_strings: Vec<(u64, String, Vec<u64>)>,
     arrays: Vec<(u64, TagArray)>,
 
     /// Used if this tag is a texture header
@@ -87,10 +84,27 @@ impl TagView {
         let mut string_hashes = vec![];
         let mut raw_string_hashes = vec![];
 
+        macro_rules! swap_to_ne {
+            ($v:ident, $endian:ident) => {
+                if $endian != Endian::NATIVE {
+                    $v.swap_bytes()
+                } else {
+                    $v
+                }
+            };
+        }
+
         let endian = package_manager().version.endian();
-        for (i, b) in tag_data.chunks_exact(4).enumerate() {
-            let v: [u8; 4] = b.try_into().unwrap();
-            let value = u32_from_endian(endian, v);
+        let data_chunks_u32 = bytemuck::cast_slice::<u8, u32>(&tag_data[0..tag_data.len() & !3])
+            .iter()
+            .map(|&v| swap_to_ne!(v, endian))
+            .collect_vec();
+        let data_chunks_u64 = bytemuck::cast_slice::<u8, u64>(&tag_data[0..tag_data.len() & !7])
+            .iter()
+            .map(|&v| swap_to_ne!(v, endian))
+            .collect_vec();
+
+        for (i, &value) in data_chunks_u32.iter().enumerate() {
             let offset = i as u64 * 4;
 
             if matches!(value, 0x80809fb8 | 0x80800184) {
@@ -113,6 +127,11 @@ impl TagView {
         let raw_strings = raw_string_offsets
             .into_iter()
             .flat_map(|o| read_raw_string_blob(&tag_data, o))
+            .collect_vec();
+
+        let raw_strings = raw_strings
+            .into_iter()
+            .map(|(o, s)| (o, s, find_potential_relpointers(&data_chunks_u64, o)))
             .collect_vec();
 
         let mut arrays: Vec<(u64, TagArray)> = if package_manager().version.is_d1() {
@@ -685,11 +704,22 @@ impl View for TagView {
                                 if self.raw_strings.is_empty() {
                                     ui.label(RichText::new("No raw strings found").italics());
                                 } else {
-                                    for (offset, string) in &self.raw_strings {
+                                    for (offset, string, offsets) in &self.raw_strings {
                                         ui.selectable_label(
                                             false,
                                             format!("'{}' @ 0x{:X}", string, offset),
                                         )
+                                        .on_hover_text(if offsets.is_empty() {
+                                            "⚠ Raw string is not referenced!".to_string()
+                                        } else {
+                                            format!(
+                                                "Potentially referenced at {}",
+                                                offsets
+                                                    .iter()
+                                                    .map(|o| format!("0x{o:X}"))
+                                                    .join(", ")
+                                            )
+                                        })
                                         .context_menu(|ui| {
                                             if ui.selectable_label(false, "Copy text").clicked() {
                                                 ui.output_mut(|o| o.copied_text = string.clone());
@@ -1119,4 +1149,17 @@ struct TagArray {
 
     #[br(ignore)]
     pub references: Vec<u64>,
+}
+
+fn find_potential_relpointers(data: &[u64], target_offset: u64) -> Vec<u64> {
+    let mut result = vec![];
+
+    for (i, &v) in data.iter().enumerate() {
+        let offset = i as isize * 8;
+        if (offset + (v as isize)) as u64 == target_offset {
+            result.push(offset as u64);
+        }
+    }
+
+    result
 }
