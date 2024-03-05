@@ -1,11 +1,9 @@
 use std::{fs::File, io::Write as _, sync::Arc};
 
 use destiny_pkg::TagHash;
-use eframe::{
-    egui::{self, RichText},
-    epaint::ahash::HashMap,
-};
+use eframe::egui::{self, RichText};
 use itertools::Itertools;
+use rustc_hash::FxHashMap;
 
 use crate::{
     packages::package_manager,
@@ -25,7 +23,7 @@ pub struct RawStringsView {
 
 impl RawStringsView {
     pub fn new(cache: Arc<TagCache>) -> Self {
-        let mut strings: HashMap<String, (Vec<TagHash>, u32)> = Default::default();
+        let mut strings: FxHashMap<String, (Vec<TagHash>, u32)> = Default::default();
 
         for (t, s) in cache
             .hashes

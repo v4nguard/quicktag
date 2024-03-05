@@ -1,5 +1,4 @@
 use std::{
-    collections::HashMap,
     fs::File,
     io::{Cursor, Read, Seek, SeekFrom, Write},
     sync::Arc,
@@ -10,6 +9,7 @@ use binrw::BinReaderExt;
 use destiny_pkg::{PackageVersion, TagHash};
 use eframe::egui::{self, RichText};
 use itertools::Itertools;
+use rustc_hash::FxHashMap;
 
 use crate::{
     packages::package_manager,
@@ -199,13 +199,13 @@ fn dump_all_languages() -> anyhow::Result<()> {
     let prebl = package_manager().version == PackageVersion::Destiny2Shadowkeep;
 
     std::fs::create_dir("strings").ok();
-    let mut files: HashMap<String, File> = Default::default();
+    let mut files: FxHashMap<String, File> = Default::default();
 
     for (t, _) in package_manager()
         .get_all_by_reference(u32::from_be(if prebl { 0x889a8080 } else { 0xEF998080 }))
         .into_iter()
     {
-        let Ok(textset_header) = package_manager().read_tag_struct::<StringContainer>(t) else {
+        let Ok(textset_header) = package_manager().read_tag_binrw::<StringContainer>(t) else {
             continue;
         };
 

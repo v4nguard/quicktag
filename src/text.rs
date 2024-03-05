@@ -7,9 +7,8 @@ use std::slice::Iter;
 
 use binrw::{BinRead, BinReaderExt, BinResult, Endian};
 use destiny_pkg::{PackageVersion, TagHash};
-use eframe::epaint::ahash::HashSet;
 use log::warn;
-use nohash_hasher::IntMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::packages::package_manager;
 
@@ -356,12 +355,12 @@ pub fn create_stringmap() -> anyhow::Result<StringCache> {
 
 pub fn create_stringmap_d2() -> anyhow::Result<StringCache> {
     let prebl = package_manager().version == PackageVersion::Destiny2Shadowkeep;
-    let mut tmp_map: IntMap<u32, HashSet<String>> = Default::default();
+    let mut tmp_map: FxHashMap<u32, FxHashSet<String>> = Default::default();
     for (t, _) in package_manager()
         .get_all_by_reference(u32::from_be(if prebl { 0x889a8080 } else { 0xEF998080 }))
         .into_iter()
     {
-        let Ok(textset_header) = package_manager().read_tag_struct::<StringContainer>(t) else {
+        let Ok(textset_header) = package_manager().read_tag_binrw::<StringContainer>(t) else {
             continue;
         };
 
@@ -399,12 +398,12 @@ pub fn create_stringmap_d2() -> anyhow::Result<StringCache> {
 }
 
 pub fn create_stringmap_d1() -> anyhow::Result<StringCache> {
-    let mut tmp_map: IntMap<u32, HashSet<String>> = Default::default();
+    let mut tmp_map: FxHashMap<u32, FxHashSet<String>> = Default::default();
     for (t, _) in package_manager()
         .get_all_by_reference(0x8080035a)
         .into_iter()
     {
-        let Ok(textset_header) = package_manager().read_tag_struct::<StringContainerD1>(t) else {
+        let Ok(textset_header) = package_manager().read_tag_binrw::<StringContainerD1>(t) else {
             continue;
         };
 
@@ -447,6 +446,6 @@ pub fn create_stringmap_d1() -> anyhow::Result<StringCache> {
         .collect())
 }
 
-pub type StringCache = IntMap<u32, Vec<String>>;
+pub type StringCache = FxHashMap<u32, Vec<String>>;
 pub type StringCacheVec = Vec<(u32, Vec<String>)>;
 pub type RawStringHashCache = StringCache;

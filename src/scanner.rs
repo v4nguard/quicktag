@@ -12,8 +12,8 @@ use destiny_pkg::{PackageManager, PackageVersion, TagHash, TagHash64};
 use eframe::epaint::mutex::RwLock;
 use itertools::Itertools;
 use log::{error, info, warn};
-use nohash_hasher::{IntMap, IntSet};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::{
     packages::package_manager,
@@ -28,7 +28,7 @@ pub struct TagCache {
 
     pub version: u32,
 
-    pub hashes: IntMap<TagHash, ScanResult>,
+    pub hashes: FxHashMap<TagHash, ScanResult>,
 }
 
 impl Default for TagCache {
@@ -43,9 +43,9 @@ impl Default for TagCache {
 
 // Shareable read-only context
 pub struct ScannerContext {
-    pub valid_file_hashes: IntSet<TagHash>,
-    pub valid_file_hashes64: IntSet<TagHash64>,
-    pub known_string_hashes: IntSet<u32>,
+    pub valid_file_hashes: FxHashSet<TagHash>,
+    pub valid_file_hashes64: FxHashSet<TagHash64>,
+    pub known_string_hashes: FxHashSet<u32>,
     pub endian: Endian,
 }
 
@@ -383,7 +383,7 @@ pub fn load_tag_cache(version: PackageVersion) -> TagCache {
         .collect_vec();
 
     let package_count = all_pkgs.len();
-    let cache: IntMap<TagHash, ScanResult> = all_pkgs
+    let cache: FxHashMap<TagHash, ScanResult> = all_pkgs
         .par_iter()
         .map_with(scanner_context, |context, path| {
             let current_package = {
@@ -405,7 +405,7 @@ pub fn load_tag_cache(version: PackageVersion) -> TagCache {
                 current_package
             };
             info!("Opening pkg {path} ({}/{package_count})", current_package);
-            let pkg = version.open(path).unwrap();
+            let pkg = version.open(&path.path).unwrap();
 
             let mut all_tags = if version.is_d1() {
                 [pkg.get_all_by_type(0, None)].concat()
@@ -420,7 +420,7 @@ pub fn load_tag_cache(version: PackageVersion) -> TagCache {
             // Sort tags by entry index to optimize sequential block reads
             all_tags.sort_by_key(|v| v.0);
 
-            let mut results = IntMap::default();
+            let mut results = FxHashMap::default();
             for (t, _) in all_tags {
                 let hash = TagHash::new(pkg.pkg_id(), t as u16);
 
@@ -489,14 +489,14 @@ pub fn load_tag_cache(version: PackageVersion) -> TagCache {
 }
 
 /// Transforms the tag cache to include reference lookup tables
-fn transform_tag_cache(cache: IntMap<TagHash, ScanResult>) -> TagCache {
+fn transform_tag_cache(cache: FxHashMap<TagHash, ScanResult>) -> TagCache {
     info!("Transforming tag cache...");
 
     let mut new_cache: TagCache = Default::default();
 
     *SCANNER_PROGRESS.write() = ScanStatus::TransformGathering;
     info!("\t- Gathering references");
-    let mut direct_reference_cache: IntMap<TagHash, Vec<TagHash>> = Default::default();
+    let mut direct_reference_cache: FxHashMap<TagHash, Vec<TagHash>> = Default::default();
     for (k2, v2) in &cache {
         for t32 in &v2.file_hashes {
             match direct_reference_cache.entry(t32.hash) {

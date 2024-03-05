@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     fmt::Display,
     io::{Cursor, Seek, SeekFrom},
     path::Path,
@@ -18,8 +19,8 @@ use eframe::{
 };
 use itertools::Itertools;
 use log::error;
-use nohash_hasher::{IntMap, IntSet};
 use poll_promise::Promise;
+use rustc_hash::FxHashMap;
 use std::fmt::Write;
 
 use crate::{gui::texture::Texture, scanner::read_raw_string_blob, text::RawStringHashCache};
@@ -357,7 +358,7 @@ impl View for TagView {
                 package_manager()
                     .package_paths
                     .get(&self.tag.pkg_id())
-                    .map(|p| Path::new(p).file_name().unwrap_or_default())
+                    .map(|p| Path::new(&p.path).file_name().unwrap_or_default())
                     .unwrap_or_default()
                     .to_string_lossy()
             ))
@@ -398,7 +399,7 @@ impl View for TagView {
                             ui.label(RichText::new("No incoming references found").italics());
                         } else {
                             let mut references_collapsed =
-                                IntMap::<TagHash, UEntryHeader>::default();
+                                FxHashMap::<TagHash, UEntryHeader>::default();
                             for (tag, entry) in &self.scan.references {
                                 references_collapsed
                                     .entry(*tag)
@@ -920,7 +921,7 @@ fn traverse_tag(
     tag: TagHash,
     parent_tag: TagHash,
     offset: u64,
-    seen_tags: &mut IntSet<TagHash>,
+    seen_tags: &mut HashSet<TagHash>,
     pipe_stack: &mut Vec<char>,
     depth_limit: usize,
     cache: Arc<TagCache>,

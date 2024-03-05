@@ -11,6 +11,8 @@ use eframe::wgpu;
 use eframe::wgpu::util::DeviceExt;
 use eframe::wgpu::TextureDimension;
 use linked_hash_map::LinkedHashMap;
+use rustc_hash::FxHasher;
+use std::hash::BuildHasherDefault;
 use std::io::SeekFrom;
 use std::sync::Arc;
 
@@ -62,7 +64,7 @@ impl Texture {
             .context("Texture header entry not found")?
             .reference;
 
-        let texture: TextureHeader = package_manager().read_tag_struct(hash)?;
+        let texture: TextureHeader = package_manager().read_tag_binrw(hash)?;
         let mut texture_data = if let Some(t) = texture.large_buffer {
             package_manager()
                 .read_tag(t)
@@ -159,7 +161,7 @@ impl Texture {
 }
 
 type TextureCacheMap =
-    LinkedHashMap<TagHash, (Arc<Texture>, TextureId), nohash_hasher::BuildNoHashHasher<TagHash>>;
+    LinkedHashMap<TagHash, (Arc<Texture>, TextureId), BuildHasherDefault<FxHasher>>;
 
 #[derive(Clone)]
 pub struct TextureCache {

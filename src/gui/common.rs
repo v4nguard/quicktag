@@ -86,14 +86,13 @@ pub fn open_audio_file_in_default_application(tag: TagHash, ext: &str) {
     std::thread::spawn(move || {
         let data = package_manager().read_tag(tag).unwrap();
 
-        let (samples, desc) =
-            match vgmstream::read_file_to_samples_no_questions_asked(&data, Some(filename)) {
-                Ok(o) => o,
-                Err(e) => {
-                    error!("Failed to decode audio file: {e}");
-                    return;
-                }
-            };
+        let (samples, desc) = match vgmstream::read_file_to_samples(&data, Some(filename)) {
+            Ok(o) => o,
+            Err(e) => {
+                error!("Failed to decode audio file: {e}");
+                return;
+            }
+        };
 
         let filename_wav = format!("{tag}.wav");
 
@@ -118,3 +117,15 @@ pub fn open_audio_file_in_default_application(tag: TagHash, ext: &str) {
         }
     });
 }
+
+// pub fn dump_wwise_info(package_id: u16) {
+//     let package_path = package_manager()
+//         .package_paths
+//         .get(&package_id)
+//         .cloned()
+//         .unwrap();
+//     let version = package_manager().version;
+//     std::thread::spawn(move || {
+//         let package = version.open(&package_path.path).unwrap();
+//     });
+// }

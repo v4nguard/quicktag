@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use destiny_pkg::TagHash;
 use eframe::egui::{self, RichText};
 
@@ -46,14 +44,9 @@ impl View for PackagesView {
                     .max_width(f32::INFINITY)
                     .show(ui, |ui| {
                         for (id, path) in package_manager().package_paths.iter() {
-                            let path_stem = PathBuf::from(path)
-                                .file_stem()
-                                .unwrap()
-                                .to_string_lossy()
-                                .to_string();
-
                             if !self.package_filter.is_empty()
-                                && !path_stem
+                                && !path
+                                    .name
                                     .to_lowercase()
                                     .contains(&self.package_filter.to_lowercase())
                             {
@@ -64,12 +57,12 @@ impl View for PackagesView {
                                 .selectable_value(
                                     &mut self.selected_package,
                                     *id,
-                                    format!("{id:04x}: {path_stem}"),
+                                    format!("{id:04x}: {}", path.name),
                                 )
                                 .changed()
                             {
                                 self.package_entry_search_cache = vec![];
-                                if let Ok(p) = package_manager().version.open(path) {
+                                if let Ok(p) = package_manager().version.open(&path.path) {
                                     for (i, e) in p.entries().iter().enumerate() {
                                         let label =
                                             format_tag_entry(TagHash::new(*id, i as u16), Some(e));
@@ -99,6 +92,10 @@ impl View for PackagesView {
                         if self.selected_package == u16::MAX {
                             ui.label(RichText::new("No package selected").italics());
                         } else {
+                            // if ui.button("Export audio info").clicked() {
+                            //     dump_wwise_info(self.selected_package);
+                            // }
+
                             for (i, (label, tag_type)) in self
                                 .package_entry_search_cache
                                 .iter()
