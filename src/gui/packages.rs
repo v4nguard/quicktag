@@ -3,7 +3,12 @@ use eframe::egui::{self, RichText};
 
 use crate::{packages::package_manager, tagtypes::TagType};
 
-use super::{common::tag_context, tag::format_tag_entry, texture::TextureCache, View, ViewAction};
+use super::{
+    common::{dump_wwise_info, tag_context},
+    tag::format_tag_entry,
+    texture::TextureCache,
+    View, ViewAction,
+};
 
 pub struct PackagesView {
     selected_package: u16,
@@ -44,9 +49,9 @@ impl View for PackagesView {
                     .max_width(f32::INFINITY)
                     .show(ui, |ui| {
                         for (id, path) in package_manager().package_paths.iter() {
+                            let package_name = format!("{}_{}", path.name, path.id);
                             if !self.package_filter.is_empty()
-                                && !path
-                                    .name
+                                && !package_name
                                     .to_lowercase()
                                     .contains(&self.package_filter.to_lowercase())
                             {
@@ -57,7 +62,7 @@ impl View for PackagesView {
                                 .selectable_value(
                                     &mut self.selected_package,
                                     *id,
-                                    format!("{id:04x}: {}", path.name),
+                                    format!("{id:04x}: {package_name}"),
                                 )
                                 .changed()
                             {
@@ -92,9 +97,9 @@ impl View for PackagesView {
                         if self.selected_package == u16::MAX {
                             ui.label(RichText::new("No package selected").italics());
                         } else {
-                            // if ui.button("Export audio info").clicked() {
-                            //     dump_wwise_info(self.selected_package);
-                            // }
+                            if ui.button("Export audio info").clicked() {
+                                dump_wwise_info(self.selected_package);
+                            }
 
                             for (i, (label, tag_type)) in self
                                 .package_entry_search_cache

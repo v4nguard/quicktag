@@ -2,7 +2,8 @@ use std::fs::File;
 
 use destiny_pkg::{TagHash, TagHash64};
 use eframe::egui;
-use log::{error, warn};
+use log::{error, info, warn};
+use std::io::Write;
 
 use crate::{packages::package_manager, tagtypes::TagType};
 
@@ -118,14 +119,43 @@ pub fn open_audio_file_in_default_application(tag: TagHash, ext: &str) {
     });
 }
 
-// pub fn dump_wwise_info(package_id: u16) {
-//     let package_path = package_manager()
-//         .package_paths
-//         .get(&package_id)
-//         .cloned()
-//         .unwrap();
-//     let version = package_manager().version;
-//     std::thread::spawn(move || {
-//         let package = version.open(&package_path.path).unwrap();
-//     });
-// }
+pub fn dump_wwise_info(package_id: u16) {
+    let package_path = package_manager()
+        .package_paths
+        .get(&package_id)
+        .cloned()
+        .unwrap();
+    let version = package_manager().version;
+    std::thread::spawn(move || {
+        let mut info_file = File::create(format!("wwise_info_{:04x}.txt", package_id)).unwrap();
+        let package = version.open(&package_path.path).unwrap();
+        let mut infos = vec![];
+        for (i, _e) in package.entries().iter().enumerate().filter(|(_, e)| {
+            TagType::from_type_subtype(e.file_type, e.file_subtype) == TagType::WwiseStream
+        }) {
+            let tag = TagHash::new(package_id, i as u16);
+            if let Ok(p) = package.read_entry(i) {
+                if let Ok(info) = vgmstream::read_file_info(&p, Some(format!(".\\{tag}.wem"))) {
+                    infos.push((tag, info));
+                }
+            }
+        }
+
+        infos.sort_by_key(|(_, info)| {
+            ((info.num_samples as f32 / info.sample_rate as f32) * 100.0) as usize
+        });
+
+        for (tag, info) in infos {
+            writeln!(
+                &mut info_file,
+                "{tag} - samplerate={}hz samples={} duration={:.2}",
+                info.sample_rate,
+                info.num_samples,
+                info.num_samples as f32 / info.sample_rate as f32
+            )
+            .ok();
+        }
+
+        info!("dump_wwise_info: Done");
+    });
+}

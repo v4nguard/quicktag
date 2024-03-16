@@ -770,8 +770,8 @@ dependencies = [
 
 [[package]]
 name = "destiny-pkg"
-version = "0.9.1"
-source = "git+https://github.com/v4nguard/destiny-pkg#49eef0363b05127359093b5e07e88edbf5dbe662"
+version = "0.9.3"
+source = "git+https://github.com/v4nguard/destiny-pkg#8dfc18d7a3574bcefd48c007ea0ab48777e666bd"
 dependencies = [
  "aes",
  "aes-gcm",
@@ -1897,9 +1897,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.18.0"
+version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd8b5dd2ae5ed71462c540258bedcb51965123ad7e7ccf4b9a8cafaa4a63576d"
+checksum = "3fdb12b2476b595f9358c5161aa467c2438859caa136dec86c26fdd2efe17b92"
 
 [[package]]
 name = "opaque-debug"
@@ -2051,9 +2051,22 @@ dependencies = [
 
 [[package]]
 name = "profiling"
-version = "1.0.10"
+version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45f10e75d83c7aec79a6aa46f897075890e156b105eebe51cfa0abce51af025f"
+checksum = "43d84d1d7a6ac92673717f9f6d1518374ef257669c24ebc5ac25d5033828be58"
+dependencies = [
+ "profiling-procmacros",
+]
+
+[[package]]
+name = "profiling-procmacros"
+version = "1.0.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8021cf59c8ec9c432cfc2526ac6b8aa508ecaf29cd415f271b8406c1b851c3fd"
+dependencies = [
+ "quote",
+ "syn 2.0.38",
+]
 
 [[package]]
 name = "quicktag"
@@ -2077,6 +2090,7 @@ dependencies = [
  "native-dialog",
  "opener",
  "poll-promise",
+ "profiling",
  "rayon",
  "rustc-hash",
  "serde",

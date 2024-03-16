@@ -13,7 +13,7 @@ use eframe::epaint::mutex::RwLock;
 use itertools::Itertools;
 use log::{error, info, warn};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
-use rustc_hash::{FxHashMap, FxHashSet};
+use rustc_hash::FxHashMap;
 
 use crate::{
     packages::package_manager,
@@ -43,9 +43,9 @@ impl Default for TagCache {
 
 // Shareable read-only context
 pub struct ScannerContext {
-    pub valid_file_hashes: FxHashSet<TagHash>,
-    pub valid_file_hashes64: FxHashSet<TagHash64>,
-    pub known_string_hashes: FxHashSet<u32>,
+    pub valid_file_hashes: Vec<TagHash>,
+    pub valid_file_hashes64: Vec<TagHash64>,
+    pub known_string_hashes: Vec<u32>,
     pub endian: Endian,
 }
 
@@ -98,74 +98,71 @@ pub fn fnv1(data: &[u8]) -> u32 {
 }
 
 pub fn scan_file(context: &ScannerContext, data: &[u8]) -> ScanResult {
+    profiling::scope!(
+        "scan_file",
+        format!("data len = {} bytes", data.len()).as_str()
+    );
+
     let mut r = ScanResult::default();
-
-    for (i, v) in data.chunks_exact(4).enumerate() {
-        let m: [u8; 4] = v.try_into().unwrap();
-        let value = u32_from_endian(context.endian, m);
-
-        let offset = (i * 4) as u64;
-        let hash = TagHash(value);
-
-        if hash.is_pkg_file() && context.valid_file_hashes.contains(&hash) {
-            r.file_hashes.push(ScannedHash { offset, hash });
-        }
-
-        // if hash.is_valid() && !hash.is_pkg_file() {
-        //     r.classes.push(ScannedHash {
-        //         offset,
-        //         hash: value,
-        //     });
-        // }
-
-        if value == 0x80800065 {
-            r.raw_strings.extend(
-                read_raw_string_blob(data, offset)
-                    .into_iter()
-                    .map(|(_, s)| s),
-            );
-        }
-
-        if value != 0x811c9dc5 && context.known_string_hashes.contains(&value) {
-            r.string_hashes.push(ScannedHash {
-                offset,
-                hash: value,
-            });
-        }
-    }
 
     for (i, v) in data.chunks_exact(8).enumerate() {
         let m: [u8; 8] = v.try_into().unwrap();
-        let value = u64_from_endian(context.endian, m);
+        let m32_1: [u8; 4] = v[0..4].try_into().unwrap();
+        let m32_2: [u8; 4] = v[4..8].try_into().unwrap();
+        let value64 = u64_from_endian(context.endian, m);
+        let value_hi = u32_from_endian(context.endian, m32_1);
+        let value_lo = u32_from_endian(context.endian, m32_2);
+        let offset_u64 = (i * 8) as u64;
 
-        let offset = (i * 8) as u64;
-        let hash = TagHash64(value);
-        if context.valid_file_hashes64.contains(&hash) {
-            r.file_hashes64.push(ScannedHash { offset, hash });
+        let hash = TagHash64(value64);
+        {
+            profiling::scope!("check 64 bit hash");
+            if context.valid_file_hashes64.binary_search(&hash).is_ok() {
+                profiling::scope!("insert 64 bit hash");
+                r.file_hashes64.push(ScannedHash {
+                    offset: offset_u64,
+                    hash,
+                });
+            }
+        }
+
+        profiling::scope!("32 bit chunks");
+        for (vi, value) in [value_hi, value_lo].into_iter().enumerate() {
+            let offset = offset_u64 + (vi * 4) as u64;
+            let hash = TagHash(value);
+
+            if hash.is_pkg_file() && context.valid_file_hashes.binary_search(&hash).is_ok() {
+                r.file_hashes.push(ScannedHash { offset, hash });
+            }
+
+            // if hash.is_valid() && !hash.is_pkg_file() {
+            //     r.classes.push(ScannedHash {
+            //         offset,
+            //         hash: value,
+            //     });
+            // }
+
+            if value == 0x80800065 {
+                r.raw_strings.extend(
+                    read_raw_string_blob(data, offset)
+                        .into_iter()
+                        .map(|(_, s)| s),
+                );
+            }
+
+            if value != 0x811c9dc5 && context.known_string_hashes.binary_search(&value).is_ok() {
+                r.string_hashes.push(ScannedHash {
+                    offset,
+                    hash: value,
+                });
+            }
         }
     }
-
-    // let mut cur = Cursor::new(data);
-    // for c in &r.classes {
-    //     if c.hash == 0x80809fb8 {
-    //         cur.seek(SeekFrom::Start(c.offset + 4)).unwrap();
-
-    //         let mut count_bytes = [0; 8];
-    //         cur.read_exact(&mut count_bytes).unwrap();
-    //         let mut class_bytes = [0; 4];
-    //         cur.read_exact(&mut class_bytes).unwrap();
-
-    //         r.arrays.push(ScannedArray {
-    //             offset: c.offset + 4,
-    //             count: u64::from_le_bytes(count_bytes) as usize,
-    //             class: u32::from_le_bytes(class_bytes),
-    //         });
-    //     }
-    // }
 
     r
 }
 
+#[profiling::function]
 pub fn read_raw_string_blob(data: &[u8], offset: u64) -> Vec<(u64, String)> {
     let mut strings = vec![];
 
@@ -222,7 +219,7 @@ pub fn create_scanner_context(package_manager: &PackageManager) -> anyhow::Resul
 
     let stringmap = create_stringmap()?;
 
-    Ok(ScannerContext {
+    let mut res = ScannerContext {
         valid_file_hashes: package_manager
             .package_entry_index
             .iter()
@@ -241,7 +238,13 @@ pub fn create_scanner_context(package_manager: &PackageManager) -> anyhow::Resul
             .collect(),
         known_string_hashes: stringmap.keys().cloned().collect(),
         endian,
-    })
+    };
+
+    res.valid_file_hashes.sort_unstable();
+    res.valid_file_hashes64.sort_unstable();
+    res.known_string_hashes.sort_unstable();
+
+    Ok(res)
 }
 
 #[derive(Copy, Clone)]
@@ -386,6 +389,7 @@ pub fn load_tag_cache(version: PackageVersion) -> TagCache {
     let cache: FxHashMap<TagHash, ScanResult> = all_pkgs
         .par_iter()
         .map_with(scanner_context, |context, path| {
+            profiling::scope!("scan_pkg", &path.path);
             let current_package = {
                 let mut p = SCANNER_PROGRESS.write();
                 let current_package = if let ScanStatus::Scanning {
@@ -404,8 +408,12 @@ pub fn load_tag_cache(version: PackageVersion) -> TagCache {
 
                 current_package
             };
+
             info!("Opening pkg {path} ({}/{package_count})", current_package);
-            let pkg = version.open(&path.path).unwrap();
+            let pkg = {
+                profiling::scope!("open package");
+                version.open(&path.path).unwrap()
+            };
 
             let mut all_tags = if version.is_d1() {
                 [pkg.get_all_by_type(0, None)].concat()
@@ -423,6 +431,7 @@ pub fn load_tag_cache(version: PackageVersion) -> TagCache {
             let mut results = FxHashMap::default();
             for (t, _) in all_tags {
                 let hash = TagHash::new(pkg.pkg_id(), t as u16);
+                profiling::scope!("scan_tag", format!("tag {hash}").as_str());
 
                 let data = match pkg.read_entry(t) {
                     Ok(d) => d,
