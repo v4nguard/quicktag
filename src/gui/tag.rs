@@ -135,32 +135,33 @@ impl TagView {
             .map(|(o, s)| (o, s, find_potential_relpointers(&data_chunks_u64, o)))
             .collect_vec();
 
-        let mut arrays: Vec<(u64, TagArray)> = if package_manager().version == PackageVersion::DestinyTheTakenKing {
-            array_offsets
-                .into_iter()
-                .filter_map(|o| {
-                    let mut c = Cursor::new(&tag_data);
-                    c.seek(SeekFrom::Start(o)).ok()?;
-                    Some((
-                        o,
-                        TagArray {
-                            count: c.read_be::<u32>().ok()? as _,
-                            tagtype: c.read_be::<u32>().ok()?,
-                            references: vec![],
-                        },
-                    ))
-                })
-                .collect_vec()
-        } else {
-            array_offsets
-                .into_iter()
-                .filter_map(|o| {
-                    let mut c = Cursor::new(&tag_data);
-                    c.seek(SeekFrom::Start(o)).ok()?;
-                    Some((o, c.read_le().ok()?))
-                })
-                .collect_vec()
-        };
+        let mut arrays: Vec<(u64, TagArray)> =
+            if package_manager().version == PackageVersion::DestinyTheTakenKing {
+                array_offsets
+                    .into_iter()
+                    .filter_map(|o| {
+                        let mut c = Cursor::new(&tag_data);
+                        c.seek(SeekFrom::Start(o)).ok()?;
+                        Some((
+                            o,
+                            TagArray {
+                                count: c.read_be::<u32>().ok()? as _,
+                                tagtype: c.read_be::<u32>().ok()?,
+                                references: vec![],
+                            },
+                        ))
+                    })
+                    .collect_vec()
+            } else {
+                array_offsets
+                    .into_iter()
+                    .filter_map(|o| {
+                        let mut c = Cursor::new(&tag_data);
+                        c.seek(SeekFrom::Start(o)).ok()?;
+                        Some((o, c.read_le().ok()?))
+                    })
+                    .collect_vec()
+            };
 
         let mut cur = Cursor::new(&tag_data);
         loop {

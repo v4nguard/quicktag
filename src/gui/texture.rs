@@ -2,6 +2,7 @@ use crate::gui::dxgi::DxgiFormat;
 use crate::packages::package_manager;
 use anyhow::Context;
 use binrw::BinRead;
+use destiny_pkg::package::PackagePlatform;
 use destiny_pkg::TagHash;
 use eframe::egui::load::SizedTexture;
 use eframe::egui_wgpu::RenderState;
@@ -15,6 +16,8 @@ use rustc_hash::FxHasher;
 use std::hash::BuildHasherDefault;
 use std::io::SeekFrom;
 use std::sync::Arc;
+
+use super::dxgi::GcnSurfaceFormat;
 
 #[derive(BinRead)]
 pub struct TextureHeader {
@@ -41,10 +44,30 @@ pub struct TextureHeader {
     pub large_buffer: Option<TagHash>,
 }
 
+#[derive(BinRead)]
+pub struct TextureHeaderRoiPs4 {
+    pub data_size: u32,
+    pub unk4: u8,
+    pub unk5: u8,
+    #[br(try_map(|v: u16| GcnSurfaceFormat::try_from((v >> 4) & 0x3F)))]
+    pub format: GcnSurfaceFormat,
+
+    #[br(seek_before = SeekFrom::Start(0x24), assert(beefcafe == 0xbeefcafe))]
+    pub beefcafe: u32,
+
+    pub width: u16,
+    pub height: u16,
+    pub depth: u16,
+    pub array_size: u16,
+
+    pub unk30: u32,
+    pub flags: u8,
+}
+
 pub struct Texture {
     pub view: wgpu::TextureView,
     pub handle: wgpu::Texture,
-    pub format: DxgiFormat,
+    pub format: wgpu::TextureFormat,
     pub aspect_ratio: f32,
     pub width: u32,
     pub height: u32,
@@ -85,16 +108,114 @@ impl Texture {
         Ok((texture, texture_data))
     }
 
+    pub fn load_data_roi_ps4(
+        hash: TagHash,
+        _load_full_mip: bool,
+    ) -> anyhow::Result<(TextureHeaderRoiPs4, Vec<u8>)> {
+        let texture_header_ref = package_manager()
+            .get_entry(hash)
+            .context("Texture header entry not found")?
+            .reference;
+
+        let texture: TextureHeaderRoiPs4 = package_manager().read_tag_binrw(hash)?;
+
+        let large_buffer = package_manager()
+            .get_entry(texture_header_ref)
+            .map(|v| TagHash(v.reference))
+            .unwrap_or_default();
+
+        let texture_data = if large_buffer.is_some() {
+            package_manager()
+                .read_tag(large_buffer)
+                .context("Failed to read texture data")?
+        } else {
+            package_manager()
+                .read_tag(texture_header_ref)
+                .context("Failed to read texture data")?
+                .to_vec()
+        };
+
+        let expected_size =
+            (texture.width as usize * texture.height as usize * texture.format.bpp()) / 8;
+
+        if texture_data.len() < expected_size {
+            anyhow::bail!(
+                "Texture data size mismatch for {hash} ({}x{}x{} {:?}): expected {expected_size}, got {}",
+                texture.width, texture.height, texture.depth, texture.format,
+                texture_data.len()
+            );
+        }
+
+        if texture.flags > 0 || !texture.format.is_compressed() {
+            let mut unswizzled = vec![];
+            swizzle::ps4::unswizzle(
+                &texture_data,
+                &mut unswizzled,
+                texture.width as usize,
+                texture.height as usize,
+                texture.format.block_size(),
+                texture.format.pixel_block_size(),
+            );
+            Ok((texture, unswizzled))
+        } else {
+            Ok((texture, texture_data))
+        }
+    }
+
     pub fn load(rs: &RenderState, hash: TagHash) -> anyhow::Result<Texture> {
-        if package_manager().version.is_d1() {
+        if package_manager().version.is_d1() && package_manager().platform != PackagePlatform::PS4 {
             anyhow::bail!("Textures are not supported for D1");
         }
 
-        let (texture, mut texture_data) = Self::load_data(hash, true)?;
+        match package_manager().version {
+            destiny_pkg::PackageVersion::DestinyTheTakenKing => todo!(),
+            destiny_pkg::PackageVersion::DestinyRiseOfIron => {
+                let (texture, texture_data) = Self::load_data_roi_ps4(hash, true)?;
+                Self::create_texture(
+                    rs,
+                    hash,
+                    texture.format.to_wgpu()?,
+                    texture.width as u32,
+                    texture.height as u32,
+                    texture.depth as u32,
+                    texture_data,
+                )
+            }
+            destiny_pkg::PackageVersion::Destiny2Beta
+            | destiny_pkg::PackageVersion::Destiny2Shadowkeep
+            | destiny_pkg::PackageVersion::Destiny2BeyondLight
+            | destiny_pkg::PackageVersion::Destiny2WitchQueen
+            | destiny_pkg::PackageVersion::Destiny2Lightfall => {
+                let (texture, texture_data) = Self::load_data(hash, true)?;
+                Self::create_texture(
+                    rs,
+                    hash,
+                    texture.format.to_wgpu()?,
+                    texture.width as u32,
+                    texture.height as u32,
+                    texture.depth as u32,
+                    texture_data,
+                )
+            }
+        }
+    }
+
+    /// Create a wgpu texture from unswizzled texture data
+    fn create_texture(
+        rs: &RenderState,
+        hash: TagHash,
+        format: wgpu::TextureFormat,
+        width: u32,
+        height: u32,
+        depth: u32,
+        // cohae: Take ownership of the data so we don't have to clone it for premultiplication
+        data: Vec<u8>,
+    ) -> anyhow::Result<Texture> {
+        let mut texture_data = data;
         // Pre-multiply alpha where possible
         if matches!(
-            texture.format,
-            DxgiFormat::R8G8B8A8_UNORM_SRGB | DxgiFormat::R8G8B8A8_UNORM
+            format,
+            wgpu::TextureFormat::Rgba8Unorm | wgpu::TextureFormat::Rgba8UnormSrgb
         ) {
             for c in texture_data.chunks_exact_mut(4) {
                 c[0] = (c[0] as f32 * c[3] as f32 / 255.) as u8;
@@ -108,28 +229,16 @@ impl Texture {
             &wgpu::TextureDescriptor {
                 label: Some(&*format!("Texture {hash}")),
                 size: wgpu::Extent3d {
-                    width: texture.width as _,
-                    height: texture.height as _,
+                    width: width as _,
+                    height: height as _,
                     depth_or_array_layers: 1,
-                    // depth_or_array_layers: if texture.depth == 1 {
-                    //     // texture.array_size as _
-                    //     1
-                    // } else {
-                    //     // texture.depth as _
-                    //     1
-                    // },
                 },
-                mip_level_count: texture.mip_count as u32,
+                mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                // dimension: if texture.depth == 1 {
-                //     TextureDimension::D2
-                // } else {
-                //     TextureDimension::D3
-                // },
-                format: texture.format.to_wgpu()?,
+                format,
                 usage: wgpu::TextureUsages::TEXTURE_BINDING,
-                view_formats: &[texture.format.to_wgpu()?],
+                view_formats: &[format],
             },
             &texture_data,
         );
@@ -148,17 +257,17 @@ impl Texture {
         Ok(Texture {
             view,
             handle,
-            format: texture.format,
-            aspect_ratio: texture.width as f32 / texture.height as f32,
-            width: texture.width as u32,
-            height: texture.height as u32,
-            depth: texture.depth as u32,
+            format,
+            aspect_ratio: width as f32 / height as f32,
+            width,
+            height,
+            depth,
         })
     }
 }
 
 type TextureCacheMap =
-    LinkedHashMap<TagHash, (Arc<Texture>, TextureId), BuildHasherDefault<FxHasher>>;
+    LinkedHashMap<TagHash, Option<(Arc<Texture>, TextureId)>, BuildHasherDefault<FxHasher>>;
 
 #[derive(Clone)]
 pub struct TextureCache {
@@ -174,28 +283,35 @@ impl TextureCache {
         }
     }
 
-    pub fn get_or_load(&self, hash: TagHash) -> anyhow::Result<(Arc<Texture>, TextureId)> {
+    pub fn get_or_load(&self, hash: TagHash) -> Option<(Arc<Texture>, TextureId)> {
         let mut cache = self.cache.write();
         if let Some(t) = cache.get(&hash) {
-            return Ok(t.clone());
+            return t.clone();
         }
 
-        let texture = Texture::load(&self.render_state, hash)?;
+        let texture = match Texture::load(&self.render_state, hash) {
+            Ok(o) => o,
+            Err(e) => {
+                log::error!("Failed to load texture {hash}: {e}");
+                cache.insert(hash, None);
+                return None;
+            }
+        };
         let id = self.render_state.renderer.write().register_native_texture(
             &self.render_state.device,
             &texture.view,
             wgpu::FilterMode::Linear,
         );
 
-        cache.insert(hash, (Arc::new(texture), id));
+        cache.insert(hash, Some((Arc::new(texture), id)));
         drop(cache);
 
         self.truncate();
-        Ok(self.cache.read().get(&hash).cloned().unwrap())
+        self.cache.read().get(&hash).cloned().unwrap()
     }
 
     pub fn texture_preview(&self, hash: TagHash, ui: &mut eframe::egui::Ui) {
-        if let Ok((tex, egui_tex)) = self.get_or_load(hash) {
+        if let Some((tex, egui_tex)) = self.get_or_load(hash) {
             let max_height = ui.available_height() * 0.90;
 
             let tex_size = if ui.input(|i| i.modifiers.ctrl) {
@@ -225,9 +341,105 @@ impl TextureCache {
     fn truncate(&self) {
         let mut cache = self.cache.write();
         while cache.len() > Self::MAX_TEXTURES {
-            if let Some((_, (_, tid))) = cache.pop_front() {
+            if let Some((_, Some((_, tid)))) = cache.pop_front() {
                 self.render_state.renderer.write().free_texture(&tid);
             }
+        }
+    }
+}
+
+mod swizzle {
+    // https://github.com/tge-was-taken/GFD-Studio/blob/dad6c2183a6ec0716c3943b71991733bfbd4649d/GFDLibrary/Textures/Swizzle/SwizzleUtilities.cs#L9
+    fn morton(t: usize, sx: usize, sy: usize) -> usize {
+        let mut num1 = 1;
+        let mut num2 = 1;
+        let mut num3 = t;
+        let mut num4 = sx;
+        let mut num5 = sy;
+        let mut num6 = 0;
+        let mut num7 = 0;
+
+        while num4 > 1 || num5 > 1 {
+            if num4 > 1 {
+                num6 += num2 * (num3 & 1);
+                num3 >>= 1;
+                num2 *= 2;
+                num4 >>= 1;
+            }
+            if num5 > 1 {
+                num7 += num1 * (num3 & 1);
+                num3 >>= 1;
+                num1 *= 2;
+                num5 >>= 1;
+            }
+        }
+
+        num7 * sx + num6
+    }
+
+    pub(crate) mod ps4 {
+        // https://github.com/tge-was-taken/GFD-Studio/blob/dad6c2183a6ec0716c3943b71991733bfbd4649d/GFDLibrary/Textures/Swizzle/PS4SwizzleAlgorithm.cs#L20
+        fn do_swizzle(
+            source: &[u8],
+            destination: &mut Vec<u8>,
+            width: usize,
+            height: usize,
+            block_size: usize,
+            pixel_block_size: usize,
+            unswizzle: bool,
+        ) {
+            destination.resize(source.len(), 0);
+            let width_texels = width / pixel_block_size;
+            let width_texels_aligned = (width_texels + 7) / 8;
+            let height_texels = height / pixel_block_size;
+            let height_texels_aligned = (height_texels + 7) / 8;
+            let mut data_index = 0;
+
+            for y in 0..height_texels_aligned {
+                for x in 0..width_texels_aligned {
+                    for t in 0..64 {
+                        let pixel_index = super::morton(t, 8, 8);
+                        let div = pixel_index / 8;
+                        let rem = pixel_index % 8;
+                        let x_offset = (x * 8) + rem;
+                        let y_offset = (y * 8) + div;
+
+                        if x_offset < width_texels && y_offset < height_texels {
+                            let dest_pixel_index = y_offset * width_texels + x_offset;
+                            let dest_index = block_size * dest_pixel_index;
+                            let (src, dst) = if unswizzle {
+                                (data_index, dest_index)
+                            } else {
+                                (dest_index, data_index)
+                            };
+
+                            destination[dst..dst + block_size]
+                                .copy_from_slice(&source[src..src + block_size]);
+                        }
+
+                        data_index += block_size;
+                    }
+                }
+            }
+        }
+
+        pub(crate) fn unswizzle(
+            source: &[u8],
+            destination: &mut Vec<u8>,
+            width: usize,
+            height: usize,
+            block_size: usize,
+            pixel_block_size: usize,
+        ) {
+            do_swizzle(
+                source,
+                destination,
+                width,
+                height,
+                block_size,
+                pixel_block_size,
+                true,
+            );
         }
     }
 }

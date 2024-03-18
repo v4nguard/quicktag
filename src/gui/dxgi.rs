@@ -148,7 +148,6 @@ impl TryFrom<u32> for DxgiFormat {
     }
 }
 
-#[allow(unused)]
 impl DxgiFormat {
     pub fn to_wgpu(self) -> anyhow::Result<wgpu::TextureFormat> {
         Ok(match self {
@@ -442,5 +441,238 @@ impl DxgiFormat {
                 (pitch, height * pitch)
             }
         }
+    }
+}
+
+// https://github.com/tge-was-taken/GFD-Studio/blob/master/GFDLibrary/Textures/GNF/SurfaceFormat.cs
+#[allow(non_snake_case, non_camel_case_types)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[repr(u16)]
+#[allow(dead_code)]
+pub enum GcnSurfaceFormat {
+    /// <summary>Invalid surface format.</summary>
+    Invalid = 0x00000000,
+    /// <summary>One 8-bit channel. X=0xFF</summary>
+    Format8 = 0x00000001,
+    /// <summary>One 16-bit channel. X=0xFFFF</summary>
+    Format16 = 0x00000002,
+    /// <summary>Two 8-bit channels. X=0x00FF, Y=0xFF00</summary>
+    Format8_8 = 0x00000003,
+    /// <summary>One 32-bit channel. X=0xFFFFFFFF</summary>
+    Format32 = 0x00000004,
+    /// <summary>Two 16-bit channels. X=0x0000FFFF, Y=0xFFFF0000</summary>
+    Format16_16 = 0x00000005,
+    /// <summary>One 10-bit channel (Z) and two 11-bit channels (Y,X). X=0x000007FF, Y=0x003FF800, Z=0xFFC00000 Interpreted only as floating-point by texture unit, but also as integer by rasterizer.</summary>
+    Format10_11_11 = 0x00000006,
+    /// <summary>Two 11-bit channels (Z,Y) and one 10-bit channel (X). X=0x000003FF, Y=0x001FFC00, Z=0xFFE00000 Interpreted only as floating-point by texture unit, but also as integer by rasterizer.</summary>
+    Format11_11_10 = 0x00000007,
+    /// <summary>Three 10-bit channels (W,Z,Y) and one 2-bit channel (X). X=0x00000003, Y=0x00000FFC, Z=0x003FF000, W=0xFFC00000 X is never negative, even when YZW are.</summary>
+    Format10_10_10_2 = 0x00000008,
+    /// <summary>One 2-bit channel (W) and three 10-bit channels (Z,Y,X). X=0x000003FF, Y=0x000FFC00, Z=0x3FF00000, W=0xC0000000 W is never negative, even when XYZ are.</summary>
+    Format2_10_10_10 = 0x00000009,
+    /// <summary>Four 8-bit channels. X=0x000000FF, Y=0x0000FF00, Z=0x00FF0000, W=0xFF000000</summary>
+    Format8_8_8_8 = 0x0000000a,
+    /// <summary>Two 32-bit channels.</summary>
+    Format32_32 = 0x0000000b,
+    /// <summary>Four 16-bit channels.</summary>
+    Format16_16_16_16 = 0x0000000c,
+    /// <summary>Three 32-bit channels.</summary>
+    Format32_32_32 = 0x0000000d,
+    /// <summary>Four 32-bit channels.</summary>
+    Format32_32_32_32 = 0x0000000e,
+    /// <summary>One 5-bit channel (Z), one 6-bit channel (Y), and a second 5-bit channel (X). X=0x001F, Y=0x07E0, Z=0xF800</summary>
+    Format5_6_5 = 0x00000010,
+    /// <summary>One 1-bit channel (W) and three 5-bit channels (Z,Y,X). X=0x001F, Y=0x03E0, Z=0x7C00, W=0x8000</summary>
+    Format1_5_5_5 = 0x00000011,
+    /// <summary>Three 5-bit channels (W,Z,Y) and one 1-bit channel (X). X=0x0001, Y=0x003E, Z=0x07C0, W=0xF800</summary>
+    Format5_5_5_1 = 0x00000012,
+    /// <summary>Four 4-bit channels. X=0x000F, Y=0x00F0, Z=0x0F00, W=0xF000</summary>
+    Format4_4_4_4 = 0x00000013,
+    /// <summary>One 8-bit channel and one 24-bit channel.</summary>
+    Format8_24 = 0x00000014,
+    /// <summary>One 24-bit channel and one 8-bit channel.</summary>
+    Format24_8 = 0x00000015,
+    /// <summary>One 24-bit channel, one 8-bit channel, and one 32-bit channel.</summary>
+    FormatX24_8_32 = 0x00000016,
+    /// <summary>To be documented.</summary>
+    GbGr = 0x00000020,
+    /// <summary>To be documented.</summary>
+    BgRg = 0x00000021,
+    /// <summary>One 5-bit channel (W) and three 9-bit channels (Z,Y,X). X=0x000001FF, Y=0x0003FE00, Z=0x07FC0000, W=0xF8000000. Interpreted only as three 9-bit denormalized mantissas, and one shared 5-bit exponent.</summary>
+    Format5_9_9_9 = 0x00000022,
+    /// <summary>BC1 block-compressed surface.</summary>
+    BC1 = 0x00000023,
+    /// <summary>BC2 block-compressed surface.</summary>
+    BC2 = 0x00000024,
+    /// <summary>BC3 block-compressed surface.</summary>
+    BC3 = 0x00000025,
+    /// <summary>BC4 block-compressed surface.</summary>
+    BC4 = 0x00000026,
+    /// <summary>BC5 block-compressed surface.</summary>
+    BC5 = 0x00000027,
+    /// <summary>BC6 block-compressed surface.</summary>
+    BC6 = 0x00000028,
+    /// <summary>BC7 block-compressed surface.</summary>
+    BC7 = 0x00000029,
+    // /// <summary>8 bits-per-element FMASK surface (2 samples, 1 fragment).</summary>
+    // Fmask8_S2_F1 = 0x0000002C,
+    // /// <summary>8 bits-per-element FMASK surface (4 samples, 1 fragment).</summary>
+    // Fmask8_S4_F1 = 0x0000002D,
+    // /// <summary>8 bits-per-element FMASK surface (8 samples, 1 fragment).</summary>
+    // Fmask8_S8_F1 = 0x0000002E,
+    // /// <summary>8 bits-per-element FMASK surface (2 samples, 2 fragments).</summary>
+    // Fmask8_S2_F2 = 0x0000002F,
+    // /// <summary>8 bits-per-element FMASK surface (8 samples, 2 fragments).</summary>
+    // Fmask8_S4_F2 = 0x00000030,
+    // /// <summary>8 bits-per-element FMASK surface (4 samples, 4 fragments).</summary>
+    // Fmask8_S4_F4 = 0x00000031,
+    // /// <summary>16 bits-per-element FMASK surface (16 samples, 1 fragment).</summary>
+    // Fmask16_S16_F1 = 0x00000032,
+    // /// <summary>16 bits-per-element FMASK surface (8 samples, 2 fragments).</summary>
+    // Fmask16_S8_F2 = 0x00000033,
+    // /// <summary>32 bits-per-element FMASK surface (16 samples, 2 fragments).</summary>
+    // Fmask32_S16_F2 = 0x00000034,
+    // /// <summary>32 bits-per-element FMASK surface (8 samples, 4 fragments).</summary>
+    // Fmask32_S8_F4 = 0x00000035,
+    // /// <summary>32 bits-per-element FMASK surface (8 samples, 8 fragments).</summary>
+    // Fmask32_S8_F8 = 0x00000036,
+    // /// <summary>64 bits-per-element FMASK surface (16 samples, 4 fragments).</summary>
+    // Fmask64_S16_F4 = 0x00000037,
+    // /// <summary>64 bits-per-element FMASK surface (16 samples, 8 fragments).</summary>
+    // Fmask64_S16_F8 = 0x00000038,
+    // /// <summary>Two 4-bit channels (Y,X). X=0x0F, Y=0xF0</summary>
+    // Format4_4 = 0x00000039,
+    // /// <summary>One 6-bit channel (Z) and two 5-bit channels (Y,X). X=0x001F, Y=0x03E0, Z=0xFC00</summary>
+    // Format6_5_5 = 0x0000003A,
+    // /// <summary>One 1-bit channel. 8 pixels per byte, with pixel index increasing from LSB to MSB.</summary>
+    // Format1 = 0x0000003B,
+    // /// <summary>One 1-bit channel. 8 pixels per byte, with pixel index increasing from MSB to LSB.</summary>
+    // Format1Reversed = 0x0000003C,
+}
+
+impl GcnSurfaceFormat {
+    pub fn to_wgpu(self) -> anyhow::Result<wgpu::TextureFormat> {
+        Ok(match self {
+            GcnSurfaceFormat::Format8 => wgpu::TextureFormat::R8Unorm,
+            GcnSurfaceFormat::Format16 => wgpu::TextureFormat::R16Unorm,
+            GcnSurfaceFormat::Format8_8 => wgpu::TextureFormat::Rg8Unorm,
+            GcnSurfaceFormat::Format32 => wgpu::TextureFormat::R32Float,
+            GcnSurfaceFormat::Format16_16 => wgpu::TextureFormat::Rg16Unorm,
+            GcnSurfaceFormat::Format10_11_11 => wgpu::TextureFormat::Rg11b10Float,
+            // GcnSurfaceFormat::Format11_11_10 => todo!(), // No wgpu equivalent
+            GcnSurfaceFormat::Format10_10_10_2 => wgpu::TextureFormat::Rgb10a2Unorm,
+            GcnSurfaceFormat::Format2_10_10_10 => wgpu::TextureFormat::Rgb10a2Unorm,
+            GcnSurfaceFormat::Format8_8_8_8 => wgpu::TextureFormat::Rgba8UnormSrgb,
+            GcnSurfaceFormat::Format32_32 => wgpu::TextureFormat::Rg32Float,
+            GcnSurfaceFormat::Format16_16_16_16 => wgpu::TextureFormat::Rgba16Unorm,
+            // GcnSurfaceFormat::Format32_32_32 => todo!(), // No wgpu equivalent
+            GcnSurfaceFormat::Format32_32_32_32 => wgpu::TextureFormat::Rgba32Float,
+            // GcnSurfaceFormat::Format5_6_5 => todo!(), // No wgpu equivalent
+            // GcnSurfaceFormat::Format5_5_5_1 => todo!(), // No wgpu equivalent
+            // GcnSurfaceFormat::Format5_5_5_1 => todo!(), // No wgpu equivalent
+            // GcnSurfaceFormat::Format5_5_5_1 => todo!(), // No wgpu equivalent
+            // GcnSurfaceFormat::Format4_4_4_4 => todo!(), // No wgpu equivalent
+            GcnSurfaceFormat::Format8_24 => wgpu::TextureFormat::Depth24PlusStencil8,
+            GcnSurfaceFormat::Invalid => todo!(),
+            GcnSurfaceFormat::Format1_5_5_5 => todo!(),
+            GcnSurfaceFormat::Format24_8 => todo!(),
+            GcnSurfaceFormat::FormatX24_8_32 => todo!(),
+            GcnSurfaceFormat::GbGr => todo!(),
+            GcnSurfaceFormat::BgRg => todo!(),
+            // GcnSurfaceFormat::Format5_9_9_9 => todo!(),
+            GcnSurfaceFormat::BC1 => wgpu::TextureFormat::Bc1RgbaUnormSrgb,
+            GcnSurfaceFormat::BC2 => wgpu::TextureFormat::Bc2RgbaUnormSrgb,
+            GcnSurfaceFormat::BC3 => wgpu::TextureFormat::Bc3RgbaUnormSrgb,
+            GcnSurfaceFormat::BC4 => wgpu::TextureFormat::Bc4RUnorm,
+            GcnSurfaceFormat::BC5 => wgpu::TextureFormat::Bc5RgUnorm,
+            GcnSurfaceFormat::BC6 => wgpu::TextureFormat::Bc6hRgbFloat,
+            GcnSurfaceFormat::BC7 => wgpu::TextureFormat::Bc7RgbaUnormSrgb,
+            u => anyhow::bail!("Unsupported GCN surface format conversion ({u:?} => ??)"),
+        })
+    }
+
+    pub fn bpp(&self) -> usize {
+        match self {
+            GcnSurfaceFormat::Format8 => 8,
+            GcnSurfaceFormat::Format16 => 16,
+            GcnSurfaceFormat::Format8_8 => 16,
+            GcnSurfaceFormat::Format32 => 32,
+            GcnSurfaceFormat::Format16_16 => 32,
+            GcnSurfaceFormat::Format10_11_11 => 32,
+            GcnSurfaceFormat::Format10_10_10_2 => 32,
+            GcnSurfaceFormat::Format2_10_10_10 => 32,
+            GcnSurfaceFormat::Format8_8_8_8 => 32,
+            GcnSurfaceFormat::Format32_32 => 64,
+            GcnSurfaceFormat::Format16_16_16_16 => 64,
+            GcnSurfaceFormat::Format32_32_32_32 => 128,
+            GcnSurfaceFormat::Format8_24 => 32,
+            GcnSurfaceFormat::Invalid => 0,
+            GcnSurfaceFormat::Format1_5_5_5 => 16,
+            GcnSurfaceFormat::Format24_8 => 32,
+            GcnSurfaceFormat::FormatX24_8_32 => 64,
+            GcnSurfaceFormat::GbGr => 0,
+            GcnSurfaceFormat::BgRg => 0,
+            GcnSurfaceFormat::BC1 | GcnSurfaceFormat::BC4 => 4,
+            GcnSurfaceFormat::BC2
+            | GcnSurfaceFormat::BC3
+            | GcnSurfaceFormat::BC5
+            | GcnSurfaceFormat::BC6
+            | GcnSurfaceFormat::BC7 => 8,
+            GcnSurfaceFormat::Format11_11_10 => 32,
+            GcnSurfaceFormat::Format32_32_32 => 96,
+            GcnSurfaceFormat::Format5_6_5 => 16,
+            GcnSurfaceFormat::Format5_5_5_1 => 16,
+            GcnSurfaceFormat::Format4_4_4_4 => 16,
+            GcnSurfaceFormat::Format5_9_9_9 => 32,
+        }
+    }
+
+    pub fn block_size(&self) -> usize {
+        match self {
+            GcnSurfaceFormat::BC1 | GcnSurfaceFormat::BC4 => 8,
+            GcnSurfaceFormat::BC2
+            | GcnSurfaceFormat::BC3
+            | GcnSurfaceFormat::BC5
+            | GcnSurfaceFormat::BC6
+            | GcnSurfaceFormat::BC7 => 16,
+            u => u.bpp() / 8,
+        }
+    }
+
+    pub fn pixel_block_size(&self) -> usize {
+        match self {
+            GcnSurfaceFormat::BC1
+            | GcnSurfaceFormat::BC2
+            | GcnSurfaceFormat::BC3
+            | GcnSurfaceFormat::BC4
+            | GcnSurfaceFormat::BC5
+            | GcnSurfaceFormat::BC6
+            | GcnSurfaceFormat::BC7 => 4,
+            _ => 1,
+        }
+    }
+
+    pub fn is_compressed(&self) -> bool {
+        matches!(
+            self,
+            GcnSurfaceFormat::BC1
+                | GcnSurfaceFormat::BC2
+                | GcnSurfaceFormat::BC3
+                | GcnSurfaceFormat::BC4
+                | GcnSurfaceFormat::BC5
+                | GcnSurfaceFormat::BC6
+                | GcnSurfaceFormat::BC7
+        )
+    }
+}
+
+impl TryFrom<u16> for GcnSurfaceFormat {
+    type Error = anyhow::Error;
+
+    fn try_from(value: u16) -> Result<Self, Self::Error> {
+        Ok(match value {
+            0..=0x29 => unsafe { transmute(value) },
+            e => return Err(anyhow::anyhow!("GCN format is out of range ({e})")),
+        })
     }
 }
