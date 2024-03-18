@@ -180,6 +180,8 @@ impl TagType {
 
     pub fn from_type_subtype_roi(t: u8, st: u8) -> TagType {
         match (t, st) {
+            (0, 20) => TagType::WwiseBank,
+            (8, 21) => TagType::WwiseStream,
             (16, 0) => TagType::Tag,
             (32 | 1, _) => {
                 let is_header = t == 32;
