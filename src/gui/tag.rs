@@ -8,7 +8,7 @@ use std::{
 };
 
 use binrw::{binread, BinReaderExt, Endian};
-use destiny_pkg::{package::UEntryHeader, TagHash, TagHash64};
+use destiny_pkg::{package::UEntryHeader, PackageVersion, TagHash, TagHash64};
 use eframe::egui::load::SizedTexture;
 use eframe::egui::{collapsing_header::CollapsingState, vec2, TextureId};
 use eframe::egui_wgpu::RenderState;
@@ -135,7 +135,7 @@ impl TagView {
             .map(|(o, s)| (o, s, find_potential_relpointers(&data_chunks_u64, o)))
             .collect_vec();
 
-        let mut arrays: Vec<(u64, TagArray)> = if package_manager().version.is_d1() {
+        let mut arrays: Vec<(u64, TagArray)> = if package_manager().version == PackageVersion::DestinyTheTakenKing {
             array_offsets
                 .into_iter()
                 .filter_map(|o| {

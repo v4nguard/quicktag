@@ -17,16 +17,13 @@ use std::io::SeekFrom;
 use std::sync::Arc;
 
 #[derive(BinRead)]
-pub struct CafeMarker(#[br(assert(self_0 == 0xcafe))] u16);
-
-#[derive(BinRead)]
 pub struct TextureHeader {
     pub data_size: u32,
     pub format: DxgiFormat,
     pub _unk8: u32,
 
-    #[br(seek_before = SeekFrom::Start(0x20))]
-    pub cafe: CafeMarker,
+    #[br(seek_before = SeekFrom::Start(0x20), assert(cafe == 0xcafe))]
+    pub cafe: u16,
 
     pub width: u16,
     pub height: u16,

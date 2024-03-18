@@ -22,6 +22,11 @@ lazy_static::lazy_static! {
         (0x80800861, "SEntityResource")
     ]);
 
+    pub static ref REFERENCE_MAP_ROI: FxHashMap<u32, &'static str> = FxHashMap::from_iter([
+        (0x80801AD7, "STechnique"),
+        (0x80801C47, "SScope"),
+    ]);
+
     pub static ref REFERENCE_MAP_SK: FxHashMap<u32, &'static str> = FxHashMap::from_iter([]);
 
     pub static ref REFERENCE_MAP_BL: FxHashMap<u32, &'static str> = FxHashMap::from_iter([
@@ -84,6 +89,7 @@ pub fn initialize_reference_names() {
 
     let version_specific = match package_manager().version {
         destiny_pkg::PackageVersion::DestinyTheTakenKing => REFERENCE_MAP_TTK.clone(),
+        destiny_pkg::PackageVersion::DestinyRiseOfIron => REFERENCE_MAP_ROI.clone(),
         destiny_pkg::PackageVersion::Destiny2Shadowkeep => REFERENCE_MAP_SK.clone(),
         destiny_pkg::PackageVersion::Destiny2BeyondLight
         | destiny_pkg::PackageVersion::Destiny2WitchQueen

@@ -169,15 +169,16 @@ pub fn read_raw_string_blob(data: &[u8], offset: u64) -> Vec<(u64, String)> {
     let mut c = Cursor::new(data);
     (|| {
         c.seek(SeekFrom::Start(offset + 4))?;
-        let (buffer_size, buffer_base_offset) = if package_manager().version.is_d1() {
-            let buffer_size: u32 = c.read_be()?;
-            let buffer_base_offset = offset + 4 + 4;
-            (buffer_size as u64, buffer_base_offset)
-        } else {
-            let buffer_size: u64 = c.read_le()?;
-            let buffer_base_offset = offset + 4 + 8;
-            (buffer_size, buffer_base_offset)
-        };
+        let (buffer_size, buffer_base_offset) =
+            if package_manager().version == PackageVersion::DestinyTheTakenKing {
+                let buffer_size: u32 = c.read_be()?;
+                let buffer_base_offset = offset + 4 + 4;
+                (buffer_size as u64, buffer_base_offset)
+            } else {
+                let buffer_size: u64 = c.read_le()?;
+                let buffer_base_offset = offset + 4 + 8;
+                (buffer_size, buffer_base_offset)
+            };
 
         let mut buffer = vec![0u8; buffer_size as usize];
         c.read_exact(&mut buffer)?;
@@ -212,6 +213,7 @@ pub fn read_raw_string_blob(data: &[u8], offset: u64) -> Vec<(u64, String)> {
 pub fn create_scanner_context(package_manager: &PackageManager) -> anyhow::Result<ScannerContext> {
     info!("Creating scanner context");
 
+    // TODO(cohae): TTK PS4 is little endian
     let endian = match package_manager.version {
         PackageVersion::DestinyTheTakenKing => Endian::Big,
         _ => Endian::Little,
@@ -415,18 +417,24 @@ pub fn load_tag_cache(version: PackageVersion) -> TagCache {
                 version.open(&path.path).unwrap()
             };
 
-            let mut all_tags = if version.is_d1() {
-                [pkg.get_all_by_type(0, None)].concat()
-            } else {
-                pkg.get_all_by_type(8, None)
-                    .iter()
-                    .chain(pkg.get_all_by_type(16, None).iter())
-                    .cloned()
-                    .collect_vec()
+            let mut all_tags = match version {
+                PackageVersion::DestinyTheTakenKing => [pkg.get_all_by_type(0, None)].concat(),
+                PackageVersion::DestinyRiseOfIron => [
+                    pkg.get_all_by_type(16, None),
+                    pkg.get_all_by_type(128, None),
+                ]
+                .concat(),
+                PackageVersion::Destiny2Beta
+                | PackageVersion::Destiny2Shadowkeep
+                | PackageVersion::Destiny2BeyondLight
+                | PackageVersion::Destiny2WitchQueen
+                | PackageVersion::Destiny2Lightfall => {
+                    [pkg.get_all_by_type(8, None), pkg.get_all_by_type(16, None)].concat()
+                }
             };
 
-            // Sort tags by entry index to optimize sequential block reads
-            all_tags.sort_by_key(|v| v.0);
+            // Sort tags by starting block index to optimize sequential block reads
+            all_tags.sort_by_key(|v| v.1.starting_block);
 
             let mut results = FxHashMap::default();
             for (t, _) in all_tags {

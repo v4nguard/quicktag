@@ -156,6 +156,7 @@ impl TagType {
     pub fn from_type_subtype(t: u8, st: u8) -> TagType {
         match package_manager().version {
             PackageVersion::DestinyTheTakenKing => Self::from_type_subtype_ttk(t, st),
+            PackageVersion::DestinyRiseOfIron => Self::from_type_subtype_roi(t, st),
             PackageVersion::Destiny2Shadowkeep => Self::from_type_subtype_sk(t, st),
             PackageVersion::Destiny2BeyondLight
             | PackageVersion::Destiny2WitchQueen
@@ -173,6 +174,28 @@ impl TagType {
             (0, 1) => TagType::TextureOld,
             (2, 20) => TagType::WwiseBank,
             (2, 21) => TagType::WwiseStream,
+            (ftype, fsubtype) => TagType::Unknown { ftype, fsubtype },
+        }
+    }
+
+    pub fn from_type_subtype_roi(t: u8, st: u8) -> TagType {
+        match (t, st) {
+            (16, 0) => TagType::Tag,
+            (32 | 1, _) => {
+                let is_header = t == 32;
+                match st {
+                    1 => TagType::Texture2D { is_header },
+                    // 2 => TagType::TextureCube { is_header },
+                    3 => TagType::Texture3D { is_header },
+                    // 4 => TagType::VertexBuffer { is_header },
+                    // 6 => TagType::IndexBuffer { is_header },
+                    // 7 => TagType::ConstantBuffer { is_header },
+                    8 => TagType::PixelShader { is_header },
+                    9 => TagType::VertexShader { is_header },
+                    fsubtype => TagType::Unknown { ftype: t, fsubtype },
+                }
+            }
+            (128, 0) => TagType::TagGlobal,
             (ftype, fsubtype) => TagType::Unknown { ftype, fsubtype },
         }
     }
