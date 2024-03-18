@@ -23,6 +23,8 @@ lazy_static::lazy_static! {
     ]);
 
     pub static ref REFERENCE_MAP_ROI: FxHashMap<u32, &'static str> = FxHashMap::from_iter([
+        (0x8080035A, "SLocalizedStrings"),
+        (0x808008BE, "SLocalizedStringsData"),
         (0x80801AD7, "STechnique"),
         (0x80801C47, "SScope"),
     ]);

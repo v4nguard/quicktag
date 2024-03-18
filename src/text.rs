@@ -340,9 +340,14 @@ pub fn create_stringmap() -> anyhow::Result<StringCache> {
             | PackageVersion::Destiny2BeyondLight
             | PackageVersion::Destiny2WitchQueen
             | PackageVersion::Destiny2Lightfall
+            // cohae: Rise of Iron uses the same string format as D2
+            | PackageVersion::DestinyRiseOfIron
     ) {
         create_stringmap_d2()
-    } else if package_manager().version == PackageVersion::DestinyTheTakenKing {
+    } else if matches!(
+        package_manager().version,
+        PackageVersion::DestinyTheTakenKing
+    ) {
         create_stringmap_d1()
     } else {
         warn!(
@@ -354,10 +359,22 @@ pub fn create_stringmap() -> anyhow::Result<StringCache> {
 }
 
 pub fn create_stringmap_d2() -> anyhow::Result<StringCache> {
-    let prebl = package_manager().version == PackageVersion::Destiny2Shadowkeep;
+    // TODO(cohae): We should probably derive PartialOrd for PackageVersion
+    let prebl = matches!(
+        package_manager().version,
+        PackageVersion::DestinyTheTakenKing
+            | PackageVersion::DestinyRiseOfIron
+            | PackageVersion::Destiny2Shadowkeep
+    );
     let mut tmp_map: FxHashMap<u32, FxHashSet<String>> = Default::default();
     for (t, _) in package_manager()
-        .get_all_by_reference(u32::from_be(if prebl { 0x889a8080 } else { 0xEF998080 }))
+        .get_all_by_reference(if package_manager().version.is_d1() {
+            0x8080035A
+        } else if prebl {
+            0x80809A88
+        } else {
+            0x808099EF
+        })
         .into_iter()
     {
         let Ok(textset_header) = package_manager().read_tag_binrw::<StringContainer>(t) else {
