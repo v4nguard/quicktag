@@ -105,57 +105,78 @@ pub fn scan_file(context: &ScannerContext, data: &[u8]) -> ScanResult {
 
     let mut r = ScanResult::default();
 
-    for (i, v) in data.chunks_exact(8).enumerate() {
-        let m: [u8; 8] = v.try_into().unwrap();
-        let m32_1: [u8; 4] = v[0..4].try_into().unwrap();
-        let m32_2: [u8; 4] = v[4..8].try_into().unwrap();
-        let value64 = u64_from_endian(context.endian, m);
-        let value_hi = u32_from_endian(context.endian, m32_1);
-        let value_lo = u32_from_endian(context.endian, m32_2);
-        let offset_u64 = (i * 8) as u64;
+    if data.len() >= 8 {
+        for (i, v) in data.chunks_exact(8).enumerate() {
+            let m: [u8; 8] = v.try_into().unwrap();
+            let m32_1: [u8; 4] = v[0..4].try_into().unwrap();
+            let m32_2: [u8; 4] = v[4..8].try_into().unwrap();
+            let value64 = u64_from_endian(context.endian, m);
+            let value_hi = u32_from_endian(context.endian, m32_1);
+            let value_lo = u32_from_endian(context.endian, m32_2);
+            let offset_u64 = (i * 8) as u64;
 
-        let hash = TagHash64(value64);
-        {
-            profiling::scope!("check 64 bit hash");
-            if context.valid_file_hashes64.binary_search(&hash).is_ok() {
-                profiling::scope!("insert 64 bit hash");
-                r.file_hashes64.push(ScannedHash {
-                    offset: offset_u64,
-                    hash,
-                });
+            let hash = TagHash64(value64);
+            {
+                profiling::scope!("check 64 bit hash");
+                if context.valid_file_hashes64.binary_search(&hash).is_ok() {
+                    profiling::scope!("insert 64 bit hash");
+                    r.file_hashes64.push(ScannedHash {
+                        offset: offset_u64,
+                        hash,
+                    });
+                }
+            }
+
+            profiling::scope!("32 bit chunks");
+            for (vi, value) in [value_hi, value_lo].into_iter().enumerate() {
+                let offset = offset_u64 + (vi * 4) as u64;
+                let hash = TagHash(value);
+
+                if hash.is_pkg_file() && context.valid_file_hashes.binary_search(&hash).is_ok() {
+                    r.file_hashes.push(ScannedHash { offset, hash });
+                }
+
+                if value == 0x80800065 {
+                    r.raw_strings.extend(
+                        read_raw_string_blob(data, offset)
+                            .into_iter()
+                            .map(|(_, s)| s),
+                    );
+                }
+
+                if value != 0x811c9dc5 && context.known_string_hashes.binary_search(&value).is_ok()
+                {
+                    r.string_hashes.push(ScannedHash {
+                        offset,
+                        hash: value,
+                    });
+                }
             }
         }
+    } else if data.len() >= 4 {
+        // Handle files shorter than 8 bytes separately
+        let m: [u8; 4] = data[0..4].try_into().unwrap();
+        let value = u32_from_endian(context.endian, m);
+        let offset = 0;
+        let hash = TagHash(value);
 
-        profiling::scope!("32 bit chunks");
-        for (vi, value) in [value_hi, value_lo].into_iter().enumerate() {
-            let offset = offset_u64 + (vi * 4) as u64;
-            let hash = TagHash(value);
+        if hash.is_pkg_file() && context.valid_file_hashes.binary_search(&hash).is_ok() {
+            r.file_hashes.push(ScannedHash { offset, hash });
+        }
 
-            if hash.is_pkg_file() && context.valid_file_hashes.binary_search(&hash).is_ok() {
-                r.file_hashes.push(ScannedHash { offset, hash });
-            }
+        if value == 0x80800065 {
+            r.raw_strings.extend(
+                read_raw_string_blob(data, offset)
+                    .into_iter()
+                    .map(|(_, s)| s),
+            );
+        }
 
-            // if hash.is_valid() && !hash.is_pkg_file() {
-            //     r.classes.push(ScannedHash {
-            //         offset,
-            //         hash: value,
-            //     });
-            // }
-
-            if value == 0x80800065 {
-                r.raw_strings.extend(
-                    read_raw_string_blob(data, offset)
-                        .into_iter()
-                        .map(|(_, s)| s),
-                );
-            }
-
-            if value != 0x811c9dc5 && context.known_string_hashes.binary_search(&value).is_ok() {
-                r.string_hashes.push(ScannedHash {
-                    offset,
-                    hash: value,
-                });
-            }
+        if value != 0x811c9dc5 && context.known_string_hashes.binary_search(&value).is_ok() {
+            r.string_hashes.push(ScannedHash {
+                offset,
+                hash: value,
+            });
         }
     }
 
