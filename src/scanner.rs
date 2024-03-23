@@ -294,8 +294,7 @@ impl Display for ScanStatus {
                 total_packages,
             } => f.write_fmt(format_args!(
                 "Creating new cache {}/{}",
-                current_package + 1,
-                total_packages
+                current_package, total_packages
             )),
             ScanStatus::TransformGathering => {
                 f.write_str("Transforming cache (gathering references)")
