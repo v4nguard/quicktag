@@ -284,6 +284,7 @@ impl TagView {
                 .color(Color32::LIGHT_RED)
         };
 
+        ui.style_mut().spacing.indent = 16.0;
         if traversed.subtags.is_empty() {
             ui.horizontal(|ui| {
                 let response =
@@ -304,7 +305,7 @@ impl TagView {
         } else {
             CollapsingState::load_with_default_open(
                 ctx,
-                ui.make_persistent_id(format!(
+                egui::Id::new(format!(
                     "traversed_tag{}_collapse_depth{depth}",
                     traversed.tag
                 )),
@@ -328,13 +329,15 @@ impl TagView {
                     }
                 });
             })
-            .body(|ui| {
-                ui.style_mut().spacing.indent = 18.0;
-                for t in &traversed.subtags {
-                    if let Some(new_tag) = self.traverse_interactive_ui(ctx, ui, t, depth + 1) {
-                        open_new_tag = Some(new_tag);
+            .body_unindented(|ui| {
+                ui.style_mut().spacing.indent = 16.0 * 2.;
+                ui.indent(format!("traversed_tag{}_indent", traversed.tag), |ui| {
+                    for t in &traversed.subtags {
+                        if let Some(new_tag) = self.traverse_interactive_ui(ctx, ui, t, depth + 1) {
+                            open_new_tag = Some(new_tag);
+                        }
                     }
-                }
+                });
             });
         }
 
@@ -1060,6 +1063,14 @@ fn traverse_tag(
                 .unwrap_or_default()
             {
                 writeln!(out, "{line_header}{branch}──{fancy_tag} @ {offset_label}").ok();
+
+                subtags.push(TraversedTag {
+                    tag: *t,
+                    entry,
+
+                    reason: None,
+                    subtags: vec![],
+                });
             } else if *t == parent_tag {
                 writeln!(
                     out,
