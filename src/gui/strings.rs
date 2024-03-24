@@ -28,6 +28,9 @@ pub struct StringsView {
     selected_string: u32,
     string_selected_entries: Vec<(TagHash, String, TagType)>,
     string_filter: String,
+
+    exact_match: bool,
+    case_sensitive: bool,
 }
 
 impl StringsView {
@@ -42,6 +45,8 @@ impl StringsView {
             selected_string: u32::MAX,
             string_filter: String::new(),
             string_selected_entries: vec![],
+            exact_match: false,
+            case_sensitive: false,
         }
     }
 }
@@ -64,14 +69,36 @@ impl View for StringsView {
                 ui.style_mut().wrap = Some(false);
                 ui.horizontal(|ui| {
                     ui.label("Search:");
-                    if ui.text_edit_singleline(&mut self.string_filter).changed() {
+                    let mut update_search =
+                        ui.text_edit_singleline(&mut self.string_filter).changed();
+                    update_search |= ui.checkbox(&mut self.exact_match, "Exact match").changed();
+                    update_search |= ui
+                        .checkbox(&mut self.case_sensitive, "Case sensitive")
+                        .changed();
+
+                    if update_search {
                         self.strings_vec_filtered = if !self.string_filter.is_empty() {
+                            let match_b = if self.case_sensitive {
+                                self.string_filter.clone()
+                            } else {
+                                self.string_filter.to_lowercase()
+                            };
+
                             self.strings
                                 .iter()
                                 .filter(|(_, s)| {
                                     s.iter().any(|s| {
-                                        s.to_lowercase()
-                                            .contains(&self.string_filter.to_lowercase())
+                                        let match_a = if self.case_sensitive {
+                                            s.clone()
+                                        } else {
+                                            s.to_lowercase()
+                                        };
+
+                                        if self.exact_match {
+                                            match_a == match_b
+                                        } else {
+                                            match_a.contains(&match_b)
+                                        }
                                     })
                                 })
                                 .map(|(k, v)| (*k, v.clone()))
