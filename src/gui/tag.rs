@@ -288,10 +288,11 @@ impl TagView {
         ui.style_mut().spacing.indent = 16.0;
         if traversed.subtags.is_empty() {
             ui.horizontal(|ui| {
-                let response =
-                    ui.add_enabled(depth > 0, egui::SelectableLabel::new(false, tag_label));
-
-                if response.clicked() {
+                if ui
+                    .add_enabled(depth > 0, egui::SelectableLabel::new(false, tag_label))
+                    .tag_context_with_texture(traversed.tag, None, &self.texture_cache, is_texture)
+                    .clicked()
+                {
                     open_new_tag = Some(traversed.tag);
                 }
             });
