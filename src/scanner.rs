@@ -1,7 +1,7 @@
 use std::{
     fmt::Display,
     fs::File,
-    io::{Cursor, Read, Seek, SeekFrom, Write},
+    io::{Cursor, Read, Seek, SeekFrom},
     path::{Path, PathBuf},
     sync::Arc,
     time::SystemTime,
@@ -21,7 +21,7 @@ use crate::{
     util::{u32_from_endian, u64_from_endian},
 };
 
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(bincode::Encode, bincode::Decode)]
 pub struct TagCache {
     /// Timestamp of the packages directory
     pub timestamp: u64,
@@ -35,7 +35,7 @@ impl Default for TagCache {
     fn default() -> Self {
         Self {
             timestamp: 0,
-            version: 3,
+            version: 4,
             hashes: Default::default(),
         }
     }
@@ -49,7 +49,7 @@ pub struct ScannerContext {
     pub endian: Endian,
 }
 
-#[derive(Clone, serde::Deserialize, serde::Serialize, Debug)]
+#[derive(Clone, bincode::Encode, bincode::Decode, Debug)]
 pub struct ScanResult {
     /// Were we able to read the tag data?
     pub successful: bool,
@@ -76,8 +76,8 @@ impl Default for ScanResult {
     }
 }
 
-#[derive(Clone, serde::Deserialize, serde::Serialize, Debug)]
-pub struct ScannedHash<T: Sized> {
+#[derive(Clone, bincode::Encode, bincode::Decode, Debug)]
+pub struct ScannedHash<T: Sized + bincode::Encode + bincode::Decode> {
     pub offset: u64,
     pub hash: T,
 }
@@ -325,9 +325,18 @@ pub fn load_tag_cache(version: PackageVersion) -> TagCache {
         info!("Existing cache file found, loading");
         *SCANNER_PROGRESS.write() = ScanStatus::LoadingCache;
 
-        match zstd::Decoder::new(cache_file) {
-            Ok(zstd_decoder) => {
-                if let Ok(cache) = bincode::deserialize_from::<_, TagCache>(zstd_decoder) {
+        let cache_data = zstd::Decoder::new(cache_file).and_then(|mut r| {
+            let mut buf = vec![];
+            r.read_to_end(&mut buf)?;
+            Ok(buf)
+        });
+
+        match cache_data {
+            Ok(cache_data) => {
+                if let Ok((cache, _)) = bincode::decode_from_slice::<TagCache, _>(
+                    &cache_data,
+                    bincode::config::standard(),
+                ) {
                     match cache.version.cmp(&TagCache::default().version) {
                         std::cmp::Ordering::Equal => {
                             let current_pkg_timestamp =
@@ -499,28 +508,15 @@ pub fn load_tag_cache(version: PackageVersion) -> TagCache {
         .flatten()
         .collect();
 
-    // panic!("{:?}", cache[&TagHash(u32::from_be(0x00408180))]);
-
     let cache = transform_tag_cache(cache);
 
     *SCANNER_PROGRESS.write() = ScanStatus::WritingCache;
-    info!("Serializing tag cache...");
-    let cache_bincode = bincode::serialize(&cache).unwrap();
     info!("Compressing tag cache...");
-    let mut writer = zstd::Encoder::new(File::create(cache_file_path).unwrap(), 5).unwrap();
-    writer.write_all(&cache_bincode).unwrap();
+    let mut writer = zstd::Encoder::new(File::create(cache_file_path).unwrap(), 3).unwrap();
+
+    bincode::encode_into_std_write(&cache, &mut writer, bincode::config::standard()).unwrap();
     writer.finish().unwrap();
     *SCANNER_PROGRESS.write() = ScanStatus::None;
-
-    // for (t, r) in &cache {
-    //     if matches!(t.pkg_id(), 0x3ac | 0x3da | 0x3db) {
-    //         println!(
-    //             "{} {t} {}",
-    //             package_manager().package_paths.get(&t.pkg_id()).unwrap(),
-    //             r.references.iter().map(TagHash::to_string).join(", ")
-    //         );
-    //     }
-    // }
 
     cache
 }
