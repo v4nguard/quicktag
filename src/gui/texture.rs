@@ -313,13 +313,21 @@ impl TextureCache {
 
     pub fn texture_preview(&self, hash: TagHash, ui: &mut eframe::egui::Ui) {
         if let Some((tex, egui_tex)) = self.get_or_load(hash) {
-            let max_height = ui.available_height() * 0.90;
+            let screen_size = ui.ctx().screen_rect().size();
+            let screen_aspect_ratio = screen_size.x / screen_size.y;
+            let texture_aspect_ratio = tex.aspect_ratio;
 
-            let tex_size = if ui.input(|i| i.modifiers.ctrl) {
-                vec2(max_height * tex.aspect_ratio, max_height)
+            let max_size = if ui.input(|i| i.modifiers.ctrl) {
+                screen_size * 0.70
             } else {
                 ui.label("ℹ Hold ctrl to enlarge");
-                vec2(256. * tex.aspect_ratio, 256.)
+                screen_size * 0.30
+            };
+
+            let tex_size = if texture_aspect_ratio > screen_aspect_ratio {
+                vec2(max_size.x, max_size.x / texture_aspect_ratio)
+            } else {
+                vec2(max_size.y * texture_aspect_ratio, max_size.y)
             };
 
             ui.image(SizedTexture::new(egui_tex, tex_size));
