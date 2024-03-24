@@ -4,6 +4,7 @@ mod named_tags;
 mod packages;
 mod raw_strings;
 mod strings;
+mod style;
 mod tag;
 mod texture;
 
@@ -119,6 +120,7 @@ impl QuickTagApp {
 
 impl eframe::App for QuickTagApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        ctx.set_style(style::style());
         let mut is_loading_cache = false;
         if let Some(cache_promise) = self.cache_load.as_ref() {
             if cache_promise.poll().is_pending() {
