@@ -35,6 +35,7 @@ use crate::{
 use super::{
     common::{
         open_audio_file_in_default_application, open_tag_in_default_application, tag_context,
+        ResponseExt,
     },
     texture::TextureCache,
     View, ViewAction,
@@ -290,15 +291,7 @@ impl TagView {
                 let response =
                     ui.add_enabled(depth > 0, egui::SelectableLabel::new(false, tag_label));
 
-                if response
-                    .context_menu(|ui| tag_context(ui, traversed.tag, None))
-                    .on_hover_ui(|ui| {
-                        if is_texture {
-                            self.texture_cache.texture_preview(traversed.tag, ui);
-                        }
-                    })
-                    .clicked()
-                {
+                if response.clicked() {
                     open_new_tag = Some(traversed.tag);
                 }
             });
@@ -317,12 +310,12 @@ impl TagView {
                         ui.add_enabled(depth > 0, egui::SelectableLabel::new(false, tag_label));
 
                     if response
-                        .context_menu(|ui| tag_context(ui, traversed.tag, None))
-                        .on_hover_ui(|ui| {
-                            if is_texture {
-                                self.texture_cache.texture_preview(traversed.tag, ui);
-                            }
-                        })
+                        .tag_context_with_texture(
+                            traversed.tag,
+                            None,
+                            &self.texture_cache,
+                            is_texture,
+                        )
                         .clicked()
                     {
                         open_new_tag = Some(traversed.tag);
@@ -417,10 +410,7 @@ impl View for TagView {
                                     egui::SelectableLabel::new(false, fancy_tag),
                                 );
 
-                                if response
-                                    .context_menu(|ui| tag_context(ui, *tag, None))
-                                    .clicked()
-                                {
+                                if response.tag_context(*tag, None).clicked() {
                                     open_new_tag = Some(*tag);
                                 }
                             }
@@ -470,25 +460,19 @@ impl View for TagView {
                                 );
 
                                 ctx.style_mut(|s| {
-                                    s.interaction.show_tooltips_only_when_still = false
+                                    s.interaction.show_tooltips_only_when_still = false;
+                                    s.interaction.tooltip_delay = 0.0;
                                 });
                                 if response
-                                    .context_menu(|ui| {
-                                        tag_context(
-                                            ui,
-                                            tag.hash.hash32(),
-                                            match tag.hash {
-                                                ExtendedTagHash::Hash32(_) => None,
-                                                ExtendedTagHash::Hash64(t) => Some(t),
-                                            },
-                                        )
-                                    })
-                                    .on_hover_ui(|ui| {
-                                        if is_texture {
-                                            self.texture_cache
-                                                .texture_preview(tag.hash.hash32(), ui);
-                                        }
-                                    })
+                                    .tag_context_with_texture(
+                                        tag.hash.hash32(),
+                                        match tag.hash {
+                                            ExtendedTagHash::Hash32(_) => None,
+                                            ExtendedTagHash::Hash64(t) => Some(t),
+                                        },
+                                        &self.texture_cache,
+                                        is_texture,
+                                    )
                                     .clicked()
                                 {
                                     open_new_tag = Some(tag.hash.hash32());
@@ -725,13 +709,17 @@ impl View for TagView {
                                                     .join(", ")
                                             )
                                         })
-                                        .context_menu(|ui| {
-                                            if ui.selectable_label(false, "Copy text").clicked() {
-                                                ui.output_mut(|o| o.copied_text = string.clone());
-                                                ui.close_menu();
-                                            }
-                                        })
-                                        .clicked();
+                                        .context_menu(
+                                            |ui| {
+                                                if ui.selectable_label(false, "Copy text").clicked()
+                                                {
+                                                    ui.output_mut(|o| {
+                                                        o.copied_text = string.clone()
+                                                    });
+                                                    ui.close_menu();
+                                                }
+                                            },
+                                        );
                                     }
                                 }
                             });

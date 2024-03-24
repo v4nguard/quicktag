@@ -9,7 +9,7 @@ anyhow = "1.0.75"
 bytemuck = "1.14.1"
 chrono = "0.4.31"
 clap = { version = "4.3.11", features = ["derive"] }
-env_logger = "0.10.0"
+env_logger = "0.11.3"
 itertools = "0.12.1"
 lazy_static = "1.4.0"
 linked-hash-map = "0.5.6"
@@ -18,26 +18,26 @@ profiling = { version = "1.0.15", features = [] }
 rustc-hash = "1.1.0"
 
 # UI
-eframe = { version = "0.23.0", default-features = false, features = [
+eframe = { version = "0.26.2", default-features = false, features = [
     "default_fonts",
     "wayland",
     "x11",
     "persistence",
     "wgpu",
 ] }
-egui-notify = "0.10.0"
+egui-notify = "0.13.0"
 native-dialog = "0.7.0"
-opener = "0.6.1"
+opener = "0.7.0"
 
 # Parallelism
 poll-promise = "0.3.0"
 rayon = "1.8.0"
 
 # (de)serialization
-base64 = "0.21.4"
+base64 = "0.22.0"
 bincode = "2.0.0-rc.3"
-binrw = "0.12.0"
-destiny-pkg = { version = "0.9.6", features = ["bincode"] }
+binrw = "0.13.3"
+destiny-pkg = { version = "0.9.7", features = ["bincode"] }
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.108"
 vgmstream = { git = "https://github.com/cohaereo/vgmstream-rs/", version = "0.1.2" }

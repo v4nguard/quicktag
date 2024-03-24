@@ -11,7 +11,7 @@ use crate::{
     tagtypes::TagType,
 };
 
-use super::{common::tag_context, tag::format_tag_entry, View, ViewAction};
+use super::{common::ResponseExt, tag::format_tag_entry, View, ViewAction};
 
 pub struct RawStringsView {
     strings: Vec<(String, Vec<TagHash>, u32)>,
@@ -116,30 +116,29 @@ impl View for RawStringsView {
                     self.strings_vec_filtered.len(),
                     |ui, range| {
                         for (i, string, tags, _hash) in self.strings_vec_filtered[range].iter() {
-                            let response = ui
-                                .selectable_label(
-                                    *i == self.selected_stringset,
-                                    format!(
-                                        "'{}' {}",
-                                        truncate_string_stripped(string, 192),
-                                        if tags.len() > 1 {
-                                            format!("({} occurrences)", tags.len())
-                                        } else {
-                                            String::new()
-                                        }
-                                    ),
-                                )
-                                .on_hover_text(string)
-                                .context_menu(|ui| {
-                                    if ui.selectable_label(false, "Copy string").clicked() {
-                                        ui.output_mut(|o| o.copied_text = string.clone());
-                                        ui.close_menu();
+                            let response = ui.selectable_label(
+                                *i == self.selected_stringset,
+                                format!(
+                                    "'{}' {}",
+                                    truncate_string_stripped(string, 192),
+                                    if tags.len() > 1 {
+                                        format!("({} occurrences)", tags.len())
+                                    } else {
+                                        String::new()
                                     }
-                                });
+                                ),
+                            );
 
                             if response.clicked() {
                                 self.selected_stringset = *i;
                             }
+
+                            response.on_hover_text(string).context_menu(|ui| {
+                                if ui.selectable_label(false, "Copy string").clicked() {
+                                    ui.output_mut(|o| o.copied_text = string.clone());
+                                    ui.close_menu();
+                                }
+                            });
                         }
                     },
                 );
@@ -162,7 +161,7 @@ impl View for RawStringsView {
                                             false,
                                             RichText::new(label).color(tag_type.display_color()),
                                         ))
-                                        .context_menu(|ui| tag_context(ui, *tag, None))
+                                        .tag_context(*tag, None)
                                         .clicked()
                                     {
                                         return Some(ViewAction::OpenTag(*tag));

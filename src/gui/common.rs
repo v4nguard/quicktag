@@ -7,6 +7,44 @@ use std::io::Write;
 
 use crate::{packages::package_manager, tagtypes::TagType};
 
+use super::texture::TextureCache;
+
+pub trait ResponseExt {
+    fn tag_context(&self, tag: TagHash, tag64: Option<TagHash64>) -> &Self;
+
+    fn tag_context_with_texture(
+        self,
+        tag: TagHash,
+        tag64: Option<TagHash64>,
+        texture_cache: &TextureCache,
+        is_texture: bool,
+    ) -> Self;
+}
+
+impl ResponseExt for egui::Response {
+    fn tag_context_with_texture(
+        self,
+        tag: TagHash,
+        tag64: Option<TagHash64>,
+        texture_cache: &TextureCache,
+        is_texture: bool,
+    ) -> Self {
+        self.context_menu(|ui| tag_context(ui, tag, tag64));
+        if is_texture {
+            self.on_hover_ui(|ui| {
+                texture_cache.texture_preview(tag, ui);
+            })
+        } else {
+            self
+        }
+    }
+
+    fn tag_context(&self, tag: TagHash, tag64: Option<TagHash64>) -> &Self {
+        self.context_menu(|ui| tag_context(ui, tag, tag64));
+        self
+    }
+}
+
 pub fn tag_context(ui: &mut egui::Ui, tag: TagHash, tag64: Option<TagHash64>) {
     if ui.selectable_label(false, "📋 Copy tag").clicked() {
         ui.output_mut(|o| o.copied_text = tag.to_string());

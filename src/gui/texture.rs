@@ -240,6 +240,7 @@ impl Texture {
                 usage: wgpu::TextureUsages::TEXTURE_BINDING,
                 view_formats: &[format],
             },
+            wgpu::util::TextureDataOrder::default(),
             &texture_data,
         );
 

@@ -11,7 +11,7 @@ use std::sync::Arc;
 use clap::Parser;
 use destiny_pkg::{PackageManager, PackageVersion};
 use eframe::egui_wgpu::WgpuConfiguration;
-use eframe::{wgpu, IconData};
+use eframe::wgpu;
 use env_logger::Env;
 use log::info;
 use packages::PACKAGE_MANAGER;
@@ -45,13 +45,13 @@ fn main() -> eframe::Result<()> {
     initialize_reference_names();
 
     let native_options = eframe::NativeOptions {
-        icon_data: Some(
-            IconData::try_from_png_bytes(include_bytes!("../quicktag.png"))
-                .expect("Failed to load icon"),
-        ),
         renderer: eframe::Renderer::Wgpu,
         window_builder: Some(Box::new(|b| {
             b.with_title(format!("Quicktag - {}", package_manager().version.name()))
+                .with_icon(
+                    eframe::icon_data::from_png_bytes(include_bytes!("../quicktag.png"))
+                        .expect("Failed to load icon"),
+                )
         })),
         persist_window: true,
         follow_system_theme: false,
@@ -59,10 +59,10 @@ fn main() -> eframe::Result<()> {
         wgpu_options: WgpuConfiguration {
             supported_backends: wgpu::Backends::PRIMARY,
             device_descriptor: Arc::new(|_adapter| wgpu::DeviceDescriptor {
-                features: wgpu::Features::TEXTURE_COMPRESSION_BC
+                required_features: wgpu::Features::TEXTURE_COMPRESSION_BC
                     | wgpu::Features::TEXTURE_BINDING_ARRAY
                     | wgpu::Features::TEXTURE_FORMAT_16BIT_NORM,
-                limits: wgpu::Limits::default(),
+                required_limits: wgpu::Limits::default(),
                 ..Default::default()
             }),
             ..Default::default()

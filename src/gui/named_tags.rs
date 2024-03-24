@@ -3,7 +3,7 @@ use eframe::egui::{self, RichText};
 
 use crate::{packages::package_manager, tagtypes::TagType};
 
-use super::{common::tag_context, tag::format_tag_entry, View, ViewAction};
+use super::{common::ResponseExt, tag::format_tag_entry, View, ViewAction};
 
 pub struct NamedTags {
     pub tags: Vec<(UEntryHeader, PackageNamedTagEntry)>,
@@ -72,7 +72,7 @@ impl View for NamedTagView {
 
                         if ui
                             .add(egui::SelectableLabel::new(false, tag_label))
-                            .context_menu(|ui| tag_context(ui, nt.hash, None))
+                            .tag_context(nt.hash, None)
                             .clicked()
                         {
                             return Some(ViewAction::OpenTag(nt.hash));

@@ -356,13 +356,10 @@ pub fn load_tag_cache(version: PackageVersion) -> TagCache {
                             if cache.timestamp < current_pkg_timestamp {
                                 info!(
                                     "Cache is out of date, rebuilding (cache: {}, package dir: {})",
-                                    chrono::NaiveDateTime::from_timestamp_opt(
-                                        cache.timestamp as i64,
-                                        0
-                                    )
-                                    .unwrap()
-                                    .format("%Y-%m-%d"),
-                                    chrono::NaiveDateTime::from_timestamp_opt(
+                                    chrono::DateTime::from_timestamp(cache.timestamp as i64, 0)
+                                        .unwrap()
+                                        .format("%Y-%m-%d"),
+                                    chrono::DateTime::from_timestamp(
                                         current_pkg_timestamp as i64,
                                         0
                                     )

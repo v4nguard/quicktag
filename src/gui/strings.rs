@@ -18,7 +18,7 @@ use crate::{
     text::{decode_text, StringCache, StringCacheVec, StringContainer, StringData, StringPart},
 };
 
-use super::{common::tag_context, tag::format_tag_entry, View, ViewAction};
+use super::{common::ResponseExt, tag::format_tag_entry, View, ViewAction};
 
 pub struct StringsView {
     cache: Arc<TagCache>,
@@ -123,13 +123,7 @@ impl View for StringsView {
                                         ),
                                     )
                                     .on_hover_text(strings[0].clone())
-                                }
-                                .context_menu(|ui| {
-                                    if ui.selectable_label(false, "Copy string").clicked() {
-                                        ui.output_mut(|o| o.copied_text = strings[0].clone());
-                                        ui.close_menu();
-                                    }
-                                });
+                                };
 
                                 if response.clicked() {
                                     self.string_selected_entries = vec![];
@@ -150,6 +144,13 @@ impl View for StringsView {
                                         }
                                     }
                                 }
+
+                                response.context_menu(|ui| {
+                                    if ui.selectable_label(false, "Copy string").clicked() {
+                                        ui.output_mut(|o| o.copied_text = strings[0].clone());
+                                        ui.close_menu();
+                                    }
+                                });
                             }
                         },
                     );
@@ -170,7 +171,7 @@ impl View for StringsView {
                                         false,
                                         RichText::new(label).color(tag_type.display_color()),
                                     ))
-                                    .context_menu(|ui| tag_context(ui, *tag, None))
+                                    .tag_context(*tag, None)
                                     .clicked()
                                 {
                                     return Some(ViewAction::OpenTag(*tag));

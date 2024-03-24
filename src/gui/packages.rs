@@ -4,7 +4,7 @@ use eframe::egui::{self, RichText};
 use crate::{packages::package_manager, tagtypes::TagType};
 
 use super::{
-    common::{dump_wwise_info, tag_context},
+    common::{dump_wwise_info, ResponseExt},
     tag::format_tag_entry,
     texture::TextureCache,
     View, ViewAction,
@@ -112,7 +112,8 @@ impl View for PackagesView {
                             {
                                 let tag = TagHash::new(self.selected_package, i as u16);
                                 ctx.style_mut(|s| {
-                                    s.interaction.show_tooltips_only_when_still = false
+                                    s.interaction.show_tooltips_only_when_still = false;
+                                    s.interaction.tooltip_delay = 0.0;
                                 });
                                 if ui
                                     .add(egui::SelectableLabel::new(
@@ -120,12 +121,12 @@ impl View for PackagesView {
                                         RichText::new(format!("{i}: {label}"))
                                             .color(tag_type.display_color()),
                                     ))
-                                    .context_menu(|ui| tag_context(ui, tag, None))
-                                    .on_hover_ui(|ui| {
-                                        if tag_type.is_texture() && tag_type.is_header() {
-                                            self.texture_cache.texture_preview(tag, ui);
-                                        }
-                                    })
+                                    .tag_context_with_texture(
+                                        tag,
+                                        None,
+                                        &self.texture_cache,
+                                        tag_type.is_texture() && tag_type.is_header(),
+                                    )
                                     .clicked()
                                 {
                                     return Some(ViewAction::OpenTag(tag));
