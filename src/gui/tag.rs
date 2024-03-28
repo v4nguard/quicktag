@@ -293,7 +293,17 @@ impl TagView {
                     .tag_context_with_texture(traversed.tag, None, &self.texture_cache, is_texture)
                     .clicked()
                 {
-                    open_new_tag = Some(traversed.tag);
+                    if ui.input(|i| i.modifiers.ctrl)
+                        && traversed
+                            .entry
+                            .as_ref()
+                            .map(|e| TagType::from_type_subtype(e.file_type, e.file_subtype))
+                            == Some(TagType::WwiseStream)
+                    {
+                        open_audio_file_in_default_application(traversed.tag, "wem");
+                    } else {
+                        open_new_tag = Some(traversed.tag);
+                    }
                 }
             });
         } else {
