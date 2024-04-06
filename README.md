@@ -31,7 +31,10 @@ Upwards traversal is not supported yet.
 *(TODO)*
 
 ### (Localized) Strings
-The strings tab shows any localized strings found in package files. These strings are referenced by a 32-bit FNV hash (note that this is not the hash of the string itself, but rather the hash of a localization key). Due to this, there will be multiple strings with the same hash, but different text. QuickTag will collapse these into a single entry, showing any strings that use this hash, as well as the tags that reference them. Note that due to the nature of FNV hashes, there will be a lot of false positives and overlapping strings in some cases.
+The strings tab shows any localized strings found in package files. These strings are referenced by a 32-bit FNV hash (note that this is not the hash of the string itself, but rather the hash of a localization key). Due to this, there will be multiple strings with the same hash, but different text. QuickTag will collapse these into a single entry, showing any strings that use this hash, as well as the tags that reference them. 
+
+> [!IMPORTANT]  
+> Note that due to the nature of FNV hashes, there will be a lot of false positives and overlapping strings in some cases.
 
 These strings only include the English version of the string. Other languages can be dumped through Quicktag, but they can't be used for the built-in search.
 
@@ -42,7 +45,7 @@ QuickTag will remove duplicates and collapse them into a single entry. Just like
 
 ### Asset preview
 QuickTag can also preview certain files, such as:
-- Textures (D2 only)
+- Textures (D1 (PS4 only) and D2)
 - WWise audio streams (D1+D2)
 
 ## Running
@@ -63,7 +66,7 @@ Where `<version>` is the version of the game used by the given packages. These c
 - `d2_lf` Destiny 2 (Lightfall)
 
 > [!WARNING]  
-> `d1_ttk` and `d1_roi` support is WIP
+> `d1_ttk` support is WIP
 
 ## Building
 Alkahest needs Rust 1.70 or newer to build. You can install Rust from [rustup.rs](https://rustup.rs/).
