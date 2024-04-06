@@ -578,7 +578,7 @@ impl View for TagView {
                                 min_dimension * t.width as f32 / t.height as f32,
                                 min_dimension,
                             )
-                        };
+                        } * 0.8;
                         ui.image(SizedTexture {
                             id: *egui_texture,
                             size,
@@ -588,6 +588,12 @@ impl View for TagView {
                             "{}x{}x{} {:?}",
                             t.width, t.height, t.depth, t.format
                         ));
+
+                        if let Some(ref comment) = t.comment {
+                            ui.collapsing("Texture Header", |ui| {
+                                ui.weak(comment);
+                            });
+                        }
                     }
                     Err(e) => {
                         ui.colored_label(Color32::RED, "⚠ Failed to load texture");

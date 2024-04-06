@@ -19,7 +19,7 @@ use std::sync::Arc;
 
 use super::dxgi::GcnSurfaceFormat;
 
-#[derive(BinRead)]
+#[derive(Debug, BinRead)]
 pub struct TextureHeader {
     pub data_size: u32,
     pub format: DxgiFormat,
@@ -44,7 +44,7 @@ pub struct TextureHeader {
     pub large_buffer: Option<TagHash>,
 }
 
-#[derive(BinRead)]
+#[derive(Debug, BinRead)]
 pub struct TextureHeaderRoiPs4 {
     pub data_size: u32,
     pub unk4: u8,
@@ -60,8 +60,9 @@ pub struct TextureHeaderRoiPs4 {
     pub depth: u16,
     pub array_size: u16,
 
-    pub unk30: u32,
-    pub flags: u8,
+    pub flags1: u32,
+    pub flags2: u32,
+    pub flags3: u32,
 }
 
 pub struct Texture {
@@ -72,13 +73,22 @@ pub struct Texture {
     pub width: u32,
     pub height: u32,
     pub depth: u32,
+
+    pub comment: Option<String>,
+}
+
+struct TextureDesc {
+    pub format: wgpu::TextureFormat,
+    pub width: u32,
+    pub height: u32,
+    pub depth: u32,
 }
 
 impl Texture {
-    pub fn load_data(
+    pub fn load_data_d2(
         hash: TagHash,
         load_full_mip: bool,
-    ) -> anyhow::Result<(TextureHeader, Vec<u8>)> {
+    ) -> anyhow::Result<(TextureHeader, Vec<u8>, String)> {
         let texture_header_ref = package_manager()
             .get_entry(hash)
             .context("Texture header entry not found")?
@@ -105,13 +115,14 @@ impl Texture {
             texture_data.extend(ab);
         }
 
-        Ok((texture, texture_data))
+        let comment = format!("{texture:#X?}");
+        Ok((texture, texture_data, comment))
     }
 
     pub fn load_data_roi_ps4(
         hash: TagHash,
         _load_full_mip: bool,
-    ) -> anyhow::Result<(TextureHeaderRoiPs4, Vec<u8>)> {
+    ) -> anyhow::Result<(TextureHeaderRoiPs4, Vec<u8>, String)> {
         let texture_header_ref = package_manager()
             .get_entry(hash)
             .context("Texture header entry not found")?
@@ -146,7 +157,8 @@ impl Texture {
             );
         }
 
-        if texture.flags > 0 || !texture.format.is_compressed() {
+        let comment = format!("{texture:#X?}");
+        if (texture.flags1 & 0xc00) != 0x400 {
             let mut unswizzled = vec![];
             swizzle::ps4::unswizzle(
                 &texture_data,
@@ -156,9 +168,9 @@ impl Texture {
                 texture.format.block_size(),
                 texture.format.pixel_block_size(),
             );
-            Ok((texture, unswizzled))
+            Ok((texture, unswizzled, comment))
         } else {
-            Ok((texture, texture_data))
+            Ok((texture, texture_data, comment))
         }
     }
 
@@ -170,15 +182,18 @@ impl Texture {
         match package_manager().version {
             destiny_pkg::PackageVersion::DestinyTheTakenKing => todo!(),
             destiny_pkg::PackageVersion::DestinyRiseOfIron => {
-                let (texture, texture_data) = Self::load_data_roi_ps4(hash, true)?;
+                let (texture, texture_data, comment) = Self::load_data_roi_ps4(hash, true)?;
                 Self::create_texture(
                     rs,
                     hash,
-                    texture.format.to_wgpu()?,
-                    texture.width as u32,
-                    texture.height as u32,
-                    texture.depth as u32,
+                    TextureDesc {
+                        format: texture.format.to_wgpu()?,
+                        width: texture.width as u32,
+                        height: texture.height as u32,
+                        depth: texture.depth as u32,
+                    },
                     texture_data,
+                    Some(comment),
                 )
             }
             destiny_pkg::PackageVersion::Destiny2Beta
@@ -186,15 +201,18 @@ impl Texture {
             | destiny_pkg::PackageVersion::Destiny2BeyondLight
             | destiny_pkg::PackageVersion::Destiny2WitchQueen
             | destiny_pkg::PackageVersion::Destiny2Lightfall => {
-                let (texture, texture_data) = Self::load_data(hash, true)?;
+                let (texture, texture_data, comment) = Self::load_data_d2(hash, true)?;
                 Self::create_texture(
                     rs,
                     hash,
-                    texture.format.to_wgpu()?,
-                    texture.width as u32,
-                    texture.height as u32,
-                    texture.depth as u32,
+                    TextureDesc {
+                        format: texture.format.to_wgpu()?,
+                        width: texture.width as u32,
+                        height: texture.height as u32,
+                        depth: texture.depth as u32,
+                    },
                     texture_data,
+                    Some(comment),
                 )
             }
         }
@@ -204,17 +222,15 @@ impl Texture {
     fn create_texture(
         rs: &RenderState,
         hash: TagHash,
-        format: wgpu::TextureFormat,
-        width: u32,
-        height: u32,
-        depth: u32,
+        desc: TextureDesc,
         // cohae: Take ownership of the data so we don't have to clone it for premultiplication
         data: Vec<u8>,
+        comment: Option<String>,
     ) -> anyhow::Result<Texture> {
         let mut texture_data = data;
         // Pre-multiply alpha where possible
         if matches!(
-            format,
+            desc.format,
             wgpu::TextureFormat::Rgba8Unorm | wgpu::TextureFormat::Rgba8UnormSrgb
         ) {
             for c in texture_data.chunks_exact_mut(4) {
@@ -229,16 +245,16 @@ impl Texture {
             &wgpu::TextureDescriptor {
                 label: Some(&*format!("Texture {hash}")),
                 size: wgpu::Extent3d {
-                    width: width as _,
-                    height: height as _,
+                    width: desc.width as _,
+                    height: desc.height as _,
                     depth_or_array_layers: 1,
                 },
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format,
+                format: desc.format,
                 usage: wgpu::TextureUsages::TEXTURE_BINDING,
-                view_formats: &[format],
+                view_formats: &[desc.format],
             },
             wgpu::util::TextureDataOrder::default(),
             &texture_data,
@@ -258,11 +274,12 @@ impl Texture {
         Ok(Texture {
             view,
             handle,
-            format,
-            aspect_ratio: width as f32 / height as f32,
-            width,
-            height,
-            depth,
+            format: desc.format,
+            aspect_ratio: desc.width as f32 / desc.height as f32,
+            width: desc.width,
+            height: desc.height,
+            depth: desc.depth,
+            comment,
         })
     }
 }
