@@ -1,5 +1,6 @@
 use destiny_pkg::TagHash;
 use eframe::egui::{self, pos2, vec2, Color32, RichText, Stroke};
+use log::error;
 
 use crate::{packages::package_manager, tagtypes::TagType};
 
@@ -20,12 +21,15 @@ impl TexturesView {
             .package_paths
             .iter()
             .filter_map(|(id, _path)| {
-                for e in &package_manager().package_entry_index[id] {
-                    let st = TagType::from_type_subtype(e.file_type, e.file_subtype);
-                    if st.is_texture() && st.is_header() {
-                        return Some(*id);
+                if let Some(entries) = package_manager().package_entry_index.get(id) {
+                    for e in entries {
+                        let st = TagType::from_type_subtype(e.file_type, e.file_subtype);
+                        if st.is_texture() && st.is_header() {
+                            return Some(*id);
+                        }
                     }
                 }
+
                 None
             })
             .collect();
