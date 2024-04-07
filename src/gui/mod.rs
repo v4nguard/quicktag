@@ -7,6 +7,7 @@ mod strings;
 mod style;
 mod tag;
 mod texture;
+mod texturelist;
 
 use std::sync::Arc;
 
@@ -35,12 +36,14 @@ use self::raw_strings::RawStringsView;
 use self::strings::StringsView;
 use self::tag::TagView;
 use self::texture::TextureCache;
+use self::texturelist::TexturesView;
 
 #[derive(PartialEq)]
 pub enum Panel {
     Tag,
     NamedTags,
     Packages,
+    Textures,
     Strings,
     RawStrings,
 }
@@ -66,6 +69,7 @@ pub struct QuickTagApp {
 
     named_tags_view: NamedTagView,
     packages_view: PackagesView,
+    textures_view: TexturesView,
     strings_view: StringsView,
     raw_strings_view: RawStringsView,
 
@@ -107,7 +111,8 @@ impl QuickTagApp {
 
             open_panel: Panel::Tag,
             named_tags_view: NamedTagView::new(),
-            packages_view: PackagesView::new(texture_cache),
+            packages_view: PackagesView::new(texture_cache.clone()),
+            textures_view: TexturesView::new(texture_cache),
             strings_view: StringsView::new(strings.clone(), Default::default()),
             raw_strings_view: RawStringsView::new(Default::default()),
 
@@ -272,6 +277,7 @@ impl eframe::App for QuickTagApp {
                     ui.selectable_value(&mut self.open_panel, Panel::Tag, "Tag");
                     ui.selectable_value(&mut self.open_panel, Panel::NamedTags, "Named tags");
                     ui.selectable_value(&mut self.open_panel, Panel::Packages, "Packages");
+                    ui.selectable_value(&mut self.open_panel, Panel::Textures, "Textures");
                     ui.selectable_value(&mut self.open_panel, Panel::Strings, "Strings");
                     ui.selectable_value(&mut self.open_panel, Panel::RawStrings, "Raw Strings");
                 });
@@ -289,6 +295,7 @@ impl eframe::App for QuickTagApp {
                     }
                     Panel::NamedTags => self.named_tags_view.view(ctx, ui),
                     Panel::Packages => self.packages_view.view(ctx, ui),
+                    Panel::Textures => self.textures_view.view(ctx, ui),
                     Panel::Strings => self.strings_view.view(ctx, ui),
                     Panel::RawStrings => self.raw_strings_view.view(ctx, ui),
                 };

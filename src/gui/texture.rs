@@ -1,7 +1,7 @@
 use crate::gui::dxgi::DxgiFormat;
 use crate::packages::package_manager;
 use anyhow::Context;
-use binrw::BinRead;
+use binrw::{BinRead, BinReaderExt};
 use destiny_pkg::package::PackagePlatform;
 use destiny_pkg::TagHash;
 use eframe::egui::load::SizedTexture;
@@ -20,28 +20,37 @@ use std::sync::Arc;
 use super::dxgi::GcnSurfaceFormat;
 
 #[derive(Debug, BinRead)]
+#[br(import(prebl: bool))]
 pub struct TextureHeader {
     pub data_size: u32,
     pub format: DxgiFormat,
     pub _unk8: u32,
 
-    #[br(seek_before = SeekFrom::Start(0x20), assert(cafe == 0xcafe))]
-    pub cafe: u16,
+    #[br(if(!prebl))]
+    pub _unkc: [u32; 5],
 
-    pub width: u16,
-    pub height: u16,
-    pub depth: u16,
-    pub array_size: u16,
+    #[br(assert(cafe == 0xcafe))]
+    pub cafe: u16, // prebl: 0xc / bl: 0x20
 
-    pub unk2a: u16,
-    pub unk2c: u8,
-    pub mip_count: u8,
-    pub unk2e: [u8; 10],
-    pub unk38: u32,
+    pub width: u16,      // prebl: 0xe / bl: 0x22
+    pub height: u16,     // prebl: 0x10 / bl: 0x24
+    pub depth: u16,      // prebl: 0x12 / bl: 0x26
+    pub array_size: u16, // prebl: 0x14 / bl: 0x28
 
+    pub _pad0: [u16; 7], // prebl: 0x16 / bl: 0x2a
+
+    #[br(if(!prebl))]
+    pub _pad1: u32,
+
+    // pub _unk2a: [u32; 4]
+    // pub unk2a: u16,
+    // pub unk2c: u8,
+    // pub mip_count: u8,
+    // pub unk2e: [u8; 10],
+    // pub unk38: u32,
     #[br(seek_before = SeekFrom::Start(0x3c))]
     #[br(map(|v: u32| (v != u32::MAX).then_some(TagHash(v))))]
-    pub large_buffer: Option<TagHash>,
+    pub large_buffer: Option<TagHash>, // prebl: 0x24 / bl: 0x3c
 }
 
 #[derive(Debug, BinRead)]
@@ -94,7 +103,19 @@ impl Texture {
             .context("Texture header entry not found")?
             .reference;
 
-        let texture: TextureHeader = package_manager().read_tag_binrw(hash)?;
+        let header_data = package_manager()
+            .read_tag(hash)
+            .context("Failed to read texture header")?;
+
+        // TODO(cohae): add a method to PackageVersion to check for prebl
+        let is_prebl = matches!(
+            package_manager().version,
+            destiny_pkg::PackageVersion::Destiny2Beta
+                | destiny_pkg::PackageVersion::Destiny2Shadowkeep
+        );
+
+        let mut cur = std::io::Cursor::new(header_data);
+        let texture: TextureHeader = cur.read_le_args((is_prebl,))?;
         let mut texture_data = if let Some(t) = texture.large_buffer {
             package_manager()
                 .read_tag(t)
@@ -363,7 +384,7 @@ impl TextureCache {
 }
 
 impl TextureCache {
-    const MAX_TEXTURES: usize = 64;
+    const MAX_TEXTURES: usize = 1024;
     fn truncate(&self) {
         let mut cache = self.cache.write();
         while cache.len() > Self::MAX_TEXTURES {
