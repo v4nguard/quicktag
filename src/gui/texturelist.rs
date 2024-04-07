@@ -1,20 +1,17 @@
 use destiny_pkg::TagHash;
-use eframe::egui::{self, pos2, vec2, Color32, RichText};
+use eframe::egui::{self, pos2, vec2, Color32, RichText, Stroke};
 
 use crate::{packages::package_manager, tagtypes::TagType};
 
-use super::{
-    common::{dump_wwise_info, ResponseExt},
-    tag::format_tag_entry,
-    texture::TextureCache,
-    View, ViewAction,
-};
+use super::{common::ResponseExt, texture::TextureCache, View, ViewAction};
 
 pub struct TexturesView {
     selected_package: u16,
     packages_with_textures: Vec<u16>,
     texture_cache: TextureCache,
     textures: Vec<(usize, TagHash, TagType)>,
+
+    keep_aspect_ratio: bool,
 }
 
 impl TexturesView {
@@ -38,6 +35,7 @@ impl TexturesView {
             packages_with_textures,
             texture_cache,
             textures: vec![],
+            keep_aspect_ratio: true,
         }
     }
 }
@@ -48,6 +46,7 @@ impl View for TexturesView {
         _ctx: &eframe::egui::Context,
         ui: &mut eframe::egui::Ui,
     ) -> Option<super::ViewAction> {
+        let mut action = None;
         egui::SidePanel::left("textures_left_panel")
             .resizable(true)
             .min_width(256.0)
@@ -86,46 +85,106 @@ impl View for TexturesView {
                     });
             });
 
-        egui::CentralPanel::default()
-            .show_inside(ui, |ui| {
-                egui::ScrollArea::vertical()
-                    .auto_shrink([false, false])
-                    .max_width(f32::INFINITY)
-                    .show(ui, |ui| {
-                        ui.style_mut().wrap = Some(true);
+        egui::CentralPanel::default().show_inside(ui, |ui| {
+            ui.checkbox(&mut self.keep_aspect_ratio, "Keep aspect ratio");
+            ui.separator();
+            egui::ScrollArea::vertical()
+                .auto_shrink([false, false])
+                .max_width(f32::INFINITY)
+                .show(ui, |ui| {
+                    ui.style_mut().wrap = Some(true);
 
-                        if self.selected_package == u16::MAX {
-                            ui.label(RichText::new("No package selected").italics());
-                        } else {
-                            ui.horizontal_wrapped(|ui| {
-                                for (i, hash, tag_type) in &self.textures {
-                                    let entry = package_manager().get_entry(*hash).unwrap();
-                                    let entry_name = format_tag_entry(*hash, Some(&entry));
+                    if self.selected_package == u16::MAX {
+                        ui.label(RichText::new("No package selected").italics());
+                    } else {
+                        ui.horizontal_wrapped(|ui| {
+                            ui.ctx().style_mut(|s| {
+                                s.interaction.show_tooltips_only_when_still = false;
+                                s.interaction.tooltip_delay = 0.0;
+                            });
 
-                                    let (_, img_rect) = ui.allocate_space(vec2(128.0, 128.0));
-                                    if ui.is_rect_visible(img_rect) {
-                                        if let Some((_tex, tid)) =
-                                            self.texture_cache.get_or_load(*hash)
-                                        {
-                                            ui.painter_at(img_rect).image(
-                                                tid,
-                                                img_rect,
+                            for (_i, hash, _tag_type) in &self.textures {
+                                // let entry = package_manager().get_entry(*hash).unwrap();
+                                // let entry_name = format_tag_entry(*hash, Some(&entry));
+
+                                let img_container =
+                                    ui.allocate_response(vec2(128.0, 128.0), egui::Sense::click());
+
+                                let img_container_rect = img_container.rect;
+
+                                if ui.is_rect_visible(img_container_rect) {
+                                    if let Some((tex, tid)) = self.texture_cache.get_or_load(*hash)
+                                    {
+                                        // The rect of the actual image itself, with aspect ratio corrections applied
+                                        let img_rect = if self.keep_aspect_ratio {
+                                            if tex.width > tex.height {
+                                                let scale =
+                                                    img_container_rect.width() / tex.width as f32;
+                                                let height = tex.height as f32 * scale;
+                                                let y =
+                                                    img_container_rect.center().y - height / 2.0;
                                                 egui::Rect::from_min_size(
-                                                    pos2(0.0, 0.0),
-                                                    vec2(1.0, 1.0),
-                                                ),
-                                                Color32::WHITE,
+                                                    pos2(img_container_rect.left(), y),
+                                                    vec2(img_container_rect.width(), height),
+                                                )
+                                            } else {
+                                                let scale =
+                                                    img_container_rect.height() / tex.height as f32;
+                                                let width = tex.width as f32 * scale;
+                                                let x = img_container_rect.center().x - width / 2.0;
+                                                egui::Rect::from_min_size(
+                                                    pos2(x, img_container_rect.top()),
+                                                    vec2(width, img_container_rect.height()),
+                                                )
+                                            }
+                                        } else {
+                                            img_container_rect
+                                        };
+
+                                        let painter = ui.painter_at(img_container_rect);
+
+                                        painter.rect_filled(
+                                            img_container_rect,
+                                            4.0,
+                                            ui.style().visuals.widgets.inactive.bg_fill,
+                                        );
+                                        painter.image(
+                                            tid,
+                                            img_rect,
+                                            egui::Rect::from_min_size(
+                                                pos2(0.0, 0.0),
+                                                vec2(1.0, 1.0),
+                                            ),
+                                            Color32::WHITE,
+                                        );
+
+                                        if img_container.hovered() {
+                                            ui.painter().rect_stroke(
+                                                img_container_rect,
+                                                4.0,
+                                                Stroke::new(1.0, Color32::WHITE),
                                             );
+                                        }
+
+                                        if img_container
+                                            .tag_context_with_texture(
+                                                *hash,
+                                                None,
+                                                &self.texture_cache,
+                                                true,
+                                            )
+                                            .clicked()
+                                        {
+                                            action = Some(ViewAction::OpenTag(*hash));
                                         }
                                     }
                                 }
-                            });
-                        }
+                            }
+                        });
+                    }
+                });
+        });
 
-                        None
-                    })
-                    .inner
-            })
-            .inner
+        action
     }
 }
