@@ -28,9 +28,7 @@ eframe = { version = "0.26.2", default-features = false, features = [
 egui-notify = "0.13.0"
 native-dialog = "0.7.0"
 opener = "0.7.0"
-
-# Parallelism
-poll-promise = "0.3.0"
+poll-promise = { version = "0.3.0", features = ["tokio"] }
 rayon = "1.8.0"
 
 # (de)serialization
@@ -43,6 +41,9 @@ serde_json = "1.0.108"
 vgmstream = { git = "https://github.com/cohaereo/vgmstream-rs/", version = "0.1.2" }
 wav = "1.0.0"
 zstd = { version = "0.13.0", features = ["zstdmt"] }
+either = "1.10.0"
+tokio = { version = "1.37.0", features = ["rt", "macros"] }
+image = { version = "0.25.1", features = ["png"], default-features = false }
 
 [profile.dev]
 opt-level = 3

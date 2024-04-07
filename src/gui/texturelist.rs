@@ -142,70 +142,60 @@ impl View for TexturesView {
                                 let img_container_rect = img_container.rect;
 
                                 if ui.is_rect_visible(img_container_rect) {
-                                    if let Some((tex, tid)) = self.texture_cache.get_or_load(*hash)
-                                    {
-                                        // The rect of the actual image itself, with aspect ratio corrections applied
-                                        let img_rect = if self.keep_aspect_ratio {
-                                            if tex.width > tex.height {
-                                                let scale =
-                                                    img_container_rect.width() / tex.width as f32;
-                                                let height = tex.height as f32 * scale;
-                                                let y =
-                                                    img_container_rect.center().y - height / 2.0;
-                                                egui::Rect::from_min_size(
-                                                    pos2(img_container_rect.left(), y),
-                                                    vec2(img_container_rect.width(), height),
-                                                )
-                                            } else {
-                                                let scale =
-                                                    img_container_rect.height() / tex.height as f32;
-                                                let width = tex.width as f32 * scale;
-                                                let x = img_container_rect.center().x - width / 2.0;
-                                                egui::Rect::from_min_size(
-                                                    pos2(x, img_container_rect.top()),
-                                                    vec2(width, img_container_rect.height()),
-                                                )
-                                            }
+                                    let (tex, tid) = self.texture_cache.get_or_default(*hash);
+                                    // The rect of the actual image itself, with aspect ratio corrections applied
+                                    let img_rect = if self.keep_aspect_ratio {
+                                        if tex.width > tex.height {
+                                            let scale =
+                                                img_container_rect.width() / tex.width as f32;
+                                            let height = tex.height as f32 * scale;
+                                            let y = img_container_rect.center().y - height / 2.0;
+                                            egui::Rect::from_min_size(
+                                                pos2(img_container_rect.left(), y),
+                                                vec2(img_container_rect.width(), height),
+                                            )
                                         } else {
-                                            img_container_rect
-                                        };
+                                            let scale =
+                                                img_container_rect.height() / tex.height as f32;
+                                            let width = tex.width as f32 * scale;
+                                            let x = img_container_rect.center().x - width / 2.0;
+                                            egui::Rect::from_min_size(
+                                                pos2(x, img_container_rect.top()),
+                                                vec2(width, img_container_rect.height()),
+                                            )
+                                        }
+                                    } else {
+                                        img_container_rect
+                                    };
 
-                                        let painter = ui.painter_at(img_container_rect);
+                                    let painter = ui.painter_at(img_container_rect);
 
-                                        painter.rect_filled(
+                                    painter.rect_filled(img_container_rect, 4.0, Color32::BLACK);
+                                    painter.image(
+                                        tid,
+                                        img_rect,
+                                        egui::Rect::from_min_size(pos2(0.0, 0.0), vec2(1.0, 1.0)),
+                                        Color32::WHITE,
+                                    );
+
+                                    if img_container.hovered() {
+                                        ui.painter().rect_stroke(
                                             img_container_rect,
                                             4.0,
-                                            ui.style().visuals.widgets.inactive.bg_fill,
+                                            Stroke::new(1.0, Color32::WHITE),
                                         );
-                                        painter.image(
-                                            tid,
-                                            img_rect,
-                                            egui::Rect::from_min_size(
-                                                pos2(0.0, 0.0),
-                                                vec2(1.0, 1.0),
-                                            ),
-                                            Color32::WHITE,
-                                        );
+                                    }
 
-                                        if img_container.hovered() {
-                                            ui.painter().rect_stroke(
-                                                img_container_rect,
-                                                4.0,
-                                                Stroke::new(1.0, Color32::WHITE),
-                                            );
-                                        }
-
-                                        if img_container
-                                            .tag_context_with_texture(
-                                                *hash,
-                                                None,
-                                                &self.texture_cache,
-                                                true,
-                                            )
-                                            .clicked()
-                                        {
-                                            action = Some(ViewAction::OpenTag(*hash));
-                                        }
+                                    if img_container
+                                        .tag_context_with_texture(
+                                            *hash,
+                                            None,
+                                            &self.texture_cache,
+                                            true,
+                                        )
+                                        .clicked()
+                                    {
+                                        action = Some(ViewAction::OpenTag(*hash));
                                     }
                                 }
                             }

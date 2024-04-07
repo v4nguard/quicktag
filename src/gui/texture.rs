@@ -7,14 +7,18 @@ use destiny_pkg::TagHash;
 use eframe::egui::load::SizedTexture;
 use eframe::egui_wgpu::RenderState;
 use eframe::epaint::mutex::RwLock;
-use eframe::epaint::{vec2, Color32, TextureId};
+use eframe::epaint::{vec2, TextureId};
 use eframe::wgpu;
 use eframe::wgpu::util::DeviceExt;
 use eframe::wgpu::TextureDimension;
+use either::Either::{self, Left};
+use image::GenericImageView;
 use linked_hash_map::LinkedHashMap;
+use poll_promise::Promise;
 use rustc_hash::FxHasher;
 use std::hash::BuildHasherDefault;
 use std::io::SeekFrom;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use super::dxgi::GcnSurfaceFormat;
@@ -303,50 +307,132 @@ impl Texture {
             comment,
         })
     }
+
+    fn load_png(render_state: &RenderState, bytes: &[u8]) -> anyhow::Result<Texture> {
+        let img = image::load_from_memory(bytes)?;
+        let rgba = img.to_rgba8();
+        let (width, height) = img.dimensions();
+        Self::create_texture(
+            render_state,
+            TagHash::NONE,
+            TextureDesc {
+                format: wgpu::TextureFormat::Rgba8Unorm,
+                width,
+                height,
+                depth: 1,
+            },
+            rgba.into_raw(),
+            None,
+        )
+    }
 }
 
-type TextureCacheMap =
-    LinkedHashMap<TagHash, Option<(Arc<Texture>, TextureId)>, BuildHasherDefault<FxHasher>>;
+pub type LoadedTexture = (Arc<Texture>, TextureId);
+
+type TextureCacheMap = LinkedHashMap<
+    TagHash,
+    Either<Option<LoadedTexture>, Promise<Option<LoadedTexture>>>,
+    BuildHasherDefault<FxHasher>,
+>;
 
 #[derive(Clone)]
 pub struct TextureCache {
     render_state: RenderState,
-    cache: Arc<RwLock<TextureCacheMap>>,
+    cache: Rc<RwLock<TextureCacheMap>>,
+    loading_placeholder: LoadedTexture,
 }
 
 impl TextureCache {
     pub fn new(render_state: RenderState) -> Self {
-        Self {
-            render_state,
-            cache: Arc::new(RwLock::new(TextureCacheMap::default())),
-        }
-    }
+        let loading_placeholder =
+            Texture::load_png(&render_state, include_bytes!("../../loading.png")).unwrap();
 
-    pub fn get_or_load(&self, hash: TagHash) -> Option<(Arc<Texture>, TextureId)> {
-        let mut cache = self.cache.write();
-        if let Some(t) = cache.get(&hash) {
-            return t.clone();
-        }
-
-        let texture = match Texture::load(&self.render_state, hash) {
-            Ok(o) => o,
-            Err(e) => {
-                log::error!("Failed to load texture {hash}: {e}");
-                cache.insert(hash, None);
-                return None;
-            }
-        };
-        let id = self.render_state.renderer.write().register_native_texture(
-            &self.render_state.device,
-            &texture.view,
+        let loading_placeholder_id = render_state.renderer.write().register_native_texture(
+            &render_state.device,
+            &loading_placeholder.view,
             wgpu::FilterMode::Linear,
         );
 
-        cache.insert(hash, Some((Arc::new(texture), id)));
-        drop(cache);
+        Self {
+            render_state,
+            cache: Rc::new(RwLock::new(TextureCacheMap::default())),
+            loading_placeholder: (Arc::new(loading_placeholder), loading_placeholder_id),
+        }
+    }
 
+    pub fn get_or_default(&self, hash: TagHash) -> LoadedTexture {
+        self.get_or_load(hash)
+            .unwrap_or_else(|| self.loading_placeholder.clone())
+    }
+
+    pub fn get_or_load(&self, hash: TagHash) -> Option<LoadedTexture> {
+        let mut cache = self.cache.write();
+
+        let c = cache.remove(&hash);
+
+        let texture = if let Some(Either::Left(r)) = c {
+            cache.insert(hash, Left(r.clone()));
+            r.clone()
+        } else if let Some(Either::Right(p)) = c {
+            if let std::task::Poll::Ready(r) = p.poll() {
+                cache.insert(hash, Left(r.clone()));
+                return r.clone();
+            } else {
+                cache.insert(hash, Either::Right(p));
+                None
+            }
+        } else if c.is_none() {
+            cache.insert(
+                hash,
+                Either::Right(Promise::spawn_async(Self::load_texture_task(
+                    self.render_state.clone(),
+                    hash,
+                ))),
+            );
+
+            None
+        } else {
+            None
+        };
+
+        drop(cache);
         self.truncate();
-        self.cache.read().get(&hash).cloned().unwrap()
+
+        texture
+
+        // let res = match cache.get(&hash).take() {
+        //     Some(Either::Left(loaded)) => loaded.clone(),
+        //     Some(Either::Right(loading)) => match loading.poll() {
+        //         std::task::Poll::Ready(r) => cache.insert(hash, Either::Left(r.clone())),
+        //         std::task::Poll::Pending => None,
+        //     },
+        //     None => {
+        //         cache.insert(hash, Either::Right(self.load_texture_task(hash)));
+        //     }
+        // };
+
+        // cache.insert(hash, Some((Arc::new(texture), id)));
+        // drop(cache);
+
+        // self.truncate();
+        // self.cache.read().get(&hash).cloned().unwrap()
+    }
+
+    async fn load_texture_task(render_state: RenderState, hash: TagHash) -> Option<LoadedTexture> {
+        let texture = match Texture::load(&render_state, hash) {
+            Ok(t) => t,
+            Err(e) => {
+                log::error!("Failed to load texture {hash}: {e}");
+                return None;
+            }
+        };
+
+        let id = render_state.renderer.write().register_native_texture(
+            &render_state.device,
+            &texture.view,
+            wgpu::FilterMode::Linear,
+        );
+        Some((Arc::new(texture), id))
     }
 
     pub fn texture_preview(&self, hash: TagHash, ui: &mut eframe::egui::Ui) {
@@ -374,11 +460,6 @@ impl TextureCache {
                 "{}x{}x{} {:?}",
                 tex.width, tex.height, tex.depth, tex.format
             ));
-        } else {
-            ui.colored_label(
-                Color32::RED,
-                "⚠ Texture not found, check log for more information",
-            );
         }
     }
 }
@@ -388,7 +469,7 @@ impl TextureCache {
     fn truncate(&self) {
         let mut cache = self.cache.write();
         while cache.len() > Self::MAX_TEXTURES {
-            if let Some((_, Some((_, tid)))) = cache.pop_front() {
+            if let Some((_, Either::Left(Some((_, tid))))) = cache.pop_front() {
                 self.render_state.renderer.write().free_texture(&tid);
             }
         }
