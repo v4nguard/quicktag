@@ -1,6 +1,5 @@
-use destiny_pkg::TagHash;
+use destiny_pkg::{manager::PackagePath, TagHash};
 use eframe::egui::{self, pos2, vec2, Color32, RichText, Stroke};
-use log::error;
 
 use crate::{packages::package_manager, tagtypes::TagType};
 
@@ -9,6 +8,7 @@ use super::{common::ResponseExt, texture::TextureCache, View, ViewAction};
 pub struct TexturesView {
     selected_package: u16,
     packages_with_textures: Vec<u16>,
+    package_filter: String,
     texture_cache: TextureCache,
     textures: Vec<(usize, TagHash, TagType)>,
 
@@ -17,15 +17,26 @@ pub struct TexturesView {
 
 impl TexturesView {
     pub fn new(texture_cache: TextureCache) -> Self {
-        let packages_with_textures = package_manager()
+        Self {
+            selected_package: u16::MAX,
+            packages_with_textures: Self::search_textures(None),
+            package_filter: String::new(),
+            texture_cache,
+            textures: vec![],
+            keep_aspect_ratio: true,
+        }
+    }
+
+    fn search_textures(search: Option<String>) -> Vec<u16> {
+        let mut packages: Vec<(u16, PackagePath)> = package_manager()
             .package_paths
             .iter()
-            .filter_map(|(id, _path)| {
+            .filter_map(|(id, path)| {
                 if let Some(entries) = package_manager().package_entry_index.get(id) {
                     for e in entries {
                         let st = TagType::from_type_subtype(e.file_type, e.file_subtype);
                         if st.is_texture() && st.is_header() {
-                            return Some(*id);
+                            return Some((*id, path.clone()));
                         }
                     }
                 }
@@ -34,13 +45,18 @@ impl TexturesView {
             })
             .collect();
 
-        Self {
-            selected_package: u16::MAX,
-            packages_with_textures,
-            texture_cache,
-            textures: vec![],
-            keep_aspect_ratio: true,
+        if let Some(search) = search {
+            let search = search.to_lowercase();
+            packages.retain(|(_id, path)| {
+                format!("{}_{}", path.name, path.id)
+                    .to_lowercase()
+                    .contains(&search)
+            });
         }
+
+        packages.sort_by_cached_key(|(_id, path)| format!("{}_{}", path.name, path.id));
+
+        packages.into_iter().map(|(id, _path)| id).collect()
     }
 }
 
@@ -56,6 +72,18 @@ impl View for TexturesView {
             .min_width(256.0)
             .show_inside(ui, |ui| {
                 ui.style_mut().wrap = Some(false);
+
+                ui.horizontal(|ui| {
+                    ui.label("Search:");
+                    if ui.text_edit_singleline(&mut self.package_filter).changed() {
+                        self.packages_with_textures =
+                            Self::search_textures(if self.package_filter.is_empty() {
+                                None
+                            } else {
+                                Some(self.package_filter.clone())
+                            });
+                    }
+                });
                 egui::ScrollArea::vertical()
                     .max_width(f32::INFINITY)
                     .show(ui, |ui| {
@@ -108,9 +136,6 @@ impl View for TexturesView {
                             });
 
                             for (_i, hash, _tag_type) in &self.textures {
-                                // let entry = package_manager().get_entry(*hash).unwrap();
-                                // let entry_name = format_tag_entry(*hash, Some(&entry));
-
                                 let img_container =
                                     ui.allocate_response(vec2(128.0, 128.0), egui::Sense::click());
 

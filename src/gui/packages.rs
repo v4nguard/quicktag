@@ -1,4 +1,4 @@
-use destiny_pkg::TagHash;
+use destiny_pkg::{manager::PackagePath, TagHash};
 use eframe::egui::{self, RichText};
 
 use crate::{packages::package_manager, tagtypes::TagType};
@@ -16,16 +16,26 @@ pub struct PackagesView {
     package_filter: String,
     package_entry_filter: String,
     texture_cache: TextureCache,
+    sorted_package_paths: Vec<(u16, PackagePath)>,
 }
 
 impl PackagesView {
     pub fn new(texture_cache: TextureCache) -> Self {
+        let mut sorted_package_paths: Vec<(u16, PackagePath)> = package_manager()
+            .package_paths
+            .iter()
+            .map(|(id, path)| (*id, path.clone()))
+            .collect();
+
+        sorted_package_paths.sort_by_cached_key(|(_, path)| format!("{}_{}", path.name, path.id));
+
         Self {
             selected_package: u16::MAX,
             package_entry_search_cache: vec![],
             package_filter: String::new(),
             package_entry_filter: String::new(),
             texture_cache,
+            sorted_package_paths,
         }
     }
 }
@@ -48,7 +58,7 @@ impl View for PackagesView {
                 egui::ScrollArea::vertical()
                     .max_width(f32::INFINITY)
                     .show(ui, |ui| {
-                        for (id, path) in package_manager().package_paths.iter() {
+                        for (id, path) in self.sorted_package_paths.iter() {
                             let package_name = format!("{}_{}", path.name, path.id);
                             if !self.package_filter.is_empty()
                                 && !package_name
