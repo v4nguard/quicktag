@@ -52,7 +52,6 @@ pub struct TextureHeader {
     // pub mip_count: u8,
     // pub unk2e: [u8; 10],
     // pub unk38: u32,
-    #[br(seek_before = SeekFrom::Start(0x3c))]
     #[br(map(|v: u32| (v != u32::MAX).then_some(TagHash(v))))]
     pub large_buffer: Option<TagHash>, // prebl: 0x24 / bl: 0x3c
 }
@@ -399,23 +398,6 @@ impl TextureCache {
         self.truncate();
 
         texture
-
-        // let res = match cache.get(&hash).take() {
-        //     Some(Either::Left(loaded)) => loaded.clone(),
-        //     Some(Either::Right(loading)) => match loading.poll() {
-        //         std::task::Poll::Ready(r) => cache.insert(hash, Either::Left(r.clone())),
-        //         std::task::Poll::Pending => None,
-        //     },
-        //     None => {
-        //         cache.insert(hash, Either::Right(self.load_texture_task(hash)));
-        //     }
-        // };
-
-        // cache.insert(hash, Some((Arc::new(texture), id)));
-        // drop(cache);
-
-        // self.truncate();
-        // self.cache.read().get(&hash).cloned().unwrap()
     }
 
     async fn load_texture_task(render_state: RenderState, hash: TagHash) -> Option<LoadedTexture> {

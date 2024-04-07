@@ -597,7 +597,7 @@ impl View for TagView {
                     }
                     Err(e) => {
                         ui.colored_label(Color32::RED, "⚠ Failed to load texture");
-                        ui.colored_label(Color32::RED, format!("{e:?}"));
+                        ui.colored_label(Color32::RED, strip_ansi_codes(&format!("{e:?}")));
                     }
                 }
             } else {
@@ -1191,4 +1191,9 @@ fn find_potential_relpointers(data: &[u64], target_offset: u64) -> Vec<u64> {
     }
 
     result
+}
+
+pub fn strip_ansi_codes(input: &str) -> String {
+    let ansi_escape_pattern = regex::Regex::new(r"\x1B\[[0-9;]*[mK]").unwrap();
+    ansi_escape_pattern.replace_all(input, "").to_string()
 }
