@@ -358,6 +358,10 @@ impl TextureCache {
             loading_placeholder: (Arc::new(loading_placeholder), loading_placeholder_id),
         }
     }
+    
+    pub fn is_loading_textures(&self) -> bool {
+        self.cache.read().iter().any(|(_, v)| matches!(v, Either::Right(_)))
+    }
 
     pub fn get_or_default(&self, hash: TagHash) -> LoadedTexture {
         self.get_or_load(hash)

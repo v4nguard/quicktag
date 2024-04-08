@@ -309,6 +309,11 @@ impl eframe::App for QuickTagApp {
         });
 
         self.toasts.show(ctx);
+        
+        // Redraw the window while we're loading textures. This prevents loading textures from seeming "stuck"
+        if self.texture_cache.is_loading_textures() {
+            ctx.request_repaint();
+        }
     }
 }
 
