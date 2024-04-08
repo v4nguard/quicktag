@@ -1,5 +1,5 @@
 use destiny_pkg::{manager::PackagePath, TagHash};
-use eframe::egui::{self, pos2, vec2, Color32, RichText, Stroke};
+use eframe::egui::{self, pos2, vec2, Color32, RichText, Stroke, Widget};
 
 use crate::{packages::package_manager, tagtypes::TagType};
 
@@ -13,6 +13,7 @@ pub struct TexturesView {
     textures: Vec<(usize, TagHash, TagType)>,
 
     keep_aspect_ratio: bool,
+    zoom: f32,
 }
 
 impl TexturesView {
@@ -24,6 +25,7 @@ impl TexturesView {
             texture_cache,
             textures: vec![],
             keep_aspect_ratio: true,
+            zoom: 1.0,
         }
     }
 
@@ -118,13 +120,21 @@ impl View for TexturesView {
             });
 
         egui::CentralPanel::default().show_inside(ui, |ui| {
-            ui.checkbox(&mut self.keep_aspect_ratio, "Keep aspect ratio");
+            ui.horizontal(|ui| {
+                ui.label("Zoom: ");
+                egui::Slider::new(&mut self.zoom, 0.25..=2.0)
+                    .show_value(true)
+                    .ui(ui);
+
+                ui.checkbox(&mut self.keep_aspect_ratio, "Keep aspect ratio");
+            });
             ui.separator();
             egui::ScrollArea::vertical()
                 .auto_shrink([false, false])
                 .max_width(f32::INFINITY)
                 .show(ui, |ui| {
                     ui.style_mut().wrap = Some(true);
+                    ui.spacing_mut().item_spacing = [4. * self.zoom; 2].into();
 
                     if self.selected_package == u16::MAX {
                         ui.label(RichText::new("No package selected").italics());
@@ -136,8 +146,10 @@ impl View for TexturesView {
                             });
 
                             for (_i, hash, _tag_type) in &self.textures {
-                                let img_container =
-                                    ui.allocate_response(vec2(128.0, 128.0), egui::Sense::click());
+                                let img_container = ui.allocate_response(
+                                    vec2(128.0 * self.zoom, 128.0 * self.zoom),
+                                    egui::Sense::click(),
+                                );
 
                                 let img_container_rect = img_container.rect;
 
