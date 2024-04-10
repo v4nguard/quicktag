@@ -155,6 +155,7 @@ impl Display for TagType {
 impl TagType {
     pub fn from_type_subtype(t: u8, st: u8) -> TagType {
         match package_manager().version {
+            PackageVersion::DestinyInternalAlpha => Self::from_type_subtype_devalpha(t, st),
             PackageVersion::DestinyTheTakenKing => Self::from_type_subtype_ttk(t, st),
             PackageVersion::DestinyRiseOfIron => Self::from_type_subtype_roi(t, st),
             PackageVersion::Destiny2Shadowkeep => Self::from_type_subtype_sk(t, st),
@@ -165,6 +166,17 @@ impl TagType {
                 ftype: t,
                 fsubtype: st,
             },
+        }
+    }
+
+    pub fn from_type_subtype_devalpha(t: u8, st: u8) -> TagType {
+        match (t, st) {
+            (0, 0) => TagType::Tag,
+            (0, 2) => TagType::TagGlobal,
+            (0, 4) => TagType::Havok,
+            (15, 8) => TagType::WwiseBank,
+            (16, 8) => TagType::WwiseStream,
+            (ftype, fsubtype) => TagType::Unknown { ftype, fsubtype },
         }
     }
 

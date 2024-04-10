@@ -204,7 +204,8 @@ impl Texture {
         }
 
         match package_manager().version {
-            destiny_pkg::PackageVersion::DestinyTheTakenKing => todo!(),
+            destiny_pkg::PackageVersion::DestinyInternalAlpha
+            | destiny_pkg::PackageVersion::DestinyTheTakenKing => todo!(),
             destiny_pkg::PackageVersion::DestinyRiseOfIron => {
                 let (texture, texture_data, comment) = Self::load_data_roi_ps4(hash, true)?;
                 Self::create_texture(
@@ -358,9 +359,12 @@ impl TextureCache {
             loading_placeholder: (Arc::new(loading_placeholder), loading_placeholder_id),
         }
     }
-    
+
     pub fn is_loading_textures(&self) -> bool {
-        self.cache.read().iter().any(|(_, v)| matches!(v, Either::Right(_)))
+        self.cache
+            .read()
+            .iter()
+            .any(|(_, v)| matches!(v, Either::Right(_)))
     }
 
     pub fn get_or_default(&self, hash: TagHash) -> LoadedTexture {

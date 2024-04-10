@@ -120,7 +120,8 @@ pub fn scan_file(context: &ScannerContext, data: &[u8]) -> ScanResult {
             });
         }
 
-        if value == 0x80800065 {
+        // cohae: 0x808000CB is used in the alpha
+        if matches!(value, 0x80800065 | 0x808000CB) {
             r.raw_strings.extend(
                 read_raw_string_blob(data, offset as u64)
                     .into_iter()
@@ -163,16 +164,18 @@ pub fn read_raw_string_blob(data: &[u8], offset: u64) -> Vec<(u64, String)> {
     let mut c = Cursor::new(data);
     (|| {
         c.seek(SeekFrom::Start(offset + 4))?;
-        let (buffer_size, buffer_base_offset) =
-            if package_manager().version == PackageVersion::DestinyTheTakenKing {
-                let buffer_size: u32 = c.read_be()?;
-                let buffer_base_offset = offset + 4 + 4;
-                (buffer_size as u64, buffer_base_offset)
-            } else {
-                let buffer_size: u64 = c.read_le()?;
-                let buffer_base_offset = offset + 4 + 8;
-                (buffer_size, buffer_base_offset)
-            };
+        let (buffer_size, buffer_base_offset) = if matches!(
+            package_manager().version,
+            PackageVersion::DestinyInternalAlpha | PackageVersion::DestinyTheTakenKing
+        ) {
+            let buffer_size: u32 = c.read_be()?;
+            let buffer_base_offset = offset + 4 + 4;
+            (buffer_size as u64, buffer_base_offset)
+        } else {
+            let buffer_size: u64 = c.read_le()?;
+            let buffer_base_offset = offset + 4 + 8;
+            (buffer_size, buffer_base_offset)
+        };
 
         let mut buffer = vec![0u8; buffer_size as usize];
         c.read_exact(&mut buffer)?;
@@ -208,10 +211,7 @@ pub fn create_scanner_context(package_manager: &PackageManager) -> anyhow::Resul
     info!("Creating scanner context");
 
     // TODO(cohae): TTK PS4 is little endian
-    let endian = match package_manager.version {
-        PackageVersion::DestinyTheTakenKing => Endian::Big,
-        _ => Endian::Little,
-    };
+    let endian = package_manager.version.endian();
 
     let stringmap = create_stringmap()?;
 
@@ -417,7 +417,9 @@ pub fn load_tag_cache(version: PackageVersion) -> TagCache {
             };
 
             let mut all_tags = match version {
-                PackageVersion::DestinyTheTakenKing => [pkg.get_all_by_type(0, None)].concat(),
+                PackageVersion::DestinyInternalAlpha | PackageVersion::DestinyTheTakenKing => {
+                    [pkg.get_all_by_type(0, None)].concat()
+                }
                 PackageVersion::DestinyRiseOfIron => [
                     pkg.get_all_by_type(16, None),
                     pkg.get_all_by_type(128, None),

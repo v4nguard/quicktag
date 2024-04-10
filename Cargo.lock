@@ -810,9 +810,9 @@ dependencies = [
 
 [[package]]
 name = "destiny-pkg"
-version = "0.9.7"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ce0ccbb10430b85c9cc431ce2dec08fe20ea02ecddb5c3159dc4582baeb46e1"
+checksum = "372027ad668d7735a40d3f66417d0386da12ace3fb41b85fae8937effed4ba02"
 dependencies = [
  "aes",
  "aes-gcm",
@@ -2110,7 +2110,7 @@ dependencies = [
 
 [[package]]
 name = "quicktag"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "base64 0.22.0",

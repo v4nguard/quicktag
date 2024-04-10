@@ -87,7 +87,7 @@ impl TagView {
         let mut raw_string_hashes = vec![];
 
         macro_rules! swap_to_ne {
-            ($v:ident, $endian:ident) => {
+            ($v:expr, $endian:ident) => {
                 if $endian != Endian::NATIVE {
                     $v.swap_bytes()
                 } else {
@@ -97,14 +97,29 @@ impl TagView {
         }
 
         let endian = package_manager().version.endian();
-        let data_chunks_u32 = bytemuck::cast_slice::<u8, u32>(&tag_data[0..tag_data.len() & !3])
-            .iter()
-            .map(|&v| swap_to_ne!(v, endian))
-            .collect_vec();
-        let data_chunks_u64 = bytemuck::cast_slice::<u8, u64>(&tag_data[0..tag_data.len() & !7])
-            .iter()
-            .map(|&v| swap_to_ne!(v, endian))
-            .collect_vec();
+        let mut data_chunks_u32 = vec![0u32; tag_data.len() & !3];
+        let mut data_chunks_u64 = vec![0u64; tag_data.len() & !7];
+
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                tag_data.as_ptr(),
+                data_chunks_u32.as_mut_ptr() as *mut u8,
+                tag_data.len(),
+            );
+            std::ptr::copy_nonoverlapping(
+                tag_data.as_ptr(),
+                data_chunks_u64.as_mut_ptr() as *mut u8,
+                tag_data.len(),
+            );
+        }
+
+        for value in data_chunks_u32.iter_mut() {
+            *value = swap_to_ne!(*value, endian);
+        }
+
+        for value in data_chunks_u64.iter_mut() {
+            *value = swap_to_ne!(*value, endian);
+        }
 
         for (i, &value) in data_chunks_u32.iter().enumerate() {
             let offset = i as u64 * 4;
@@ -113,7 +128,7 @@ impl TagView {
                 array_offsets.push(offset + 4);
             }
 
-            if value == 0x80800065 {
+            if matches!(value, 0x80800065 | 0x808000CB) {
                 raw_string_offsets.push(offset);
             }
 
