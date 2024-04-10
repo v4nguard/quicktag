@@ -109,7 +109,7 @@ impl View for StringsView {
                                             s.to_lowercase()
                                         };
 
-                                        if self.hide_devalpha_str && devstr_regex.is_match(&s) {
+                                        if self.hide_devalpha_str && devstr_regex.is_match(s) {
                                             false
                                         } else if self.exact_match {
                                             match_a == match_b

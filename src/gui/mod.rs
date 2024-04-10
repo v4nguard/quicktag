@@ -9,10 +9,12 @@ mod tag;
 mod texture;
 mod texturelist;
 
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use destiny_pkg::{PackageVersion, TagHash};
-use eframe::egui::{TextEdit, Widget};
+use eframe::egui::{PointerButton, TextEdit, Widget};
 use eframe::egui_wgpu::RenderState;
 use eframe::{
     egui::{self},
@@ -22,6 +24,7 @@ use eframe::{
 use egui_notify::Toasts;
 use poll_promise::Promise;
 
+use crate::gui::tag::TagHistory;
 use crate::scanner::fnv1;
 use crate::text::RawStringHashCache;
 use crate::{
@@ -51,6 +54,7 @@ pub enum Panel {
 pub struct QuickTagApp {
     cache_load: Option<Promise<TagCache>>,
     cache: Arc<TagCache>,
+    tag_history: Rc<RefCell<TagHistory>>,
     strings: Arc<StringCache>,
     raw_strings: Arc<RawStringHashCache>,
 
@@ -100,6 +104,7 @@ impl QuickTagApp {
             cache_load: Some(Promise::spawn_thread("load_cache", move || {
                 load_tag_cache(version)
             })),
+            tag_history: Rc::new(RefCell::new(TagHistory::default())),
             cache: Default::default(),
             tag_view: None,
             tag_input: String::new(),
@@ -267,7 +272,7 @@ impl eframe::App for QuickTagApp {
                             TagHash(u32::from_be(hash))
                         };
 
-                        self.open_tag(tag);
+                        self.open_tag(tag, true);
                     }
 
                     ui.checkbox(&mut self.tag_split, "Split pkg/entry");
@@ -300,16 +305,32 @@ impl eframe::App for QuickTagApp {
                     Panel::RawStrings => self.raw_strings_view.view(ctx, ui),
                 };
 
+                if self.open_panel == Panel::Tag && action.is_none() {
+                    if ui.input(|i| i.pointer.button_pressed(PointerButton::Extra1)) {
+                        let t = self.tag_history.borrow_mut().back();
+                        if let Some(t) = t {
+                            self.open_tag(t, false);
+                        }
+                    }
+
+                    if ui.input(|i| i.pointer.button_pressed(PointerButton::Extra2)) {
+                        let t = self.tag_history.borrow_mut().forward();
+                        if let Some(t) = t {
+                            self.open_tag(t, false);
+                        }
+                    }
+                }
+
                 if let Some(action) = action {
                     match action {
-                        ViewAction::OpenTag(t) => self.open_tag(t),
+                        ViewAction::OpenTag(t) => self.open_tag(t, true),
                     }
                 }
             });
         });
 
         self.toasts.show(ctx);
-        
+
         // Redraw the window while we're loading textures. This prevents loading textures from seeming "stuck"
         if self.texture_cache.is_loading_textures() {
             ctx.request_repaint();
@@ -318,9 +339,10 @@ impl eframe::App for QuickTagApp {
 }
 
 impl QuickTagApp {
-    fn open_tag(&mut self, tag: TagHash) {
+    fn open_tag(&mut self, tag: TagHash, push_history: bool) {
         let new_view = TagView::create(
             self.cache.clone(),
+            self.tag_history.clone(),
             self.strings.clone(),
             self.raw_strings.clone(),
             tag,
@@ -338,6 +360,10 @@ impl QuickTagApp {
         } else {
             self.toasts
                 .error(format!("Could not find tag '{}' ({tag})", self.tag_input));
+        }
+
+        if push_history {
+            self.tag_history.borrow_mut().push(tag);
         }
     }
 }

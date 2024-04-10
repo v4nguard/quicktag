@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::{
     collections::HashSet,
     fmt::Display,
@@ -10,10 +11,10 @@ use std::{
 use binrw::{binread, BinReaderExt, Endian};
 use destiny_pkg::{package::UEntryHeader, PackageVersion, TagHash, TagHash64};
 use eframe::egui::load::SizedTexture;
-use eframe::egui::{collapsing_header::CollapsingState, vec2, TextureId};
+use eframe::egui::{collapsing_header::CollapsingState, vec2, RichText, TextureId};
 use eframe::egui_wgpu::RenderState;
 use eframe::{
-    egui::{self, CollapsingHeader, RichText},
+    egui::{self, CollapsingHeader},
     epaint::Color32,
     wgpu,
 };
@@ -22,6 +23,7 @@ use log::error;
 use poll_promise::Promise;
 use rustc_hash::FxHashMap;
 use std::fmt::Write;
+use std::rc::Rc;
 
 use crate::{gui::texture::Texture, scanner::read_raw_string_blob, text::RawStringHashCache};
 use crate::{
@@ -43,6 +45,7 @@ use super::{
 
 pub struct TagView {
     cache: Arc<TagCache>,
+    tag_history: Rc<RefCell<TagHistory>>,
     string_cache: Arc<StringCache>,
     raw_string_hash_cache: Arc<RawStringHashCache>,
 
@@ -74,6 +77,7 @@ pub struct TagView {
 impl TagView {
     pub fn create(
         cache: Arc<TagCache>,
+        tag_history: Rc<RefCell<TagHistory>>,
         string_cache: Arc<StringCache>,
         raw_string_hash_cache: Arc<RawStringHashCache>,
         tag: TagHash,
@@ -237,6 +241,7 @@ impl TagView {
 
             scan,
             cache,
+            tag_history,
             traversal_depth_limit: 16,
             tag_traversal: None,
             traversal_show_strings: false,
@@ -252,9 +257,13 @@ impl TagView {
     }
 
     /// Replaces this view with another tag
-    pub fn open_tag(&mut self, tag: TagHash) {
+    pub fn open_tag(&mut self, tag: TagHash, push_history: bool) {
+        if push_history {
+            self.tag_history.borrow_mut().push(tag);
+        }
         if let Some(mut tv) = Self::create(
             self.cache.clone(),
+            self.tag_history.clone(),
             self.string_cache.clone(),
             self.raw_string_hash_cache.clone(),
             tag,
@@ -373,6 +382,49 @@ impl View for TagView {
         ui: &mut eframe::egui::Ui,
     ) -> Option<ViewAction> {
         let mut open_new_tag = None;
+        let mut push_history = true;
+
+        ui.horizontal(|ui| {
+            let mut history = self.tag_history.borrow_mut();
+
+            ui.style_mut().spacing.button_padding = [4.0, 4.0].into();
+            ui.add_enabled_ui(history.current > 0, |ui| {
+                if ui.button(RichText::new("⬅").strong()).clicked() {
+                    open_new_tag = history.back();
+                    push_history = false;
+                }
+            });
+
+            ui.add_enabled_ui((history.current + 1) < history.tags.len(), |ui| {
+                if ui.button(RichText::new("➡").strong()).clicked() {
+                    open_new_tag = history.forward();
+                    push_history = false;
+                }
+            });
+
+            egui::ComboBox::new("tag_history", "")
+                .selected_text("History")
+                .show_ui(ui, |ui| {
+                    let mut set_current = None;
+                    for (i, (tag, tag_label, tag_color)) in history.tags.iter().enumerate().rev() {
+                        if ui
+                            .selectable_label(
+                                i == history.current,
+                                RichText::new(tag_label).color(*tag_color),
+                            )
+                            .clicked()
+                        {
+                            open_new_tag = Some(*tag);
+                            push_history = false;
+                            set_current = Some(i);
+                        }
+                    }
+
+                    if let Some(i) = set_current {
+                        history.current = i;
+                    }
+                });
+        });
 
         ui.heading(format_tag_entry(self.tag, Some(&self.tag_entry)))
             .context_menu(|ui| tag_context(ui, self.tag, self.tag64));
@@ -812,7 +864,7 @@ impl View for TagView {
         ctx.request_repaint_after(Duration::from_secs(1));
 
         if let Some(new_tag) = open_new_tag {
-            self.open_tag(new_tag);
+            self.open_tag(new_tag, push_history);
         }
 
         None
@@ -1213,4 +1265,50 @@ fn find_potential_relpointers(data: &[u64], target_offset: u64) -> Vec<u64> {
 pub fn strip_ansi_codes(input: &str) -> String {
     let ansi_escape_pattern = regex::Regex::new(r"\x1B\[[0-9;]*[mK]").unwrap();
     ansi_escape_pattern.replace_all(input, "").to_string()
+}
+
+#[derive(Default)]
+pub struct TagHistory {
+    pub tags: Vec<(TagHash, String, Color32)>,
+    pub current: usize,
+}
+
+impl TagHistory {
+    pub fn push(&mut self, tag: TagHash) {
+        self.tags.truncate(self.current + 1);
+
+        if let Some(entry) = package_manager().get_entry(tag) {
+            let tagtype = TagType::from_type_subtype(entry.file_type, entry.file_subtype);
+            let color = tagtype.display_color();
+            let fancy_tag = format_tag_entry(tag, Some(&entry));
+
+            self.tags.push((tag, fancy_tag, color));
+        } else {
+            self.tags.push((
+                tag,
+                format!("{tag} (pkg entry not found)"),
+                Color32::LIGHT_RED,
+            ));
+        }
+
+        self.current = self.tags.len().saturating_sub(1);
+    }
+
+    pub fn back(&mut self) -> Option<TagHash> {
+        if self.current > 0 {
+            self.current -= 1;
+            self.tags.get(self.current).map(|v| v.0)
+        } else {
+            None
+        }
+    }
+
+    pub fn forward(&mut self) -> Option<TagHash> {
+        if (self.current + 1) < self.tags.len() {
+            self.current += 1;
+            self.tags.get(self.current).map(|v| v.0)
+        } else {
+            None
+        }
+    }
 }
