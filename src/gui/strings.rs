@@ -31,12 +31,19 @@ pub struct StringsView {
 
     exact_match: bool,
     case_sensitive: bool,
+    hide_devalpha_str: bool,
 }
 
 impl StringsView {
     pub fn new(strings: Arc<StringCache>, cache: Arc<TagCache>) -> Self {
-        let strings_vec_filtered: StringCacheVec =
+        let devstr_regex = regex::Regex::new(r"^str[0-9]*").unwrap();
+        let mut strings_vec_filtered: StringCacheVec =
             strings.iter().map(|(k, v)| (*k, v.clone())).collect();
+
+        let hide_devalpha_str = package_manager().version == PackageVersion::DestinyInternalAlpha;
+        if hide_devalpha_str {
+            strings_vec_filtered.retain(|(_, s)| !devstr_regex.is_match(&s[0]));
+        }
 
         Self {
             cache,
@@ -47,6 +54,7 @@ impl StringsView {
             string_selected_entries: vec![],
             exact_match: false,
             case_sensitive: false,
+            hide_devalpha_str,
         }
     }
 }
@@ -57,6 +65,7 @@ impl View for StringsView {
         _ctx: &eframe::egui::Context,
         ui: &mut eframe::egui::Ui,
     ) -> Option<super::ViewAction> {
+        let devstr_regex = regex::Regex::new(r"^str[0-9]*").unwrap();
         egui::SidePanel::left("strings_left_panel")
             .resizable(true)
             .min_width(384.0)
@@ -76,6 +85,12 @@ impl View for StringsView {
                         .checkbox(&mut self.case_sensitive, "Case sensitive")
                         .changed();
 
+                    if package_manager().version == PackageVersion::DestinyInternalAlpha {
+                        update_search |= ui
+                            .checkbox(&mut self.hide_devalpha_str, "Hide devalpha strXX strings")
+                            .changed();
+                    }
+
                     if update_search {
                         self.strings_vec_filtered = if !self.string_filter.is_empty() {
                             let match_b = if self.case_sensitive {
@@ -94,7 +109,9 @@ impl View for StringsView {
                                             s.to_lowercase()
                                         };
 
-                                        if self.exact_match {
+                                        if self.hide_devalpha_str && devstr_regex.is_match(&s) {
+                                            false
+                                        } else if self.exact_match {
                                             match_a == match_b
                                         } else {
                                             match_a.contains(&match_b)
@@ -104,10 +121,17 @@ impl View for StringsView {
                                 .map(|(k, v)| (*k, v.clone()))
                                 .collect()
                         } else {
-                            self.strings
+                            let mut strings_vec_filtered = self
+                                .strings
                                 .iter()
                                 .map(|(k, v)| (*k, v.clone()))
-                                .collect_vec()
+                                .collect_vec();
+
+                            if self.hide_devalpha_str {
+                                strings_vec_filtered.retain(|(_, s)| !devstr_regex.is_match(&s[0]));
+                            }
+
+                            strings_vec_filtered
                         };
                     }
                 });
@@ -119,6 +143,7 @@ impl View for StringsView {
 
                 egui::ScrollArea::vertical()
                     .max_width(ui.available_width() * 0.70)
+                    .auto_shrink([false, false])
                     .show_rows(
                         ui,
                         string_height,

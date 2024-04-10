@@ -14,6 +14,11 @@ lazy_static::lazy_static! {
         (0x80800090, "Vec4"),
     ]);
 
+    pub static ref REFERENCE_MAP_DEVALPHA: FxHashMap<u32, &'static str> = FxHashMap::from_iter([
+        (0x808004A8, "SLocalizedStrings"),
+        (0x808004A6, "SLocalizedStringsData"),
+    ]);
+
     pub static ref REFERENCE_MAP_TTK: FxHashMap<u32, &'static str> = FxHashMap::from_iter([
         (0x8080035A, "SLocalizedStrings"),
         (0x80800734, "SEntity"),
@@ -98,6 +103,7 @@ pub fn initialize_reference_names() {
     let mut references: FxHashMap<u32, &'static str> = REFERENCE_MAP_BASE_PRIMITIVES.clone();
 
     let version_specific = match package_manager().version {
+        destiny_pkg::PackageVersion::DestinyInternalAlpha => REFERENCE_MAP_DEVALPHA.clone(),
         destiny_pkg::PackageVersion::DestinyTheTakenKing => REFERENCE_MAP_TTK.clone(),
         destiny_pkg::PackageVersion::DestinyRiseOfIron => REFERENCE_MAP_ROI.clone(),
         destiny_pkg::PackageVersion::Destiny2Shadowkeep => REFERENCE_MAP_SK.clone(),

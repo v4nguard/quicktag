@@ -522,7 +522,6 @@ pub fn create_stringmap_d1_devalpha() -> anyhow::Result<StringCache> {
             }
         };
 
-        println!("{}", textset_header.language_english);
         for (combination, hash) in text_data
             .string_combinations
             .iter()
