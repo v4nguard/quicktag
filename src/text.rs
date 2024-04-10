@@ -5,9 +5,9 @@ use std::io::{Cursor, Read, Seek, SeekFrom};
 use std::ops::Deref;
 use std::slice::Iter;
 
-use binrw::{BinRead, BinReaderExt, BinResult, Endian};
+use binrw::{BinRead, BinReaderExt, BinResult, Endian, VecArgs};
 use destiny_pkg::{PackageVersion, TagHash};
-use log::warn;
+use log::{error, warn};
 use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::packages::package_manager;
@@ -189,6 +189,12 @@ impl<O: Into<i64> + Copy, T: BinRead + Debug> From<_RelPointer<O, T>> for SeekFr
     }
 }
 
+impl<O: Into<i64> + Copy, T: BinRead + Debug> _RelPointer<O, T> {
+    fn offset_absolute(&self) -> u64 {
+        (self.offset_base as i64 + self.offset.into()) as u64
+    }
+}
+
 #[derive(BinRead, Debug)]
 pub struct StringContainer {
     pub file_size: u64,
@@ -298,6 +304,30 @@ pub struct StringCombinationD1 {
     pub part_count: i32,
 }
 
+#[derive(BinRead, Debug)]
+pub struct StringDataD1Alpha {
+    pub file_size: u32,
+    pub _unk4: (u32, u32),
+    /// Plain UTF16 string data
+    pub string_data: TablePointer32<u16>,
+    pub string_combinations: TablePointer32<StringCombinationD1Alpha>,
+}
+
+#[derive(BinRead, Debug)]
+pub struct StringCombinationD1Alpha {
+    pub string_parts: TablePointer32<StringPartD1Alpha>,
+}
+
+#[derive(BinRead, Debug)]
+pub struct StringPartD1Alpha {
+    pub _unk0: u32,
+    pub _unk1: u32,
+    pub _unk2: u32,
+
+    pub data_start: RelPointer32,
+    pub data_end: RelPointer32,
+}
+
 /// Expects raw un-shifted data as input
 pub fn decode_text(data: &[u8], cipher: u16) -> String {
     // cohae: Modern versions of D2 no longer use the cipher system, we can take a shortcut
@@ -344,11 +374,10 @@ pub fn create_stringmap() -> anyhow::Result<StringCache> {
             | PackageVersion::DestinyRiseOfIron
     ) {
         create_stringmap_d2()
-    } else if matches!(
-        package_manager().version,
-        PackageVersion::DestinyTheTakenKing
-    ) {
+    } else if package_manager().version == PackageVersion::DestinyTheTakenKing {
         create_stringmap_d1()
+    } else if package_manager().version == PackageVersion::DestinyInternalAlpha {
+        create_stringmap_d1_devalpha()
     } else {
         warn!(
             "{:?} does not support string loading",
@@ -417,7 +446,7 @@ pub fn create_stringmap_d2() -> anyhow::Result<StringCache> {
 pub fn create_stringmap_d1() -> anyhow::Result<StringCache> {
     let mut tmp_map: FxHashMap<u32, FxHashSet<String>> = Default::default();
     for (t, _) in package_manager()
-        .get_all_by_reference(0x8080035a)
+        .get_all_by_reference(0x8080035A)
         .into_iter()
     {
         let Ok(textset_header) = package_manager().read_tag_binrw::<StringContainerD1>(t) else {
@@ -428,8 +457,12 @@ pub fn create_stringmap_d1() -> anyhow::Result<StringCache> {
             continue;
         };
         let mut cur = Cursor::new(&data);
-        let Ok(text_data) = cur.read_be::<StringDataD1>() else {
-            continue;
+        let text_data = match cur.read_be::<StringDataD1>() {
+            Ok(data) => data,
+            Err(e) => {
+                error!("Failed to read string data: {:?}", e);
+                continue;
+            }
         };
 
         for (combination, hash) in text_data
@@ -451,6 +484,66 @@ pub fn create_stringmap_d1() -> anyhow::Result<StringCache> {
                 let mut data = vec![0u8; part.byte_length as usize];
                 cur.read_exact(&mut data)?;
                 final_string += &decode_text(&data, part.cipher_shift);
+            }
+
+            tmp_map.entry(*hash).or_default().insert(final_string);
+        }
+    }
+
+    Ok(tmp_map
+        .into_iter()
+        .map(|(k, v)| (k, v.into_iter().collect()))
+        .collect())
+}
+
+pub fn create_stringmap_d1_devalpha() -> anyhow::Result<StringCache> {
+    let mut tmp_map: FxHashMap<u32, FxHashSet<String>> = Default::default();
+    for (t, _) in package_manager()
+        .get_all_by_reference(0x808004A8)
+        .into_iter()
+    {
+        let textset_header = match package_manager().read_tag_binrw::<StringContainerD1>(t) {
+            Ok(data) => data,
+            Err(e) => {
+                error!("Failed to read string container: {:?}", e);
+                continue;
+            }
+        };
+
+        let Ok(data) = package_manager().read_tag(textset_header.language_english) else {
+            continue;
+        };
+        let mut cur = Cursor::new(&data);
+        let text_data = match cur.read_be::<StringDataD1Alpha>() {
+            Ok(data) => data,
+            Err(e) => {
+                error!("Failed to read string data: {:?}", e);
+                continue;
+            }
+        };
+
+        println!("{}", textset_header.language_english);
+        for (combination, hash) in text_data
+            .string_combinations
+            .iter()
+            .zip(textset_header.string_hashes.iter())
+        {
+            if *hash == 0x811c9dc5 {
+                continue;
+            }
+
+            let mut final_string = String::new();
+
+            for part in combination.string_parts.iter() {
+                cur.seek(part.data_start.into())?;
+                let data_length =
+                    (part.data_end.offset_absolute() - part.data_start.offset_absolute()) as usize;
+                let data: Vec<u16> = cur.read_be_args(VecArgs {
+                    count: data_length / 2,
+                    inner: (),
+                })?;
+
+                final_string += &String::from_utf16_lossy(&data);
             }
 
             tmp_map.entry(*hash).or_default().insert(final_string);
