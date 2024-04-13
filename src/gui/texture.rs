@@ -10,7 +10,7 @@ use eframe::epaint::mutex::RwLock;
 use eframe::epaint::{vec2, TextureId};
 use eframe::wgpu;
 use eframe::wgpu::util::DeviceExt;
-use eframe::wgpu::TextureDimension;
+use eframe::wgpu::{TextureDescriptor, TextureDimension, TextureFormat};
 use either::Either::{self, Left};
 use image::GenericImageView;
 use linked_hash_map::LinkedHashMap;
@@ -89,11 +89,20 @@ pub struct Texture {
     pub comment: Option<String>,
 }
 
-struct TextureDesc {
+pub struct TextureDesc {
     pub format: wgpu::TextureFormat,
     pub width: u32,
     pub height: u32,
     pub depth: u32,
+}
+
+impl TextureDesc {
+    pub fn info(&self) -> String {
+        format!(
+            "{}x{}x{} {:?}",
+            self.width, self.height, self.depth, self.format
+        )
+    }
 }
 
 impl Texture {
@@ -195,6 +204,51 @@ impl Texture {
             Ok((texture, unswizzled, comment))
         } else {
             Ok((texture, texture_data, comment))
+        }
+    }
+
+    pub fn load_desc(hash: TagHash) -> anyhow::Result<TextureDesc> {
+        if package_manager().version.is_d1() && package_manager().platform != PackagePlatform::PS4 {
+            anyhow::bail!("Textures are not supported for D1");
+        }
+
+        match package_manager().version {
+            destiny_pkg::PackageVersion::DestinyInternalAlpha
+            | destiny_pkg::PackageVersion::DestinyTheTakenKing => todo!(),
+            destiny_pkg::PackageVersion::DestinyRiseOfIron => {
+                let texture: TextureHeaderRoiPs4 = package_manager().read_tag_binrw(hash)?;
+                Ok(TextureDesc {
+                    format: texture.format.to_wgpu()?,
+                    width: texture.width as u32,
+                    height: texture.height as u32,
+                    depth: texture.depth as u32,
+                })
+            }
+            destiny_pkg::PackageVersion::Destiny2Beta
+            | destiny_pkg::PackageVersion::Destiny2Shadowkeep
+            | destiny_pkg::PackageVersion::Destiny2BeyondLight
+            | destiny_pkg::PackageVersion::Destiny2WitchQueen
+            | destiny_pkg::PackageVersion::Destiny2Lightfall => {
+                let header_data = package_manager()
+                    .read_tag(hash)
+                    .context("Failed to read texture header")?;
+
+                let is_prebl = matches!(
+                    package_manager().version,
+                    destiny_pkg::PackageVersion::Destiny2Beta
+                        | destiny_pkg::PackageVersion::Destiny2Shadowkeep
+                );
+
+                let mut cur = std::io::Cursor::new(header_data);
+                let texture: TextureHeader = cur.read_le_args((is_prebl,))?;
+
+                Ok(TextureDesc {
+                    format: texture.format.to_wgpu()?,
+                    width: texture.width as u32,
+                    height: texture.height as u32,
+                    depth: texture.depth as u32,
+                })
+            }
         }
     }
 
@@ -325,6 +379,27 @@ impl Texture {
             None,
         )
     }
+
+    // fn to_rgba(&self, rs: &RenderState) -> anyhow::Result<Vec<u8>> {
+    //     let mut encoder = rs
+    //         .device
+    //         .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+    //
+    //     let rgba_buffer = rs.device.create_texture(&TextureDescriptor {
+    //         label: None,
+    //         size: Default::default(),
+    //         mip_level_count: 0,
+    //         sample_count: 0,
+    //         dimension: TextureDimension::D2,
+    //         format: TextureFormat::Rgba8UnormSrgb,
+    //         usage: wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::COPY_DST,
+    //         view_formats: &[TextureFormat::Rgba8UnormSrgb],
+    //     });
+    //
+    //     rs.queue.submit([encoder.finish()]);
+    //
+    //     Ok(vec![])
+    // }
 }
 
 pub type LoadedTexture = (Arc<Texture>, TextureId);
@@ -561,3 +636,20 @@ mod swizzle {
         }
     }
 }
+
+// mod texture_capture {
+//     fn capture_texture(
+//         rs: &super::RenderState,
+//         texture: &super::Texture,
+//     ) -> anyhow::Result<Vec<u8>> {
+//         todo!()
+//     }
+//
+//     /// Capture a texture to a raw RGBA buffer
+//     pub fn capture_texture(
+//         rs: &super::RenderState,
+//         texture: &super::Texture,
+//     ) -> anyhow::Result<Vec<u8>> {
+//         todo!()
+//     }
+// }

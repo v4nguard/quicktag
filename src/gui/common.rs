@@ -22,6 +22,11 @@ pub trait ResponseExt {
 }
 
 impl ResponseExt for egui::Response {
+    fn tag_context(&self, tag: TagHash, tag64: Option<TagHash64>) -> &Self {
+        self.context_menu(|ui| tag_context(ui, tag, tag64));
+        self
+    }
+
     fn tag_context_with_texture(
         self,
         tag: TagHash,
@@ -37,11 +42,6 @@ impl ResponseExt for egui::Response {
         } else {
             self
         }
-    }
-
-    fn tag_context(&self, tag: TagHash, tag64: Option<TagHash64>) -> &Self {
-        self.context_menu(|ui| tag_context(ui, tag, tag64));
-        self
     }
 }
 

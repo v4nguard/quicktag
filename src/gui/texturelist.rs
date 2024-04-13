@@ -1,6 +1,9 @@
 use destiny_pkg::{manager::PackagePath, TagHash};
 use eframe::egui::{self, pos2, vec2, Color32, RichText, Stroke, Widget};
+use rayon::iter::{ParallelBridge, ParallelIterator};
+use std::fmt::{Display, Formatter};
 
+use crate::gui::texture::{Texture, TextureDesc};
 use crate::{packages::package_manager, tagtypes::TagType};
 
 use super::{common::ResponseExt, texture::TextureCache, View, ViewAction};
@@ -10,10 +13,12 @@ pub struct TexturesView {
     packages_with_textures: Vec<u16>,
     package_filter: String,
     texture_cache: TextureCache,
-    textures: Vec<(usize, TagHash, TagType)>,
+    textures: Vec<(usize, TagHash, TagType, Option<TextureDesc>)>,
 
     keep_aspect_ratio: bool,
     zoom: f32,
+    sorting: Sorting,
+    filter_texdesc: String,
 }
 
 impl TexturesView {
@@ -26,6 +31,8 @@ impl TexturesView {
             textures: vec![],
             keep_aspect_ratio: true,
             zoom: 1.0,
+            sorting: Sorting::IndexAsc,
+            filter_texdesc: String::new(),
         }
     }
 
@@ -60,6 +67,23 @@ impl TexturesView {
 
         packages.into_iter().map(|(id, _path)| id).collect()
     }
+
+    fn apply_sorting(&mut self) {
+        match self.sorting {
+            Sorting::IndexAsc | Sorting::IndexDesc => {
+                self.textures.sort_by_cached_key(|(i, _, _, _)| *i);
+            }
+            Sorting::SizeAsc | Sorting::SizeDesc => {
+                self.textures.sort_by_cached_key(|(_, _, _, desc)| {
+                    desc.as_ref().map(|d| d.width * d.height).unwrap_or(0)
+                });
+            }
+        }
+
+        if self.sorting.is_descending() {
+            self.textures.reverse();
+        }
+    }
 }
 
 impl View for TexturesView {
@@ -89,6 +113,7 @@ impl View for TexturesView {
                 egui::ScrollArea::vertical()
                     .max_width(f32::INFINITY)
                     .show(ui, |ui| {
+                        let mut update_filters = false;
                         for id in &self.packages_with_textures {
                             let path = &package_manager().package_paths[id];
                             let package_name = format!("{}_{}", path.name, path.id);
@@ -107,14 +132,64 @@ impl View for TexturesView {
                                     .filter_map(|(i, e)| {
                                         let st =
                                             TagType::from_type_subtype(e.file_type, e.file_subtype);
+
+                                        let hash = TagHash::new(*id, i as u16);
                                         if st.is_texture() && st.is_header() {
-                                            Some((i, TagHash::new(*id, i as u16), st))
+                                            Some((i, hash, st, Texture::load_desc(hash).ok()))
                                         } else {
                                             None
                                         }
                                     })
                                     .collect();
+
+                                update_filters = true;
                             }
+                        }
+
+                        // cohae: Activate at your own risk. May cause death
+                        // if ui
+                        //     .selectable_value(
+                        //         &mut self.selected_package,
+                        //         0xffff - 1,
+                        //         "All Uncompressed".to_string(),
+                        //     )
+                        //     .changed()
+                        // {
+                        //     self.textures = package_manager()
+                        //         .package_entry_index
+                        //         .iter()
+                        //         .par_bridge()
+                        //         .flat_map(|(pkg_id, entries)| {
+                        //             let mut tex_entries = vec![];
+                        //             for (i, e) in entries.iter().enumerate() {
+                        //                 let hash = TagHash::new(*pkg_id, i as u16);
+                        //                 let st =
+                        //                     TagType::from_type_subtype(e.file_type, e.file_subtype);
+                        //                 if st.is_texture() && st.is_header() {
+                        //                     let Ok(desc) = Texture::load_desc(hash) else {
+                        //                         continue;
+                        //                     };
+                        // 
+                        //                     if !desc.format.is_compressed() {
+                        //                         tex_entries.push((
+                        //                             (*pkg_id as usize) * 8192 + i,
+                        //                             hash,
+                        //                             st,
+                        //                             Some(desc),
+                        //                         ));
+                        //                     }
+                        //                 }
+                        //             }
+                        // 
+                        //             tex_entries
+                        //         })
+                        //         .collect();
+                        // 
+                        //     update_filters = true;
+                        // }
+
+                        if update_filters {
+                            self.apply_sorting();
                         }
                     });
             });
@@ -127,7 +202,36 @@ impl View for TexturesView {
                     .ui(ui);
 
                 ui.checkbox(&mut self.keep_aspect_ratio, "Keep aspect ratio");
+
+                if egui::ComboBox::from_label("Sort by")
+                    .selected_text(&self.sorting.to_string())
+                    .show_ui(ui, |ui| {
+                        let mut changed = ui
+                            .selectable_value(&mut self.sorting, Sorting::IndexAsc, "Index ⬆")
+                            .changed();
+                        changed |= ui
+                            .selectable_value(&mut self.sorting, Sorting::IndexDesc, "Index ⬇")
+                            .changed();
+                        changed |= ui
+                            .selectable_value(&mut self.sorting, Sorting::SizeAsc, "Size ⬆")
+                            .changed();
+                        changed |= ui
+                            .selectable_value(&mut self.sorting, Sorting::SizeDesc, "Size ⬇")
+                            .changed();
+                        changed
+                    })
+                    .inner
+                    .unwrap_or(false)
+                {
+                    self.apply_sorting();
+                }
             });
+
+            ui.horizontal(|ui| {
+                ui.label("Texture desc filter: ");
+                ui.text_edit_singleline(&mut self.filter_texdesc).changed();
+            });
+
             ui.separator();
             egui::ScrollArea::vertical()
                 .auto_shrink([false, false])
@@ -145,7 +249,16 @@ impl View for TexturesView {
                                 s.interaction.tooltip_delay = 0.0;
                             });
 
-                            for (_i, hash, _tag_type) in &self.textures {
+                            let filter = self.filter_texdesc.to_lowercase();
+                            for (_i, hash, _tag_type, desc) in &self.textures {
+                                if let Some(desc) = desc {
+                                    if !filter.is_empty()
+                                        && !desc.info().to_lowercase().contains(&filter)
+                                    {
+                                        continue;
+                                    }
+                                }
+
                                 let img_container = ui.allocate_response(
                                     vec2(128.0 * self.zoom, 128.0 * self.zoom),
                                     egui::Sense::click(),
@@ -205,6 +318,7 @@ impl View for TexturesView {
                                             &self.texture_cache,
                                             true,
                                         )
+                                        .on_hover_text(RichText::new(format!("{hash}")).strong())
                                         .clicked()
                                     {
                                         action = Some(ViewAction::OpenTag(*hash));
@@ -217,5 +331,32 @@ impl View for TexturesView {
         });
 
         action
+    }
+}
+
+#[derive(Default, PartialEq)]
+pub enum Sorting {
+    #[default]
+    IndexAsc,
+    IndexDesc,
+
+    SizeAsc,
+    SizeDesc,
+}
+
+impl Sorting {
+    pub fn is_descending(&self) -> bool {
+        matches!(self, Sorting::IndexDesc | Sorting::SizeDesc)
+    }
+}
+
+impl Display for Sorting {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Sorting::IndexAsc => f.write_str("Index ⬆"),
+            Sorting::IndexDesc => f.write_str("Index ⬇"),
+            Sorting::SizeAsc => f.write_str("Size ⬆"),
+            Sorting::SizeDesc => f.write_str("Size ⬇"),
+        }
     }
 }
