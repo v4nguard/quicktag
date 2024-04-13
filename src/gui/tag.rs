@@ -108,12 +108,12 @@ impl TagView {
             std::ptr::copy_nonoverlapping(
                 tag_data.as_ptr(),
                 data_chunks_u32.as_mut_ptr() as *mut u8,
-                tag_data.len(),
+                data_chunks_u32.len() * 4,
             );
             std::ptr::copy_nonoverlapping(
                 tag_data.as_ptr(),
                 data_chunks_u64.as_mut_ptr() as *mut u8,
-                tag_data.len(),
+                data_chunks_u64.len() * 8,
             );
         }
 
