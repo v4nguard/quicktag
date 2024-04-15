@@ -198,8 +198,7 @@ impl Texture {
                 &mut unswizzled,
                 texture.width as usize,
                 texture.height as usize,
-                texture.format.block_size(),
-                texture.format.pixel_block_size(),
+                texture.format,
             );
             Ok((texture, unswizzled, comment))
         } else {
@@ -571,25 +570,37 @@ mod swizzle {
     }
 
     pub(crate) mod ps4 {
+        use crate::gui::dxgi::GcnSurfaceFormat;
+
         // https://github.com/tge-was-taken/GFD-Studio/blob/dad6c2183a6ec0716c3943b71991733bfbd4649d/GFDLibrary/Textures/Swizzle/PS4SwizzleAlgorithm.cs#L20
         fn do_swizzle(
             source: &[u8],
             destination: &mut [u8],
             width: usize,
             height: usize,
-            block_size: usize,
-            pixel_block_size: usize,
+            format: GcnSurfaceFormat,
             unswizzle: bool,
         ) {
-            let width_pow2 = width.next_power_of_two();
-            let height_pow2 = height.next_power_of_two();
+            let pixel_block_size = format.pixel_block_size();
+            let block_size = format.block_size();
+
+            let width_src = if format.is_compressed() {
+                width.next_power_of_two()
+            } else {
+                width
+            };
+            let height_src = if format.is_compressed() {
+                height.next_power_of_two()
+            } else {
+                height
+            };
 
             let width_texels_dest = width / pixel_block_size;
             let height_texels_dest = height / pixel_block_size;
 
-            let width_texels = width_pow2 / pixel_block_size;
+            let width_texels = width_src / pixel_block_size;
             let width_texels_aligned = (width_texels + 7) / 8;
-            let height_texels = height_pow2 / pixel_block_size;
+            let height_texels = height_src / pixel_block_size;
             let height_texels_aligned = (height_texels + 7) / 8;
             let mut data_index = 0;
 
@@ -611,8 +622,12 @@ mod swizzle {
                                 (dest_index, data_index)
                             };
 
-                            destination[dst..dst + block_size]
-                                .copy_from_slice(&source[src..src + block_size]);
+                            if (src + block_size) < source.len()
+                                && (dst + block_size) < destination.len()
+                            {
+                                destination[dst..dst + block_size]
+                                    .copy_from_slice(&source[src..src + block_size]);
+                            }
                         }
 
                         data_index += block_size;
@@ -626,19 +641,10 @@ mod swizzle {
             destination: &mut Vec<u8>,
             width: usize,
             height: usize,
-            block_size: usize,
-            pixel_block_size: usize,
+            format: GcnSurfaceFormat,
         ) {
             destination.resize(source.len(), 0);
-            do_swizzle(
-                source,
-                destination,
-                width,
-                height,
-                block_size,
-                pixel_block_size,
-                true,
-            );
+            do_swizzle(source, destination, width, height, format, true);
         }
     }
 }

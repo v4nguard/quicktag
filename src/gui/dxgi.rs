@@ -652,18 +652,18 @@ impl GcnSurfaceFormat {
         }
     }
 
-    // pub fn is_compressed(&self) -> bool {
-    //     matches!(
-    //         self,
-    //         GcnSurfaceFormat::BC1
-    //             | GcnSurfaceFormat::BC2
-    //             | GcnSurfaceFormat::BC3
-    //             | GcnSurfaceFormat::BC4
-    //             | GcnSurfaceFormat::BC5
-    //             | GcnSurfaceFormat::BC6
-    //             | GcnSurfaceFormat::BC7
-    //     )
-    // }
+    pub fn is_compressed(&self) -> bool {
+        matches!(
+            self,
+            GcnSurfaceFormat::BC1
+                | GcnSurfaceFormat::BC2
+                | GcnSurfaceFormat::BC3
+                | GcnSurfaceFormat::BC4
+                | GcnSurfaceFormat::BC5
+                | GcnSurfaceFormat::BC6
+                | GcnSurfaceFormat::BC7
+        )
+    }
 }
 
 impl TryFrom<u16> for GcnSurfaceFormat {
