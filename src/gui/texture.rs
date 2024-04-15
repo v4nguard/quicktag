@@ -574,17 +574,22 @@ mod swizzle {
         // https://github.com/tge-was-taken/GFD-Studio/blob/dad6c2183a6ec0716c3943b71991733bfbd4649d/GFDLibrary/Textures/Swizzle/PS4SwizzleAlgorithm.cs#L20
         fn do_swizzle(
             source: &[u8],
-            destination: &mut Vec<u8>,
+            destination: &mut [u8],
             width: usize,
             height: usize,
             block_size: usize,
             pixel_block_size: usize,
             unswizzle: bool,
         ) {
-            destination.resize(source.len(), 0);
-            let width_texels = width / pixel_block_size;
+            let width_pow2 = width.next_power_of_two();
+            let height_pow2 = height.next_power_of_two();
+
+            let width_texels_dest = width / pixel_block_size;
+            let height_texels_dest = height / pixel_block_size;
+
+            let width_texels = width_pow2 / pixel_block_size;
             let width_texels_aligned = (width_texels + 7) / 8;
-            let height_texels = height / pixel_block_size;
+            let height_texels = height_pow2 / pixel_block_size;
             let height_texels_aligned = (height_texels + 7) / 8;
             let mut data_index = 0;
 
@@ -597,8 +602,8 @@ mod swizzle {
                         let x_offset = (x * 8) + rem;
                         let y_offset = (y * 8) + div;
 
-                        if x_offset < width_texels && y_offset < height_texels {
-                            let dest_pixel_index = y_offset * width_texels + x_offset;
+                        if x_offset < width_texels_dest && y_offset < height_texels_dest {
+                            let dest_pixel_index = y_offset * width_texels_dest + x_offset;
                             let dest_index = block_size * dest_pixel_index;
                             let (src, dst) = if unswizzle {
                                 (data_index, dest_index)
@@ -624,6 +629,7 @@ mod swizzle {
             block_size: usize,
             pixel_block_size: usize,
         ) {
+            destination.resize(source.len(), 0);
             do_swizzle(
                 source,
                 destination,
