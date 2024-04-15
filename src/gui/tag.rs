@@ -101,8 +101,8 @@ impl TagView {
         }
 
         let endian = package_manager().version.endian();
-        let mut data_chunks_u32 = vec![0u32; tag_data.len() & !3];
-        let mut data_chunks_u64 = vec![0u64; tag_data.len() & !7];
+        let mut data_chunks_u32 = vec![0u32; tag_data.len() / 4];
+        let mut data_chunks_u64 = vec![0u64; tag_data.len() / 8];
 
         unsafe {
             std::ptr::copy_nonoverlapping(
