@@ -2,12 +2,20 @@ use std::fs::File;
 
 use destiny_pkg::{TagHash, TagHash64};
 use eframe::egui;
+use image::ImageFormat;
+use lazy_static::lazy_static;
 use log::{error, info, warn};
-use std::io::Write;
+use std::io::{Cursor, Write};
+use std::num::NonZeroU32;
 
 use crate::{packages::package_manager, tagtypes::TagType};
 
-use super::texture::TextureCache;
+use super::texture::{Texture, TextureCache};
+
+lazy_static! {
+    static ref CF_PNG: NonZeroU32 = clipboard_win::register_format("PNG").unwrap();
+    static ref CF_FILENAME: NonZeroU32 = clipboard_win::register_format("FileNameW").unwrap();
+}
 
 pub trait ResponseExt {
     fn tag_context(&self, tag: TagHash, tag64: Option<TagHash64>) -> &Self;
@@ -34,7 +42,46 @@ impl ResponseExt for egui::Response {
         texture_cache: &TextureCache,
         is_texture: bool,
     ) -> Self {
-        self.context_menu(|ui| tag_context(ui, tag, tag64));
+        self.context_menu(|ui| {
+            if is_texture {
+                if ui.selectable_label(false, "📷 Copy texture").clicked() {
+                    match Texture::load(&texture_cache.render_state, tag, false) {
+                        Ok(o) => {
+                            let image = o.to_image(&texture_cache.render_state).unwrap();
+                            let mut png_data = vec![];
+                            let mut png_writer = Cursor::new(&mut png_data);
+                            image.write_to(&mut png_writer, ImageFormat::Png).unwrap();
+
+                            let _clipboard = clipboard_win::Clipboard::new();
+                            if let Err(e) = clipboard_win::raw::set(CF_PNG.get(), &png_data) {
+                                error!("Failed to copy texture to clipboard: {e}");
+                            }
+
+                            // Save to temp
+                            let path = std::env::temp_dir().join(format!("{tag}.png"));
+                            let mut file = File::create(&path).unwrap();
+                            file.write_all(&png_data).unwrap();
+
+                            let mut path_utf16 =
+                                path.to_string_lossy().encode_utf16().collect::<Vec<u16>>();
+                            path_utf16.push(0);
+
+                            if let Err(e) = clipboard_win::raw::set_without_clear(
+                                CF_FILENAME.get(),
+                                bytemuck::cast_slice(&path_utf16),
+                            ) {
+                                error!("Failed to copy texture path to clipboard: {e}");
+                            }
+                        }
+                        Err(e) => {
+                            error!("Failed to load texture: {e}");
+                        }
+                    }
+                    ui.close_menu();
+                }
+            }
+            tag_context(ui, tag, tag64);
+        });
         if is_texture {
             self.on_hover_ui(|ui| {
                 texture_cache.texture_preview(tag, ui);

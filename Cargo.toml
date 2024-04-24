@@ -45,6 +45,7 @@ either = "1.10.0"
 tokio = { version = "1.37.0", features = ["rt", "macros"] }
 image = { version = "0.25.1", features = ["png"], default-features = false }
 regex = "1.10.4"
+clipboard-win = "5.3.1"
 
 [profile.dev]
 opt-level = 3
