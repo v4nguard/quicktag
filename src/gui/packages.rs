@@ -1,7 +1,9 @@
+use destiny_pkg::package::UEntryHeader;
 use destiny_pkg::{manager::PackagePath, TagHash};
 use eframe::egui::{self, RichText};
 
 use crate::{packages::package_manager, tagtypes::TagType};
+use crate::util::format_file_size;
 
 use super::{
     common::{dump_wwise_info, ResponseExt},
@@ -12,7 +14,7 @@ use super::{
 
 pub struct PackagesView {
     selected_package: u16,
-    package_entry_search_cache: Vec<(String, TagType)>,
+    package_entry_search_cache: Vec<(String, TagType, UEntryHeader)>,
     package_filter: String,
     package_entry_filter: String,
     texture_cache: TextureCache,
@@ -85,6 +87,7 @@ impl View for PackagesView {
                                         self.package_entry_search_cache.push((
                                             label,
                                             TagType::from_type_subtype(e.file_type, e.file_subtype),
+                                            e.clone(),
                                         ));
                                     }
                                 }
@@ -111,11 +114,11 @@ impl View for PackagesView {
                                 dump_wwise_info(self.selected_package);
                             }
 
-                            for (i, (label, tag_type)) in self
+                            for (i, (label, tag_type, entry)) in self
                                 .package_entry_search_cache
                                 .iter()
                                 .enumerate()
-                                .filter(|(_, (label, _))| {
+                                .filter(|(_, (label, _, _))| {
                                     self.package_entry_filter.is_empty()
                                         || label.to_lowercase().contains(&self.package_entry_filter)
                                 })
@@ -128,7 +131,7 @@ impl View for PackagesView {
                                 if ui
                                     .add(egui::SelectableLabel::new(
                                         false,
-                                        RichText::new(format!("{i}: {label}"))
+                                        RichText::new(format!("{i}: {label} ({})", format_file_size(entry.file_size as usize)))
                                             .color(tag_type.display_color()),
                                     ))
                                     .tag_context_with_texture(

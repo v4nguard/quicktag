@@ -8,3 +8,5 @@ oo2core_3_win64.dll
 oo2core_9_win64.dll
 package_cache.json
 raw_strings_filtered.txt
+keys.txt
+wwise_info_*.txt
