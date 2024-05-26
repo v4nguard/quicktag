@@ -11,16 +11,16 @@ use eframe::epaint::mutex::RwLock;
 use eframe::epaint::{vec2, TextureId};
 use eframe::wgpu;
 use eframe::wgpu::util::DeviceExt;
-use eframe::wgpu::{TextureDescriptor, TextureDimension, TextureFormat};
+use eframe::wgpu::TextureDimension;
 use either::Either::{self, Left};
 use image::{DynamicImage, GenericImageView};
-use lazy_static::lazy_static;
+
 use linked_hash_map::LinkedHashMap;
 use poll_promise::Promise;
 use rustc_hash::FxHasher;
 use std::hash::BuildHasherDefault;
 use std::io::SeekFrom;
-use std::num::NonZeroU32;
+
 use std::rc::Rc;
 use std::sync::Arc;
 

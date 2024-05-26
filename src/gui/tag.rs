@@ -21,7 +21,7 @@ use eframe::{
 use itertools::Itertools;
 use log::error;
 use poll_promise::Promise;
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 use std::fmt::Write;
 use std::rc::Rc;
 
@@ -586,7 +586,39 @@ impl View for TagView {
                         let show_strings = self.traversal_show_strings;
                         self.tag_traversal =
                             Some(Promise::spawn_thread("traverse tags", move || {
-                                traverse_tags(tag, depth_limit, cache, show_strings)
+                                traverse_tags(
+                                    tag,
+                                    depth_limit,
+                                    cache,
+                                    show_strings,
+                                    TraversalDirection::Down,
+                                )
+                            }));
+                    }
+
+                    if ui
+                        .add_enabled(
+                            self.tag_traversal
+                                .as_ref()
+                                .map(|v| v.poll().is_ready())
+                                .unwrap_or(true),
+                            egui::Button::new("Traverse ancestors"),
+                        )
+                        .clicked()
+                    {
+                        let tag = self.tag;
+                        let cache = self.cache.clone();
+                        let depth_limit = self.traversal_depth_limit;
+                        let show_strings = self.traversal_show_strings;
+                        self.tag_traversal =
+                            Some(Promise::spawn_thread("traverse tags", move || {
+                                traverse_tags(
+                                    tag,
+                                    depth_limit,
+                                    cache,
+                                    show_strings,
+                                    TraversalDirection::Up,
+                                )
                             }));
                     }
 
@@ -960,12 +992,19 @@ struct ScannedHashWithEntry<T: Sized> {
     pub entry: Option<UEntryHeader>,
 }
 
+#[derive(Copy, Clone, PartialEq)]
+enum TraversalDirection {
+    Up,
+    Down,
+}
+
 /// Traverses down every tag to make a hierarchy of tags
 fn traverse_tags(
     starting_tag: TagHash,
     depth_limit: usize,
     cache: Arc<TagCache>,
     show_strings: bool,
+    direction: TraversalDirection,
 ) -> (TraversedTag, String) {
     let mut result = String::new();
     let mut seen_tags = Default::default();
@@ -981,6 +1020,7 @@ fn traverse_tags(
         depth_limit,
         cache,
         show_strings,
+        direction,
     );
 
     (traversed, result)
@@ -1004,6 +1044,7 @@ fn traverse_tag(
     depth_limit: usize,
     cache: Arc<TagCache>,
     show_strings: bool,
+    direction: TraversalDirection,
 ) -> TraversedTag {
     let depth = pipe_stack.len();
 
@@ -1053,22 +1094,16 @@ fn traverse_tag(
 
     let scan = ExtendedScanResult::from_scanresult(scan_result);
 
-    // writeln!(
-    //     out,
-    //     "{} {} ({}+{}, ref {}) @ 0x{offset:X}",
-    //     tag,
-    //     TagType::from_type_subtype(entry.file_type, entry.file_subtype),
-    //     entry.file_type,
-    //     entry.file_subtype,
-    //     TagHash(entry.reference),
-    // )
-    // .ok();
-
-    let all_hashes = scan
-        .file_hashes
-        .iter()
-        .map(|v| (v.hash.hash32(), v.offset))
-        .collect_vec();
+    let all_hashes = if direction == TraversalDirection::Down {
+        scan.file_hashes
+            .iter()
+            .map(|v| (v.hash.hash32(), v.offset))
+            .collect_vec()
+    } else {
+        let references_collapsed: FxHashSet<TagHash> =
+            scan.references.iter().map(|(t, _)| *t).collect();
+        references_collapsed.iter().map(|t| (*t, 0)).collect_vec()
+    };
 
     if all_hashes.is_empty() {
         return TraversedTag {
@@ -1196,6 +1231,7 @@ fn traverse_tag(
                 depth_limit,
                 cache.clone(),
                 show_strings,
+                direction,
             );
 
             subtags.push(traversed);

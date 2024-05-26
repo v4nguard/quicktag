@@ -1,6 +1,5 @@
 use destiny_pkg::{manager::PackagePath, TagHash};
 use eframe::egui::{self, pos2, vec2, Color32, RichText, Stroke, Widget};
-use rayon::iter::{ParallelBridge, ParallelIterator};
 use std::fmt::{Display, Formatter};
 
 use crate::gui::texture::{Texture, TextureDesc};
@@ -87,11 +86,7 @@ impl TexturesView {
 }
 
 impl View for TexturesView {
-    fn view(
-        &mut self,
-        _ctx: &eframe::egui::Context,
-        ui: &mut eframe::egui::Ui,
-    ) -> Option<super::ViewAction> {
+    fn view(&mut self, _ctx: &egui::Context, ui: &mut egui::Ui) -> Option<ViewAction> {
         let mut action = None;
         egui::SidePanel::left("textures_left_panel")
             .resizable(true)
@@ -169,7 +164,7 @@ impl View for TexturesView {
                         //                     let Ok(desc) = Texture::load_desc(hash) else {
                         //                         continue;
                         //                     };
-                        // 
+                        //
                         //                     if !desc.format.is_compressed() {
                         //                         tex_entries.push((
                         //                             (*pkg_id as usize) * 8192 + i,
@@ -180,11 +175,11 @@ impl View for TexturesView {
                         //                     }
                         //                 }
                         //             }
-                        // 
+                        //
                         //             tex_entries
                         //         })
                         //         .collect();
-                        // 
+                        //
                         //     update_filters = true;
                         // }
 
@@ -203,8 +198,9 @@ impl View for TexturesView {
 
                 ui.checkbox(&mut self.keep_aspect_ratio, "Keep aspect ratio");
 
+                #[allow(clippy::blocks_in_conditions)]
                 if egui::ComboBox::from_label("Sort by")
-                    .selected_text(&self.sorting.to_string())
+                    .selected_text(self.sorting.to_string())
                     .show_ui(ui, |ui| {
                         let mut changed = ui
                             .selectable_value(&mut self.sorting, Sorting::IndexAsc, "Index ⬆")

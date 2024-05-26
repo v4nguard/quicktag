@@ -2,8 +2,8 @@ use destiny_pkg::package::UEntryHeader;
 use destiny_pkg::{manager::PackagePath, TagHash};
 use eframe::egui::{self, RichText};
 
-use crate::{packages::package_manager, tagtypes::TagType};
 use crate::util::format_file_size;
+use crate::{packages::package_manager, tagtypes::TagType};
 
 use super::{
     common::{dump_wwise_info, ResponseExt},
@@ -131,8 +131,11 @@ impl View for PackagesView {
                                 if ui
                                     .add(egui::SelectableLabel::new(
                                         false,
-                                        RichText::new(format!("{i}: {label} ({})", format_file_size(entry.file_size as usize)))
-                                            .color(tag_type.display_color()),
+                                        RichText::new(format!(
+                                            "{i}: {label} ({})",
+                                            format_file_size(entry.file_size as usize)
+                                        ))
+                                        .color(tag_type.display_color()),
                                     ))
                                     .tag_context_with_texture(
                                         tag,
