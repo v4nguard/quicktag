@@ -384,6 +384,11 @@ impl View for TagView {
         let mut open_new_tag = None;
         let mut push_history = true;
 
+        ctx.style_mut(|s| {
+            s.interaction.show_tooltips_only_when_still = false;
+            s.interaction.tooltip_delay = 0.0;
+        });
+
         ui.horizontal(|ui| {
             let mut history = self.tag_history.borrow_mut();
 
@@ -538,11 +543,6 @@ impl View for TagView {
                                     tag.hash.hash32() != self.tag,
                                     egui::SelectableLabel::new(false, tag_label),
                                 );
-
-                                ctx.style_mut(|s| {
-                                    s.interaction.show_tooltips_only_when_still = false;
-                                    s.interaction.tooltip_delay = 0.0;
-                                });
                                 if response
                                     .tag_context_with_texture(
                                         tag.hash.hash32(),

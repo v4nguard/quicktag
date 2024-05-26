@@ -18,7 +18,7 @@ lazy_static! {
 }
 
 pub trait ResponseExt {
-    fn tag_context(&self, tag: TagHash, tag64: Option<TagHash64>) -> &Self;
+    fn tag_context(self, tag: TagHash, tag64: Option<TagHash64>) -> Self;
 
     fn tag_context_with_texture(
         self,
@@ -30,9 +30,10 @@ pub trait ResponseExt {
 }
 
 impl ResponseExt for egui::Response {
-    fn tag_context(&self, tag: TagHash, tag64: Option<TagHash64>) -> &Self {
-        self.context_menu(|ui| tag_context(ui, tag, tag64));
-        self
+    fn tag_context(self, tag: TagHash, tag64: Option<TagHash64>) -> Self {
+        let s = self.on_hover_ui(|ui| tag_hover_ui(ui, tag));
+        s.context_menu(|ui| tag_context(ui, tag, tag64));
+        s
     }
 
     fn tag_context_with_texture(
@@ -82,13 +83,19 @@ impl ResponseExt for egui::Response {
             }
             tag_context(ui, tag, tag64);
         });
-        if is_texture {
-            self.on_hover_ui(|ui| {
+        self.on_hover_ui(|ui| {
+            if is_texture {
                 texture_cache.texture_preview(tag, ui);
-            })
-        } else {
-            self
-        }
+            }
+
+            tag_hover_ui(ui, tag);
+        })
+    }
+}
+
+fn tag_hover_ui(ui: &mut egui::Ui, tag: TagHash) {
+    if let Some(path) = package_manager().package_paths.get(&tag.pkg_id()) {
+        ui.label(format!("Package: {}", path.filename));
     }
 }
 
