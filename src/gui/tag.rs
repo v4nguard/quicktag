@@ -539,23 +539,22 @@ impl View for TagView {
                                 };
 
                                 // TODO(cohae): Highlight/jump to tag in hex viewer
-                                let response = ui.add_enabled(
-                                    tag.hash.hash32() != self.tag,
-                                    egui::SelectableLabel::new(false, tag_label),
-                                );
-                                if response
-                                    .tag_context_with_texture(
-                                        tag.hash.hash32(),
-                                        match tag.hash {
-                                            ExtendedTagHash::Hash32(_) => None,
-                                            ExtendedTagHash::Hash64(t) => Some(t),
-                                        },
-                                        &self.texture_cache,
-                                        is_texture,
-                                    )
-                                    .clicked()
-                                {
-                                    open_new_tag = Some(tag.hash.hash32());
+                                if tag.hash.hash32() != self.tag {
+                                    let response = ui.selectable_label(false, tag_label);
+                                    if response
+                                        .tag_context_with_texture(
+                                            tag.hash.hash32(),
+                                            match tag.hash {
+                                                ExtendedTagHash::Hash32(_) => None,
+                                                ExtendedTagHash::Hash64(t) => Some(t),
+                                            },
+                                            &self.texture_cache,
+                                            is_texture,
+                                        )
+                                        .clicked()
+                                    {
+                                        open_new_tag = Some(tag.hash.hash32());
+                                    }
                                 }
                             }
                         }
@@ -1186,24 +1185,8 @@ fn traverse_tag(
                     "{line_header}{branch}──{fancy_tag} @ {offset_label} (parent)"
                 )
                 .ok();
-
-                // subtags.push(TraversedTag {
-                //     tag: *t,
-                //     entry: Right(format!("Parent")),
-                //     subtags: vec![],
-                // });
             } else if *t == tag {
-                writeln!(
-                    out,
-                    "{line_header}{branch}──{fancy_tag} @ {offset_label} (self reference)"
-                )
-                .ok();
-
-                // subtags.push(TraversedTag {
-                //     tag: *t,
-                //     entry: Right(format!("Self reference")),
-                //     subtags: vec![],
-                // });
+                // We don't care about self references
             } else {
                 writeln!(
                     out,
