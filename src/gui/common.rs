@@ -153,6 +153,11 @@ pub fn tag_context(ui: &mut egui::Ui, tag: TagHash, tag64: Option<TagHash64>) {
         warn!("Alkahest IPC not implemented yet");
         ui.close_menu();
     }
+
+    if ui.selectable_label(false, "📤 Open tag data").clicked() {
+        open_tag_in_default_application(tag);
+        ui.close_menu();
+    }
 }
 
 pub fn open_tag_in_default_application(tag: TagHash) {
