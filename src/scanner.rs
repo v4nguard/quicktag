@@ -429,7 +429,8 @@ pub fn load_tag_cache(version: PackageVersion) -> TagCache {
                 | PackageVersion::Destiny2Shadowkeep
                 | PackageVersion::Destiny2BeyondLight
                 | PackageVersion::Destiny2WitchQueen
-                | PackageVersion::Destiny2Lightfall => {
+                | PackageVersion::Destiny2Lightfall
+                | PackageVersion::Destiny2TheFinalShape => {
                     [pkg.get_all_by_type(8, None), pkg.get_all_by_type(16, None)].concat()
                 }
             };

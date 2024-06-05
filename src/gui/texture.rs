@@ -4,7 +4,7 @@ use crate::packages::package_manager;
 use anyhow::Context;
 use binrw::{BinRead, BinReaderExt};
 use destiny_pkg::package::PackagePlatform;
-use destiny_pkg::TagHash;
+use destiny_pkg::{PackageVersion, TagHash};
 use eframe::egui::load::SizedTexture;
 use eframe::egui_wgpu::RenderState;
 use eframe::epaint::mutex::RwLock;
@@ -217,9 +217,8 @@ impl Texture {
         }
 
         match package_manager().version {
-            destiny_pkg::PackageVersion::DestinyInternalAlpha
-            | destiny_pkg::PackageVersion::DestinyTheTakenKing => todo!(),
-            destiny_pkg::PackageVersion::DestinyRiseOfIron => {
+            PackageVersion::DestinyInternalAlpha | PackageVersion::DestinyTheTakenKing => todo!(),
+            PackageVersion::DestinyRiseOfIron => {
                 let texture: TextureHeaderRoiPs4 = package_manager().read_tag_binrw(hash)?;
                 Ok(TextureDesc {
                     format: texture.format.to_wgpu()?,
@@ -229,11 +228,12 @@ impl Texture {
                     premultiply_alpha: false,
                 })
             }
-            destiny_pkg::PackageVersion::Destiny2Beta
-            | destiny_pkg::PackageVersion::Destiny2Shadowkeep
-            | destiny_pkg::PackageVersion::Destiny2BeyondLight
-            | destiny_pkg::PackageVersion::Destiny2WitchQueen
-            | destiny_pkg::PackageVersion::Destiny2Lightfall => {
+            PackageVersion::Destiny2Beta
+            | PackageVersion::Destiny2Shadowkeep
+            | PackageVersion::Destiny2BeyondLight
+            | PackageVersion::Destiny2WitchQueen
+            | PackageVersion::Destiny2Lightfall
+            | PackageVersion::Destiny2TheFinalShape => {
                 let header_data = package_manager()
                     .read_tag(hash)
                     .context("Failed to read texture header")?;
@@ -268,9 +268,8 @@ impl Texture {
         }
 
         match package_manager().version {
-            destiny_pkg::PackageVersion::DestinyInternalAlpha
-            | destiny_pkg::PackageVersion::DestinyTheTakenKing => todo!(),
-            destiny_pkg::PackageVersion::DestinyRiseOfIron => {
+            PackageVersion::DestinyInternalAlpha | PackageVersion::DestinyTheTakenKing => todo!(),
+            PackageVersion::DestinyRiseOfIron => {
                 let (texture, texture_data, comment) = Self::load_data_roi_ps4(hash, true)?;
                 Self::create_texture(
                     rs,
@@ -286,11 +285,12 @@ impl Texture {
                     Some(comment),
                 )
             }
-            destiny_pkg::PackageVersion::Destiny2Beta
-            | destiny_pkg::PackageVersion::Destiny2Shadowkeep
-            | destiny_pkg::PackageVersion::Destiny2BeyondLight
-            | destiny_pkg::PackageVersion::Destiny2WitchQueen
-            | destiny_pkg::PackageVersion::Destiny2Lightfall => {
+            PackageVersion::Destiny2Beta
+            | PackageVersion::Destiny2Shadowkeep
+            | PackageVersion::Destiny2BeyondLight
+            | PackageVersion::Destiny2WitchQueen
+            | PackageVersion::Destiny2Lightfall
+            | PackageVersion::Destiny2TheFinalShape => {
                 let (texture, texture_data, comment) = Self::load_data_d2(hash, true)?;
                 Self::create_texture(
                     rs,
