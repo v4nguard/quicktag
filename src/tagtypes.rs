@@ -154,6 +154,7 @@ impl Display for TagType {
 
 impl TagType {
     pub fn from_type_subtype(t: u8, st: u8) -> TagType {
+        // TODO: Change this match to use ordered version checking after destiny-pkg 0.11
         match package_manager().version {
             PackageVersion::DestinyInternalAlpha => Self::from_type_subtype_devalpha(t, st),
             PackageVersion::DestinyTheTakenKing => Self::from_type_subtype_ttk(t, st),
@@ -161,11 +162,9 @@ impl TagType {
             PackageVersion::Destiny2Shadowkeep => Self::from_type_subtype_sk(t, st),
             PackageVersion::Destiny2BeyondLight
             | PackageVersion::Destiny2WitchQueen
-            | PackageVersion::Destiny2Lightfall => Self::from_type_subtype_lf(t, st),
-            _ => TagType::Unknown {
-                ftype: t,
-                fsubtype: st,
-            },
+            | PackageVersion::Destiny2Lightfall
+            | PackageVersion::Destiny2TheFinalShape => Self::from_type_subtype_lf(t, st),
+            u => panic!("Unsupported game version {u:?} (TagType::from_type_subtype)"),
         }
     }
 

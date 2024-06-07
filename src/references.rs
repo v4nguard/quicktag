@@ -109,14 +109,9 @@ pub fn initialize_reference_names() {
         destiny_pkg::PackageVersion::Destiny2Shadowkeep => REFERENCE_MAP_SK.clone(),
         destiny_pkg::PackageVersion::Destiny2BeyondLight
         | destiny_pkg::PackageVersion::Destiny2WitchQueen
-        | destiny_pkg::PackageVersion::Destiny2Lightfall => REFERENCE_MAP_BL.clone(),
-        _ => {
-            warn!(
-                "No reference table found for {:?}",
-                package_manager().version
-            );
-            Default::default()
-        }
+        | destiny_pkg::PackageVersion::Destiny2Lightfall
+        | destiny_pkg::PackageVersion::Destiny2TheFinalShape => REFERENCE_MAP_BL.clone(),
+        u => panic!("Unsupported game version {u:?} (initialize_reference_names)"),
     };
 
     references.extend(version_specific);

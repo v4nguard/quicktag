@@ -364,26 +364,20 @@ pub fn decode_text(data: &[u8], cipher: u16) -> String {
 }
 
 pub fn create_stringmap() -> anyhow::Result<StringCache> {
-    if matches!(
-        package_manager().version,
+    // TODO: Change this match to use ordered version checking after destiny-pkg 0.11
+    match package_manager().version {
         PackageVersion::Destiny2Shadowkeep
-            | PackageVersion::Destiny2BeyondLight
-            | PackageVersion::Destiny2WitchQueen
-            | PackageVersion::Destiny2Lightfall
-            // cohae: Rise of Iron uses the same string format as D2
-            | PackageVersion::DestinyRiseOfIron
-    ) {
-        create_stringmap_d2()
-    } else if package_manager().version == PackageVersion::DestinyTheTakenKing {
-        create_stringmap_d1()
-    } else if package_manager().version == PackageVersion::DestinyInternalAlpha {
-        create_stringmap_d1_devalpha()
-    } else {
-        warn!(
-            "{:?} does not support string loading",
-            package_manager().version
-        );
-        Ok(StringCache::default())
+        | PackageVersion::Destiny2BeyondLight
+        | PackageVersion::Destiny2WitchQueen
+        | PackageVersion::Destiny2Lightfall
+        | PackageVersion::Destiny2TheFinalShape
+        // cohae: Rise of Iron uses the same string format as D2
+        | PackageVersion::DestinyRiseOfIron => create_stringmap_d2(),
+        PackageVersion::DestinyTheTakenKing => create_stringmap_d1(),
+        PackageVersion::DestinyInternalAlpha => create_stringmap_d1_devalpha(),
+        u =>
+            panic!("Unsupported game version {u:?} (create_stringmap)")
+
     }
 }
 
