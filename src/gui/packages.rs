@@ -2,6 +2,7 @@ use destiny_pkg::package::UEntryHeader;
 use destiny_pkg::{manager::PackagePath, TagHash};
 use eframe::egui::{self, RichText};
 
+use crate::packages::get_hash64;
 use crate::util::format_file_size;
 use crate::{packages::package_manager, tagtypes::TagType};
 
@@ -19,6 +20,7 @@ pub struct PackagesView {
     package_entry_filter: String,
     texture_cache: TextureCache,
     sorted_package_paths: Vec<(u16, PackagePath)>,
+    show_only_hash64: bool,
 }
 
 impl PackagesView {
@@ -38,6 +40,7 @@ impl PackagesView {
             package_entry_filter: String::new(),
             texture_cache,
             sorted_package_paths,
+            show_only_hash64: false,
         }
     }
 }
@@ -110,11 +113,15 @@ impl View for PackagesView {
                         if self.selected_package == u16::MAX {
                             ui.label(RichText::new("No package selected").italics());
                         } else {
-                            if ui.button("Export audio info").clicked() {
-                                dump_wwise_info(self.selected_package);
-                            }
+                            ui.horizontal(|ui| {
+                                if ui.button("Export audio info").clicked() {
+                                    dump_wwise_info(self.selected_package);
+                                }
 
-                            for (i, (label, tag_type, entry)) in self
+                                ui.checkbox(&mut self.show_only_hash64, "★ Only show hash64");
+                            });
+
+                            for (i, (tag, label, tag_type, entry)) in self
                                 .package_entry_search_cache
                                 .iter()
                                 .enumerate()
@@ -122,8 +129,14 @@ impl View for PackagesView {
                                     self.package_entry_filter.is_empty()
                                         || label.to_lowercase().contains(&self.package_entry_filter)
                                 })
+                                .map(|(i, (label, tag_type, entry))| {
+                                    let tag = TagHash::new(self.selected_package, i as u16);
+                                    (i, (tag, label.clone(), tag_type, entry))
+                                })
+                                .filter(|(_, (tag, _, _, _))| {
+                                    !self.show_only_hash64 || get_hash64(*tag).is_some()
+                                })
                             {
-                                let tag = TagHash::new(self.selected_package, i as u16);
                                 ctx.style_mut(|s| {
                                     s.interaction.show_tooltips_only_when_still = false;
                                     s.interaction.tooltip_delay = 0.0;

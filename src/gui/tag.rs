@@ -25,6 +25,7 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use std::fmt::Write;
 use std::rc::Rc;
 
+use crate::packages::get_hash64;
 use crate::{gui::texture::Texture, scanner::read_raw_string_blob, text::RawStringHashCache};
 use crate::{
     packages::package_manager,
@@ -1239,7 +1240,12 @@ pub fn format_tag_entry(tag: TagHash, entry: Option<&UEntryHeader>) -> String {
             .unwrap_or_default();
 
         format!(
-            "{named_tag}{tag} {}{ref_label} ({}+{}, ref {})",
+            "{}{named_tag}{tag} {}{ref_label} ({}+{}, ref {})",
+            if get_hash64(tag).is_some() {
+                "★ "
+            } else {
+                ""
+            },
             TagType::from_type_subtype(entry.file_type, entry.file_subtype),
             entry.file_type,
             entry.file_subtype,
