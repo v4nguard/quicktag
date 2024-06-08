@@ -72,7 +72,7 @@ impl View for NamedTagView {
 
                         if ui
                             .add(egui::SelectableLabel::new(false, tag_label))
-                            .tag_context(nt.hash, None)
+                            .tag_context(nt.hash)
                             .clicked()
                         {
                             return Some(ViewAction::OpenTag(nt.hash));

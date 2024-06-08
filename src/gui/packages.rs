@@ -139,7 +139,6 @@ impl View for PackagesView {
                                     ))
                                     .tag_context_with_texture(
                                         tag,
-                                        None,
                                         &self.texture_cache,
                                         tag_type.is_texture() && tag_type.is_header(),
                                     )

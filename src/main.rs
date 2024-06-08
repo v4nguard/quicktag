@@ -10,12 +10,13 @@ use std::sync::Arc;
 
 use clap::Parser;
 use destiny_pkg::{PackageManager, PackageVersion};
+use eframe::egui::ViewportBuilder;
 use eframe::egui_wgpu::WgpuConfiguration;
 use eframe::wgpu;
 use env_logger::Env;
 use log::info;
-use packages::PACKAGE_MANAGER;
 
+use crate::packages::initialize_package_manager;
 use crate::references::initialize_reference_names;
 use crate::{gui::QuickTagApp, packages::package_manager};
 
@@ -48,19 +49,16 @@ fn main() -> eframe::Result<()> {
     info!("Initializing package manager");
     let pm = PackageManager::new(args.packages_path, args.version).unwrap();
 
-    *PACKAGE_MANAGER.write() = Some(Arc::new(pm));
+    initialize_package_manager(pm);
 
     initialize_reference_names();
 
     let native_options = eframe::NativeOptions {
         renderer: eframe::Renderer::Wgpu,
-        window_builder: Some(Box::new(|b| {
-            b.with_title(format!("Quicktag - {}", package_manager().version.name()))
-                .with_icon(
-                    eframe::icon_data::from_png_bytes(include_bytes!("../quicktag.png"))
-                        .expect("Failed to load icon"),
-                )
-        })),
+        viewport: ViewportBuilder::default().with_icon(
+            eframe::icon_data::from_png_bytes(include_bytes!("../quicktag.png"))
+                .expect("Failed to load icon"),
+        ),
         persist_window: true,
         follow_system_theme: false,
         default_theme: eframe::Theme::Dark,

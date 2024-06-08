@@ -8,6 +8,7 @@ use log::{error, info, warn};
 use std::io::{Cursor, Write};
 use std::num::NonZeroU32;
 
+use crate::packages::get_hash64;
 use crate::{packages::package_manager, tagtypes::TagType};
 
 use super::texture::{Texture, TextureCache};
@@ -18,28 +19,26 @@ lazy_static! {
 }
 
 pub trait ResponseExt {
-    fn tag_context(self, tag: TagHash, tag64: Option<TagHash64>) -> Self;
+    fn tag_context(self, tag: TagHash) -> Self;
 
     fn tag_context_with_texture(
         self,
         tag: TagHash,
-        tag64: Option<TagHash64>,
         texture_cache: &TextureCache,
         is_texture: bool,
     ) -> Self;
 }
 
 impl ResponseExt for egui::Response {
-    fn tag_context(self, tag: TagHash, tag64: Option<TagHash64>) -> Self {
+    fn tag_context(self, tag: TagHash) -> Self {
         let s = self.on_hover_ui(|ui| tag_hover_ui(ui, tag));
-        s.context_menu(|ui| tag_context(ui, tag, tag64));
+        s.context_menu(|ui| tag_context(ui, tag));
         s
     }
 
     fn tag_context_with_texture(
         self,
         tag: TagHash,
-        tag64: Option<TagHash64>,
         texture_cache: &TextureCache,
         is_texture: bool,
     ) -> Self {
@@ -79,7 +78,7 @@ impl ResponseExt for egui::Response {
                 }
                 ui.close_menu();
             }
-            tag_context(ui, tag, tag64);
+            tag_context(ui, tag);
         });
         self.on_hover_ui(|ui| {
             if is_texture {
@@ -97,13 +96,13 @@ fn tag_hover_ui(ui: &mut egui::Ui, tag: TagHash) {
     }
 }
 
-pub fn tag_context(ui: &mut egui::Ui, tag: TagHash, tag64: Option<TagHash64>) {
+pub fn tag_context(ui: &mut egui::Ui, tag: TagHash) {
     if ui.selectable_label(false, "📋 Copy tag").clicked() {
         ui.output_mut(|o| o.copied_text = tag.to_string());
         ui.close_menu();
     }
 
-    if let Some(tag64) = tag64 {
+    if let Some(tag64) = get_hash64(tag) {
         if ui.selectable_label(false, "📋 Copy 64-bit tag").clicked() {
             ui.output_mut(|o| o.copied_text = tag64.to_string());
             ui.close_menu();

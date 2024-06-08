@@ -316,7 +316,7 @@ impl TagView {
             ui.horizontal(|ui| {
                 if ui
                     .add_enabled(depth > 0, egui::SelectableLabel::new(false, tag_label))
-                    .tag_context_with_texture(traversed.tag, None, &self.texture_cache, is_texture)
+                    .tag_context_with_texture(traversed.tag, &self.texture_cache, is_texture)
                     .clicked()
                 {
                     if ui.input(|i| i.modifiers.ctrl)
@@ -347,12 +347,7 @@ impl TagView {
                         ui.add_enabled(depth > 0, egui::SelectableLabel::new(false, tag_label));
 
                     if response
-                        .tag_context_with_texture(
-                            traversed.tag,
-                            None,
-                            &self.texture_cache,
-                            is_texture,
-                        )
+                        .tag_context_with_texture(traversed.tag, &self.texture_cache, is_texture)
                         .clicked()
                     {
                         open_new_tag = Some(traversed.tag);
@@ -432,7 +427,7 @@ impl View for TagView {
         });
 
         ui.heading(format_tag_entry(self.tag, Some(&self.tag_entry)))
-            .context_menu(|ui| tag_context(ui, self.tag, self.tag64));
+            .context_menu(|ui| tag_context(ui, self.tag));
 
         ui.label(
             RichText::new(format!(
@@ -495,7 +490,7 @@ impl View for TagView {
                                     egui::SelectableLabel::new(false, fancy_tag),
                                 );
 
-                                if response.tag_context(*tag, None).clicked() {
+                                if response.tag_context(*tag).clicked() {
                                     open_new_tag = Some(*tag);
                                 }
                             }
@@ -544,10 +539,6 @@ impl View for TagView {
                                     if response
                                         .tag_context_with_texture(
                                             tag.hash.hash32(),
-                                            match tag.hash {
-                                                ExtendedTagHash::Hash32(_) => None,
-                                                ExtendedTagHash::Hash64(t) => Some(t),
-                                            },
                                             &self.texture_cache,
                                             is_texture,
                                         )

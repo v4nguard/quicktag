@@ -223,7 +223,7 @@ impl View for StringsView {
                                         false,
                                         RichText::new(label).color(tag_type.display_color()),
                                     ))
-                                    .tag_context(*tag, None)
+                                    .tag_context(*tag)
                                     .clicked()
                                 {
                                     return Some(ViewAction::OpenTag(*tag));
