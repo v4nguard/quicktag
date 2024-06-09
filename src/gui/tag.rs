@@ -545,7 +545,21 @@ impl View for TagView {
                                         )
                                         .clicked()
                                     {
-                                        open_new_tag = Some(tag.hash.hash32());
+                                        if ui.input(|i| i.modifiers.ctrl)
+                                            && tag.entry.as_ref().map(|e| {
+                                                TagType::from_type_subtype(
+                                                    e.file_type,
+                                                    e.file_subtype,
+                                                )
+                                            }) == Some(TagType::WwiseStream)
+                                        {
+                                            open_audio_file_in_default_application(
+                                                tag.hash.hash32(),
+                                                "wem",
+                                            );
+                                        } else {
+                                            open_new_tag = Some(tag.hash.hash32());
+                                        }
                                     }
                                 }
                             }
