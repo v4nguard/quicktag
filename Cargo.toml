@@ -1,6 +1,6 @@
 [package]
 name = "quicktag"
-version = "0.5.1"
+version = "0.5.2"
 edition = "2021"
 
 [dependencies]
@@ -46,6 +46,7 @@ tokio = { version = "1.37.0", features = ["rt", "macros"] }
 image = { version = "0.25.1", features = ["png"], default-features = false }
 regex = "1.10.4"
 clipboard-win = "5.3.1"
+rodio = "0.18.1"
 
 [profile.dev]
 opt-level = 3

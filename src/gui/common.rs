@@ -2,12 +2,14 @@ use std::fs::File;
 
 use destiny_pkg::{TagHash, TagHash64};
 use eframe::egui;
+use eframe::egui::RichText;
 use image::ImageFormat;
 use lazy_static::lazy_static;
 use log::{error, info, warn};
 use std::io::{Cursor, Write};
 use std::num::NonZeroU32;
 
+use crate::gui::audio::{AudioPlayer, AudioPlayerState};
 use crate::packages::get_hash64;
 use crate::{packages::package_manager, tagtypes::TagType};
 
@@ -94,6 +96,77 @@ fn tag_hover_ui(ui: &mut egui::Ui, tag: TagHash) {
     if let Some(path) = package_manager().package_paths.get(&tag.pkg_id()) {
         ui.label(format!("Package: {}", path.filename));
     }
+
+    // Render the audio playback state
+    if let Some(entry) = package_manager().get_entry(tag) {
+        let tag_type = TagType::from_type_subtype(entry.file_type, entry.file_subtype);
+        if tag_type == TagType::WwiseStream {
+            let state = AudioPlayer::instance().play(tag);
+
+            match state {
+                AudioPlayerState::Loading => {
+                    AudioPlayer::instance().stop();
+                    ui.label("Loading audio for playback...");
+                }
+                AudioPlayerState::Errored(e) => {
+                    AudioPlayer::instance().stop();
+                    ui.label(RichText::new(e).color(egui::Color32::RED));
+                }
+                AudioPlayerState::Playing(p) => {
+                    ui.separator();
+
+                    let current_time = p.time.elapsed().as_secs_f32().min(p.duration);
+                    ui.label(format!(
+                        "{}/{}",
+                        format_time(current_time),
+                        format_time(p.duration)
+                    ));
+                    let (playbar_rect, _) = ui.allocate_exact_size(
+                        egui::vec2(ui.available_size_before_wrap().x * 0.6, 8.0),
+                        egui::Sense::hover(),
+                    );
+                    let playback_pos = current_time / p.duration;
+                    let playbar_rect_fill = egui::Rect {
+                        max: egui::pos2(
+                            playbar_rect.min.x + playbar_rect.width() * playback_pos,
+                            playbar_rect.max.y,
+                        ),
+                        ..playbar_rect
+                    };
+
+                    let pbpaint = ui.painter_at(playbar_rect);
+                    pbpaint.rect_filled(
+                        playbar_rect,
+                        16.0,
+                        egui::Color32::from_rgba_unmultiplied(255, 255, 255, 16),
+                    );
+                    pbpaint.rect_filled(
+                        playbar_rect_fill,
+                        16.0,
+                        egui::Color32::from_rgba_unmultiplied(255, 255, 255, 64),
+                    );
+                    ui.painter().circle_filled(
+                        playbar_rect_fill.right_center() - egui::vec2(4.0, 0.0),
+                        5.0,
+                        egui::Color32::WHITE,
+                    );
+                }
+            }
+
+            // Refresh the UI every frame to repaint the playbar
+            ui.ctx().request_repaint();
+        } else {
+            AudioPlayer::instance().stop();
+        }
+    }
+}
+
+/// Formats seconds into m:ss
+fn format_time(seconds: f32) -> String {
+    let minutes = seconds as usize / 60;
+    let seconds = seconds as usize % 60;
+
+    format!("{minutes}:{seconds:02}")
 }
 
 pub fn tag_context(ui: &mut egui::Ui, tag: TagHash) {

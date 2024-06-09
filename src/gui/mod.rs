@@ -1,3 +1,4 @@
+mod audio;
 mod common;
 mod dxgi;
 mod named_tags;
