@@ -179,7 +179,7 @@ impl DxgiFormat {
             // DxgiFormat::R8G8_SNORM => VkFormat::R8G8_SNORM,
             // DxgiFormat::R8G8_SINT => VkFormat::R8G8_SINT,
             DxgiFormat::R8G8B8A8_TYPELESS => wgpu::TextureFormat::Rgba8Unorm,
-            DxgiFormat::R8G8B8A8_UNORM => wgpu::TextureFormat::Rgba8Unorm,
+            DxgiFormat::R8G8B8A8_UNORM => wgpu::TextureFormat::Rgba8UnormSrgb, // cohae: Bungie interprets non-sRGB rgba8 as sRGB??
             DxgiFormat::R8G8B8A8_UNORM_SRGB => wgpu::TextureFormat::Rgba8UnormSrgb,
             DxgiFormat::R8G8B8A8_UINT => wgpu::TextureFormat::Rgba8Uint,
             DxgiFormat::R8G8B8A8_SNORM => wgpu::TextureFormat::Rgba8Snorm,

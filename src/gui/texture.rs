@@ -683,14 +683,14 @@ mod texture_capture {
             mip_level_count: 1,
             sample_count: 1,
             dimension: TextureDimension::D2,
-            format: TextureFormat::Rgba8Unorm,
+            format: TextureFormat::Rgba8UnormSrgb,
             usage: TextureUsages::COPY_SRC | TextureUsages::RENDER_ATTACHMENT,
-            view_formats: &[TextureFormat::Rgba8Unorm],
+            view_formats: &[TextureFormat::Rgba8UnormSrgb],
         });
 
         let texture_view_wgpu = texture_wgpu.create_view(&TextureViewDescriptor {
             label: None,
-            format: Some(TextureFormat::Rgba8Unorm),
+            format: Some(TextureFormat::Rgba8UnormSrgb),
             dimension: Some(TextureViewDimension::D2),
             aspect: TextureAspect::All,
             base_mip_level: 0,
@@ -780,7 +780,7 @@ mod texture_capture {
                 module: &copy_shader,
                 entry_point: "fs_main",
                 targets: &[Some(ColorTargetState {
-                    format: TextureFormat::Rgba8Unorm,
+                    format: TextureFormat::Rgba8UnormSrgb,
                     blend: Some(BlendState::PREMULTIPLIED_ALPHA_BLENDING),
                     write_mask: ColorWrites::all(),
                 })],
