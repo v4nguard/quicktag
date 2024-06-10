@@ -53,8 +53,9 @@ opt-level = 3
 # cohae: Overflow checks are nice for some, but not for us
 overflow-checks = false
 
-# [profile.release]
-# opt-level = 3
+[profile.release]
+debug = "limited"
+#opt-level = 3
 # strip = "symbols"
 # lto = "fat"
 # debug = 1
