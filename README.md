@@ -91,9 +91,10 @@ by `destiny-pkg`:
 - `d2_bl` Destiny 2 (Beyond Light/Season of the Lost)
 - `d2_wq` Destiny 2 (Witch Queen/Season of the Seraph)
 - `d2_lf` Destiny 2 (Lightfall)
+- `d2_tfs` Destiny 2 (The Final Shape)
 
 > [!WARNING]  
-> `d1_ttk` support is WIP
+> `d1_ttk` and `d1_devalpha` support is WIP
 
 ## Building
 
