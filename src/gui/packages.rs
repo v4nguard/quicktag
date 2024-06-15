@@ -130,7 +130,9 @@ impl View for PackagesView {
                                 .enumerate()
                                 .filter(|(_, (label, _, _))| {
                                     self.package_entry_filter.is_empty()
-                                        || label.to_lowercase().contains(&self.package_entry_filter)
+                                        || label
+                                            .to_lowercase()
+                                            .contains(&self.package_entry_filter.to_lowercase())
                                 })
                                 .map(|(i, (label, tag_type, entry))| {
                                     let tag = TagHash::new(self.selected_package, i as u16);
