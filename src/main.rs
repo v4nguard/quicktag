@@ -15,6 +15,7 @@ use eframe::egui::ViewportBuilder;
 use eframe::egui_wgpu::WgpuConfiguration;
 use eframe::wgpu;
 use env_logger::Env;
+use game_detector::InstalledGame;
 use log::info;
 
 use crate::packages::initialize_package_manager;
@@ -25,11 +26,11 @@ use crate::{gui::QuickTagApp, packages::package_manager};
 #[command(author, version, about, long_about = None, disable_version_flag(true))]
 struct Args {
     /// Path to packages directory
-    packages_path: String,
+    packages_path: Option<String>,
 
     /// Game version for the specified packages directory
     #[arg(short, value_enum)]
-    version: PackageVersion,
+    version: Option<PackageVersion>,
 }
 
 fn main() -> eframe::Result<()> {
@@ -48,8 +49,23 @@ fn main() -> eframe::Result<()> {
     .init();
     let args = Args::parse();
 
-    info!("Initializing package manager");
-    let pm = PackageManager::new(args.packages_path, args.version).unwrap();
+    let packages_path = if let Some(packages_path) = args.packages_path {
+        packages_path
+    } else if let Some(path) = find_d2_packages_path() {
+        let mut path = std::path::PathBuf::from(path);
+        path.push("packages");
+        path.to_str().unwrap().to_string()
+    } else {
+        panic!("Could not find Destiny 2 packages directory");
+    };
+
+    info!("Initializing package manager for version {:?} at '{}'", args.version, packages_path);
+    let pm = PackageManager::new(
+        packages_path,
+        args.version
+            .unwrap_or(PackageVersion::Destiny2TheFinalShape),
+    )
+    .unwrap();
 
     initialize_package_manager(pm);
 
@@ -82,4 +98,31 @@ fn main() -> eframe::Result<()> {
         native_options,
         Box::new(|cc| Box::new(QuickTagApp::new(cc, package_manager().version))),
     )
+}
+
+fn find_d2_packages_path() -> Option<String> {
+    let mut installations = game_detector::find_all_games();
+    installations.retain(|i| match i {
+        InstalledGame::Steam(a) => a.appid == 1085660,
+        InstalledGame::EpicGames(m) => m.display_name == "Destiny 2",
+        InstalledGame::MicrosoftStore(p) => p.app_name == "Destiny2PCbasegame",
+        _ => false,
+    });
+
+    info!("Found {} Destiny 2 installations", installations.len());
+
+    // Sort installations, weighting Steam > Epic > Microsoft Store
+    installations.sort_by_cached_key(|i| match i {
+        InstalledGame::Steam(_) => 0,
+        InstalledGame::EpicGames(_) => 1,
+        InstalledGame::MicrosoftStore(_) => 2,
+        _ => 3,
+    });
+
+    match installations.first() {
+        Some(InstalledGame::Steam(a)) => Some(a.game_path.clone()),
+        Some(InstalledGame::EpicGames(m)) => Some(m.install_location.clone()),
+        Some(InstalledGame::MicrosoftStore(p)) => Some(p.path.clone()),
+        _ => None,
+    }
 }
