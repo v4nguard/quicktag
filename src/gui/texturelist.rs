@@ -3,7 +3,7 @@ use eframe::egui::{self, pos2, vec2, Color32, RichText, Stroke, Widget};
 use std::fmt::{Display, Formatter};
 
 use crate::gui::texture::{Texture, TextureDesc};
-use crate::{packages::package_manager, tagtypes::TagType};
+use crate::{package_manager::package_manager, tagtypes::TagType};
 
 use super::{common::ResponseExt, texture::TextureCache, View, ViewAction};
 

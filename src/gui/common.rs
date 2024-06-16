@@ -10,8 +10,8 @@ use std::io::{Cursor, Write};
 use std::num::NonZeroU32;
 
 use crate::gui::audio::{AudioPlayer, AudioPlayerState};
-use crate::packages::get_hash64;
-use crate::{packages::package_manager, tagtypes::TagType};
+use crate::package_manager::get_hash64;
+use crate::{package_manager::package_manager, tagtypes::TagType};
 
 use super::texture::{Texture, TextureCache};
 

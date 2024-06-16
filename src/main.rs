@@ -1,5 +1,5 @@
 mod gui;
-mod packages;
+mod package_manager;
 mod panic_handler;
 mod references;
 mod scanner;
@@ -18,9 +18,9 @@ use env_logger::Env;
 use game_detector::InstalledGame;
 use log::info;
 
-use crate::packages::initialize_package_manager;
+use crate::package_manager::initialize_package_manager;
 use crate::references::initialize_reference_names;
-use crate::{gui::QuickTagApp, packages::package_manager};
+use crate::{gui::QuickTagApp, package_manager::package_manager};
 
 #[derive(clap::Parser, Debug)]
 #[command(author, version, about, long_about = None, disable_version_flag(true))]
@@ -59,7 +59,10 @@ fn main() -> eframe::Result<()> {
         panic!("Could not find Destiny 2 packages directory");
     };
 
-    info!("Initializing package manager for version {:?} at '{}'", args.version, packages_path);
+    info!(
+        "Initializing package manager for version {:?} at '{}'",
+        args.version, packages_path
+    );
     let pm = PackageManager::new(
         packages_path,
         args.version

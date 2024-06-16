@@ -2,7 +2,7 @@ use eframe::epaint::mutex::RwLock;
 use log::warn;
 use rustc_hash::FxHashMap;
 
-use crate::packages::{package_manager, package_manager_checked};
+use crate::package_manager::{package_manager, package_manager_checked};
 
 // TODO(cohae): User-defined references
 lazy_static::lazy_static! {

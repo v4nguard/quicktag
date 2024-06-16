@@ -6,7 +6,7 @@ use itertools::Itertools;
 use rustc_hash::FxHashMap;
 
 use crate::{
-    packages::package_manager,
+    package_manager::package_manager,
     scanner::{fnv1, TagCache},
     tagtypes::TagType,
 };

@@ -1,7 +1,7 @@
 use destiny_pkg::{package::UEntryHeader, PackageNamedTagEntry};
 use eframe::egui::{self, RichText};
 
-use crate::{packages::package_manager, tagtypes::TagType};
+use crate::{package_manager::package_manager, tagtypes::TagType};
 
 use super::{common::ResponseExt, tag::format_tag_entry, View, ViewAction};
 

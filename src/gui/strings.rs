@@ -12,7 +12,7 @@ use itertools::Itertools;
 use rustc_hash::FxHashMap;
 
 use crate::{
-    packages::package_manager,
+    package_manager::package_manager,
     scanner::TagCache,
     tagtypes::TagType,
     text::{decode_text, StringCache, StringCacheVec, StringContainer, StringData, StringPart},

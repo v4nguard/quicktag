@@ -3,9 +3,9 @@ use destiny_pkg::{manager::PackagePath, TagHash};
 use eframe::egui::{self, RichText};
 
 use crate::gui::common::open_audio_file_in_default_application;
-use crate::packages::get_hash64;
+use crate::package_manager::get_hash64;
 use crate::util::format_file_size;
-use crate::{packages::package_manager, tagtypes::TagType};
+use crate::{package_manager::package_manager, tagtypes::TagType};
 
 use super::{
     common::{dump_wwise_info, ResponseExt},
@@ -74,11 +74,17 @@ impl View for PackagesView {
                                 continue;
                             }
 
+                            let redacted = if path.name.ends_with("redacted") {
+                                "🗝 "
+                            } else {
+                                ""
+                            };
+
                             if ui
                                 .selectable_value(
                                     &mut self.selected_package,
                                     *id,
-                                    format!("{id:04x}: {package_name}"),
+                                    format!("{id:04x}: {redacted}{package_name}"),
                                 )
                                 .changed()
                             {

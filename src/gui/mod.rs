@@ -29,7 +29,7 @@ use crate::gui::tag::TagHistory;
 use crate::scanner::fnv1;
 use crate::text::RawStringHashCache;
 use crate::{
-    packages::package_manager,
+    package_manager::package_manager,
     scanner::{load_tag_cache, scanner_progress, ScanStatus, TagCache},
     text::{create_stringmap, StringCache},
 };

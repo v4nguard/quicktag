@@ -25,10 +25,10 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use std::fmt::Write;
 use std::rc::Rc;
 
-use crate::packages::get_hash64;
+use crate::package_manager::get_hash64;
 use crate::{gui::texture::Texture, scanner::read_raw_string_blob, text::RawStringHashCache};
 use crate::{
-    packages::package_manager,
+    package_manager::package_manager,
     references::REFERENCE_NAMES,
     scanner::{ScanResult, TagCache},
     tagtypes::TagType,

@@ -1,5 +1,5 @@
 use crate::gui::texture::{LoadedTexture, Texture};
-use crate::packages::package_manager;
+use crate::package_manager::package_manager;
 use destiny_pkg::TagHash;
 use eframe::egui::mutex::RwLock;
 use eframe::egui::TextureId;
@@ -74,9 +74,9 @@ impl AudioPlayer {
 impl AudioPlayer {
     pub fn play(&self, hash: TagHash) -> AudioPlayerState {
         if hash.is_none() {
-            return AudioPlayerState::Errored(format!("Tag {hash} is not linked to audio data"))
+            return AudioPlayerState::Errored(format!("Tag {hash} is not linked to audio data"));
         }
-        
+
         let mut ap = self.playing.write();
         // Already playing, don't restart playback
         if Some(hash) == ap.as_ref().map(|p| p.tag) {

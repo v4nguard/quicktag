@@ -3,7 +3,7 @@ use std::fmt::Display;
 use destiny_pkg::PackageVersion;
 use eframe::epaint::Color32;
 
-use crate::packages::package_manager;
+use crate::package_manager::package_manager;
 
 #[derive(PartialEq)]
 pub enum TagType {

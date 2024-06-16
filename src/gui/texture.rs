@@ -1,6 +1,6 @@
 use crate::gui::dxgi::DxgiFormat;
 use crate::gui::texture::texture_capture::capture_texture;
-use crate::packages::package_manager;
+use crate::package_manager::package_manager;
 use anyhow::Context;
 use binrw::{BinRead, BinReaderExt};
 use destiny_pkg::package::PackagePlatform;
