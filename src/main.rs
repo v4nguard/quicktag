@@ -1,5 +1,6 @@
 mod gui;
 mod packages;
+mod panic_handler;
 mod references;
 mod scanner;
 mod tagtypes;
@@ -32,6 +33,7 @@ struct Args {
 }
 
 fn main() -> eframe::Result<()> {
+    panic_handler::install_hook(None);
     let rt = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(4)
         .enable_all()
