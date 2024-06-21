@@ -1257,7 +1257,7 @@ pub fn format_tag_entry(tag: TagHash, entry: Option<&UEntryHeader>) -> String {
             .unwrap_or_default();
 
         format!(
-            "{}{named_tag}{tag} {}{ref_label} ({}+{}, ref {})",
+            "{}{named_tag}{tag} {}{ref_label} ({}+{}, ref {:08X})",
             if get_hash64(tag).is_some() {
                 "★ "
             } else {
@@ -1266,7 +1266,7 @@ pub fn format_tag_entry(tag: TagHash, entry: Option<&UEntryHeader>) -> String {
             TagType::from_type_subtype(entry.file_type, entry.file_subtype),
             entry.file_type,
             entry.file_subtype,
-            TagHash(entry.reference),
+            entry.reference,
         )
     } else {
         format!("{} (pkg entry not found)", tag)
