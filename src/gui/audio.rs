@@ -113,6 +113,7 @@ impl AudioPlayer {
                 samples.to_vec(),
             );
             self.sink.stop();
+            self.sink.clear();
             self.sink.append(sb);
             self.sink.play();
 
