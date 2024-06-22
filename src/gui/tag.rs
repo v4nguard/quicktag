@@ -25,6 +25,7 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use std::fmt::Write;
 use std::rc::Rc;
 
+use crate::gui::hextag::TagHexView;
 use crate::package_manager::get_hash64;
 use crate::{gui::texture::Texture, scanner::read_raw_string_blob, text::RawStringHashCache};
 use crate::{
@@ -44,6 +45,13 @@ use super::{
     View, ViewAction,
 };
 
+#[derive(Copy, Clone, PartialEq)]
+enum TagViewMode {
+    Traversal,
+    Hex,
+    Float,
+}
+
 pub struct TagView {
     cache: Arc<TagCache>,
     tag_history: Rc<RefCell<TagHistory>>,
@@ -62,6 +70,7 @@ pub struct TagView {
     tag64: Option<TagHash64>,
     tag_entry: UEntryHeader,
     tag_type: TagType,
+    tag_data: Vec<u8>,
 
     scan: ExtendedScanResult,
     tag_traversal: Option<Promise<(TraversedTag, String)>>,
@@ -73,6 +82,8 @@ pub struct TagView {
 
     render_state: RenderState,
     texture_cache: TextureCache,
+    hexview: TagHexView,
+    mode: TagViewMode,
 }
 
 impl TagView {
@@ -230,6 +241,9 @@ impl TagView {
         };
 
         Some(Self {
+            hexview: TagHexView::new(tag_data.clone()),
+            mode: TagViewMode::Traversal,
+
             arrays,
             string_hashes,
             raw_string_hashes,
@@ -237,6 +251,7 @@ impl TagView {
             tag64,
             tag_type,
             tag_entry,
+            tag_data,
 
             texture,
 
@@ -274,6 +289,7 @@ impl TagView {
             tv.traversal_depth_limit = self.traversal_depth_limit;
             tv.traversal_show_strings = self.traversal_show_strings;
             tv.traversal_interactive = self.traversal_interactive;
+            tv.mode = self.mode;
 
             *self = tv;
         } else {
@@ -283,8 +299,7 @@ impl TagView {
 
     pub fn traverse_interactive_ui(
         &self,
-        ctx: &eframe::egui::Context,
-        ui: &mut eframe::egui::Ui,
+        ui: &mut egui::Ui,
         traversed: &TraversedTag,
         depth: usize,
     ) -> Option<TagHash> {
@@ -335,7 +350,7 @@ impl TagView {
             });
         } else {
             CollapsingState::load_with_default_open(
-                ctx,
+                ui.ctx(),
                 egui::Id::new(format!(
                     "traversed_tag{}_collapse_depth{depth}",
                     traversed.tag
@@ -359,7 +374,7 @@ impl TagView {
                 ui.style_mut().spacing.indent = 16.0 * 2.;
                 ui.indent(format!("traversed_tag{}_indent", traversed.tag), |ui| {
                     for t in &traversed.subtags {
-                        if let Some(new_tag) = self.traverse_interactive_ui(ctx, ui, t, depth + 1) {
+                        if let Some(new_tag) = self.traverse_interactive_ui(ui, t, depth + 1) {
                             open_new_tag = Some(new_tag);
                         }
                     }
@@ -368,6 +383,180 @@ impl TagView {
         }
 
         open_new_tag
+    }
+
+    pub fn traverse_ui(&mut self, ui: &mut egui::Ui) -> Option<TagHash> {
+        let mut open_new_tag = None;
+        if !self.scan.successful {
+            ui.heading(RichText::new("⚠ Tag data failed to read").color(Color32::YELLOW));
+        }
+
+        if self.tag_type.is_tag() {
+            ui.horizontal(|ui| {
+                if ui
+                    .add_enabled(
+                        self.tag_traversal
+                            .as_ref()
+                            .map(|v| v.poll().is_ready())
+                            .unwrap_or(true),
+                        egui::Button::new("Traverse children"),
+                    )
+                    .clicked()
+                {
+                    let tag = self.tag;
+                    let cache = self.cache.clone();
+                    let depth_limit = self.traversal_depth_limit;
+                    let show_strings = self.traversal_show_strings;
+                    self.tag_traversal = Some(Promise::spawn_thread("traverse tags", move || {
+                        traverse_tags(
+                            tag,
+                            depth_limit,
+                            cache,
+                            show_strings,
+                            TraversalDirection::Down,
+                        )
+                    }));
+                }
+
+                if ui
+                    .add_enabled(
+                        self.tag_traversal
+                            .as_ref()
+                            .map(|v| v.poll().is_ready())
+                            .unwrap_or(true),
+                        egui::Button::new("Traverse ancestors"),
+                    )
+                    .clicked()
+                {
+                    let tag = self.tag;
+                    let cache = self.cache.clone();
+                    let depth_limit = self.traversal_depth_limit;
+                    let show_strings = self.traversal_show_strings;
+                    self.tag_traversal = Some(Promise::spawn_thread("traverse tags", move || {
+                        traverse_tags(
+                            tag,
+                            depth_limit,
+                            cache,
+                            show_strings,
+                            TraversalDirection::Up,
+                        )
+                    }));
+                }
+
+                if ui.button("Copy traversal").clicked() {
+                    if let Some(traversal) = self.tag_traversal.as_ref() {
+                        if let Some((_, result)) = traversal.ready() {
+                            ui.output_mut(|o| o.copied_text = result.clone());
+                        }
+                    }
+                }
+
+                ui.add(egui::DragValue::new(&mut self.traversal_depth_limit).clamp_range(1..=256));
+                ui.label("Max depth");
+
+                ui.checkbox(
+                    &mut self.traversal_show_strings,
+                    "Find strings (currently only shows raw strings)",
+                );
+                ui.checkbox(&mut self.traversal_interactive, "Interactive");
+                ui.checkbox(&mut self.hide_already_traversed, "Hide already traversed");
+            });
+
+            if let Some(traversal) = self.tag_traversal.as_ref() {
+                if let Some((trav_interactive, trav_static)) = traversal.ready() {
+                    egui::ScrollArea::both()
+                        .auto_shrink([false; 2])
+                        .show(ui, |ui| {
+                            if self.traversal_interactive {
+                                open_new_tag = open_new_tag.or(self.traverse_interactive_ui(
+                                    ui,
+                                    trav_interactive,
+                                    0,
+                                ));
+                            } else {
+                                ui.style_mut().wrap = Some(false);
+                                ui.label(RichText::new(trav_static).monospace());
+                            }
+                        });
+                } else {
+                    ui.spinner();
+                    ui.label("Traversing tags");
+                }
+            }
+        } else if self.tag_type.is_texture() && self.tag_type.is_header() {
+            match &self.texture {
+                Ok((t, egui_texture)) => {
+                    let min_dimension = ui.available_size().min_elem();
+                    let size = if t.width > t.height {
+                        vec2(
+                            min_dimension,
+                            min_dimension * t.height as f32 / t.width as f32,
+                        )
+                    } else {
+                        vec2(
+                            min_dimension * t.width as f32 / t.height as f32,
+                            min_dimension,
+                        )
+                    } * 0.8;
+                    ui.image(SizedTexture {
+                        id: *egui_texture,
+                        size,
+                    });
+
+                    ui.label(format!(
+                        "{}x{}x{} {:?}",
+                        t.width, t.height, t.depth, t.format
+                    ));
+
+                    if let Some(ref comment) = t.comment {
+                        ui.collapsing("Texture Header", |ui| {
+                            ui.weak(comment);
+                        });
+                    }
+                }
+                Err(e) => {
+                    ui.colored_label(Color32::RED, "⚠ Failed to load texture");
+                    ui.colored_label(Color32::RED, strip_ansi_codes(&format!("{e:?}")));
+                }
+            }
+        } else {
+            ui.label(RichText::new("Traversal not available for non-8080 tags").italics());
+        }
+
+        open_new_tag
+    }
+
+    pub fn floatview_ui(&mut self, ui: &mut egui::Ui) {
+        if self.tag_data.len() < 16 {
+            ui.label("Tag data too short to display");
+            return;
+        }
+
+        let float_count = self.tag_data.len() / 4;
+        let data_f32: Vec<f32> = match bytemuck::try_cast_slice(&self.tag_data[..float_count * 4]) {
+            Ok(data) => data.to_vec(),
+            Err(e) => {
+                ui.label("Failed to convert data to floats");
+                ui.label(format!("{e:?}"));
+                return;
+            }
+        };
+
+        for (i, row) in data_f32.chunks(4).enumerate() {
+            // Check if all values are reasonable enough to be floats. Any very low/high values (with exponents) are likely not floats.
+            let all_valid = row
+                .iter()
+                .all(|&v| v.is_normal() && v.abs() < 1e10 && (v.abs() > 1e-10 || v == 0.0));
+
+            if all_valid {
+                ui.horizontal(|ui| {
+                    ui.strong(format!("{:08X}:", i * 16));
+                    for &value in row {
+                        ui.label(format!("{:.4}", value));
+                    }
+                });
+            }
+        }
     }
 }
 
@@ -569,145 +758,24 @@ impl View for TagView {
             });
 
         egui::CentralPanel::default().show_inside(ui, |ui| {
-            if !self.scan.successful {
-                ui.heading(RichText::new("⚠ Tag data failed to read").color(Color32::YELLOW));
-            }
+            ui.horizontal(|ui| {
+                ui.selectable_value(&mut self.mode, TagViewMode::Traversal, "Traversal");
+                ui.selectable_value(&mut self.mode, TagViewMode::Hex, "Hex");
+                ui.selectable_value(&mut self.mode, TagViewMode::Float, "Floating point");
+            });
 
-            if self.tag_type.is_tag() {
-                ui.horizontal(|ui| {
-                    if ui
-                        .add_enabled(
-                            self.tag_traversal
-                                .as_ref()
-                                .map(|v| v.poll().is_ready())
-                                .unwrap_or(true),
-                            egui::Button::new("Traverse children"),
-                        )
-                        .clicked()
-                    {
-                        let tag = self.tag;
-                        let cache = self.cache.clone();
-                        let depth_limit = self.traversal_depth_limit;
-                        let show_strings = self.traversal_show_strings;
-                        self.tag_traversal =
-                            Some(Promise::spawn_thread("traverse tags", move || {
-                                traverse_tags(
-                                    tag,
-                                    depth_limit,
-                                    cache,
-                                    show_strings,
-                                    TraversalDirection::Down,
-                                )
-                            }));
-                    }
+            ui.separator();
 
-                    if ui
-                        .add_enabled(
-                            self.tag_traversal
-                                .as_ref()
-                                .map(|v| v.poll().is_ready())
-                                .unwrap_or(true),
-                            egui::Button::new("Traverse ancestors"),
-                        )
-                        .clicked()
-                    {
-                        let tag = self.tag;
-                        let cache = self.cache.clone();
-                        let depth_limit = self.traversal_depth_limit;
-                        let show_strings = self.traversal_show_strings;
-                        self.tag_traversal =
-                            Some(Promise::spawn_thread("traverse tags", move || {
-                                traverse_tags(
-                                    tag,
-                                    depth_limit,
-                                    cache,
-                                    show_strings,
-                                    TraversalDirection::Up,
-                                )
-                            }));
-                    }
-
-                    if ui.button("Copy traversal").clicked() {
-                        if let Some(traversal) = self.tag_traversal.as_ref() {
-                            if let Some((_, result)) = traversal.ready() {
-                                ui.output_mut(|o| o.copied_text = result.clone());
-                            }
-                        }
-                    }
-
-                    ui.add(
-                        egui::DragValue::new(&mut self.traversal_depth_limit).clamp_range(1..=256),
-                    );
-                    ui.label("Max depth");
-
-                    ui.checkbox(
-                        &mut self.traversal_show_strings,
-                        "Find strings (currently only shows raw strings)",
-                    );
-                    ui.checkbox(&mut self.traversal_interactive, "Interactive");
-                    ui.checkbox(&mut self.hide_already_traversed, "Hide already traversed");
-                });
-
-                if let Some(traversal) = self.tag_traversal.as_ref() {
-                    if let Some((trav_interactive, trav_static)) = traversal.ready() {
-                        egui::ScrollArea::both()
-                            .auto_shrink([false; 2])
-                            .show(ui, |ui| {
-                                if self.traversal_interactive {
-                                    open_new_tag = open_new_tag.or(self.traverse_interactive_ui(
-                                        ctx,
-                                        ui,
-                                        trav_interactive,
-                                        0,
-                                    ));
-                                } else {
-                                    ui.style_mut().wrap = Some(false);
-                                    ui.label(RichText::new(trav_static).monospace());
-                                }
-                            });
-                    } else {
-                        ui.spinner();
-                        ui.label("Traversing tags");
-                    }
+            match self.mode {
+                TagViewMode::Traversal => {
+                    open_new_tag = open_new_tag.or(self.traverse_ui(ui));
                 }
-            } else if self.tag_type.is_texture() && self.tag_type.is_header() {
-                match &self.texture {
-                    Ok((t, egui_texture)) => {
-                        let min_dimension = ui.available_size().min_elem();
-                        let size = if t.width > t.height {
-                            vec2(
-                                min_dimension,
-                                min_dimension * t.height as f32 / t.width as f32,
-                            )
-                        } else {
-                            vec2(
-                                min_dimension * t.width as f32 / t.height as f32,
-                                min_dimension,
-                            )
-                        } * 0.8;
-                        ui.image(SizedTexture {
-                            id: *egui_texture,
-                            size,
-                        });
-
-                        ui.label(format!(
-                            "{}x{}x{} {:?}",
-                            t.width, t.height, t.depth, t.format
-                        ));
-
-                        if let Some(ref comment) = t.comment {
-                            ui.collapsing("Texture Header", |ui| {
-                                ui.weak(comment);
-                            });
-                        }
-                    }
-                    Err(e) => {
-                        ui.colored_label(Color32::RED, "⚠ Failed to load texture");
-                        ui.colored_label(Color32::RED, strip_ansi_codes(&format!("{e:?}")));
-                    }
+                TagViewMode::Hex => {
+                    open_new_tag = open_new_tag.or(self.hexview.show(ui));
                 }
-            } else {
-                ui.label(RichText::new("Traversal not available for non-8080 tags").italics());
+                TagViewMode::Float => {
+                    self.floatview_ui(ui);
+                }
             }
         });
 
