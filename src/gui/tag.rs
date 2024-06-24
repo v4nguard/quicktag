@@ -86,6 +86,17 @@ pub struct TagView {
     mode: TagViewMode,
 }
 
+#[macro_export]
+macro_rules! swap_to_ne {
+    ($v:expr, $endian:ident) => {
+        if $endian != Endian::NATIVE {
+            $v.swap_bytes()
+        } else {
+            $v
+        }
+    };
+}
+
 impl TagView {
     pub fn create(
         cache: Arc<TagCache>,
@@ -101,16 +112,6 @@ impl TagView {
         let mut raw_string_offsets = vec![];
         let mut string_hashes = vec![];
         let mut raw_string_hashes = vec![];
-
-        macro_rules! swap_to_ne {
-            ($v:expr, $endian:ident) => {
-                if $endian != Endian::NATIVE {
-                    $v.swap_bytes()
-                } else {
-                    $v
-                }
-            };
-        }
 
         let endian = package_manager().version.endian();
         let mut data_chunks_u32 = vec![0u32; tag_data.len() / 4];
@@ -544,9 +545,13 @@ impl TagView {
 
         for (i, row) in data_f32.chunks(4).enumerate() {
             // Check if all values are reasonable enough to be floats. Any very low/high values (with exponents) are likely not floats.
-            let all_valid = row
+
+            let mut all_valid = row
                 .iter()
-                .all(|&v| v.is_normal() && v.abs() < 1e10 && (v.abs() > 1e-10 || v == 0.0));
+                .all(|&v| (v.is_normal() && v.abs() < 1e7 && v.abs() > 1e-10) || v == 0.0);
+            if row.iter().all(|&v| v == 0.0) {
+                all_valid = false;
+            }
 
             if all_valid {
                 ui.horizontal(|ui| {
@@ -666,7 +671,7 @@ impl View for TagView {
                             ui.label(RichText::new("No incoming references found").italics());
                         } else {
                             let mut references_collapsed =
-                                FxHashMap::<TagHash, UEntryHeader>::default();
+                                FxHashMap::<TagHash, Option<UEntryHeader>>::default();
                             for (tag, entry) in &self.scan.references {
                                 references_collapsed
                                     .entry(*tag)
@@ -674,7 +679,7 @@ impl View for TagView {
                             }
 
                             for (tag, entry) in &references_collapsed {
-                                let fancy_tag = format_tag_entry(*tag, Some(entry));
+                                let fancy_tag = format_tag_entry(*tag, entry.as_ref());
                                 let response = ui.add_enabled(
                                     *tag != self.tag,
                                     egui::SelectableLabel::new(false, fancy_tag),
@@ -1017,7 +1022,7 @@ struct ExtendedScanResult {
     pub file_hashes: Vec<ScannedHashWithEntry<ExtendedTagHash>>,
 
     /// References from other files
-    pub references: Vec<(TagHash, UEntryHeader)>,
+    pub references: Vec<(TagHash, Option<UEntryHeader>)>,
 }
 
 impl ExtendedScanResult {
@@ -1053,7 +1058,7 @@ impl ExtendedScanResult {
                 .references
                 .into_iter()
                 // TODO(cohae): Unwrap *should* be safe as long as the cache is valid but i want to be sure
-                .map(|t| (t, package_manager().get_entry(t).unwrap()))
+                .map(|t| (t, package_manager().get_entry(t)))
                 .collect(),
         }
     }
