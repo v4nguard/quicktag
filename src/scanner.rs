@@ -8,7 +8,7 @@ use std::{
 };
 
 use binrw::{BinReaderExt, Endian};
-use destiny_pkg::{PackageManager, PackageVersion, TagHash, TagHash64};
+use destiny_pkg::{GameVersion, PackageManager, TagHash, TagHash64};
 use eframe::epaint::mutex::RwLock;
 use itertools::Itertools;
 use log::{error, info, warn};
@@ -166,7 +166,7 @@ pub fn read_raw_string_blob(data: &[u8], offset: u64) -> Vec<(u64, String)> {
         c.seek(SeekFrom::Start(offset + 4))?;
         let (buffer_size, buffer_base_offset) = if matches!(
             package_manager().version,
-            PackageVersion::DestinyInternalAlpha | PackageVersion::DestinyTheTakenKing
+            GameVersion::DestinyInternalAlpha | GameVersion::DestinyTheTakenKing
         ) {
             let buffer_size: u32 = c.read_be()?;
             let buffer_base_offset = offset + 4 + 4;
@@ -290,7 +290,7 @@ pub fn scanner_progress() -> ScanStatus {
     *SCANNER_PROGRESS.read()
 }
 
-pub fn load_tag_cache(version: PackageVersion) -> TagCache {
+pub fn load_tag_cache(version: GameVersion) -> TagCache {
     let cache_name = format!("tags_{}.cache", version.id());
     let cache_file_path = exe_relative_path(&cache_name);
 
@@ -417,20 +417,21 @@ pub fn load_tag_cache(version: PackageVersion) -> TagCache {
             };
 
             let mut all_tags = match version {
-                PackageVersion::DestinyInternalAlpha | PackageVersion::DestinyTheTakenKing => {
+                GameVersion::DestinyInternalAlpha | GameVersion::DestinyTheTakenKing => {
                     [pkg.get_all_by_type(0, None)].concat()
                 }
-                PackageVersion::DestinyRiseOfIron => [
+                GameVersion::DestinyRiseOfIron => [
                     pkg.get_all_by_type(16, None),
                     pkg.get_all_by_type(128, None),
                 ]
                 .concat(),
-                PackageVersion::Destiny2Beta
-                | PackageVersion::Destiny2Shadowkeep
-                | PackageVersion::Destiny2BeyondLight
-                | PackageVersion::Destiny2WitchQueen
-                | PackageVersion::Destiny2Lightfall
-                | PackageVersion::Destiny2TheFinalShape => {
+                GameVersion::Destiny2Beta
+                | GameVersion::Destiny2Forsaken
+                | GameVersion::Destiny2Shadowkeep
+                | GameVersion::Destiny2BeyondLight
+                | GameVersion::Destiny2WitchQueen
+                | GameVersion::Destiny2Lightfall
+                | GameVersion::Destiny2TheFinalShape => {
                     [pkg.get_all_by_type(8, None), pkg.get_all_by_type(16, None)].concat()
                 }
             };

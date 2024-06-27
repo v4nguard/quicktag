@@ -2,7 +2,7 @@ use crate::package_manager::package_manager;
 use crate::references::REFERENCE_NAMES;
 use crate::swap_to_ne;
 use binrw::{binread, BinReaderExt, Endian};
-use destiny_pkg::{PackageVersion, TagHash};
+use destiny_pkg::{GameVersion, TagHash};
 use eframe::egui;
 use eframe::egui::{vec2, Color32, Rgba, RichText, ScrollArea, Sense, Ui};
 use itertools::Itertools;
@@ -210,7 +210,7 @@ fn find_all_array_ranges(data: &[u8]) -> Vec<ArrayRange> {
 
     let arrays: Vec<(u64, TagArrayHeader)> = if matches!(
         package_manager().version,
-        PackageVersion::DestinyInternalAlpha | PackageVersion::DestinyTheTakenKing
+        GameVersion::DestinyInternalAlpha | GameVersion::DestinyTheTakenKing
     ) {
         array_offsets
             .into_iter()

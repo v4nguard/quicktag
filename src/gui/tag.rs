@@ -9,7 +9,7 @@ use std::{
 };
 
 use binrw::{binread, BinReaderExt, Endian};
-use destiny_pkg::{package::UEntryHeader, PackageVersion, TagHash, TagHash64};
+use destiny_pkg::{package::UEntryHeader, GameVersion, TagHash, TagHash64};
 use eframe::egui::load::SizedTexture;
 use eframe::egui::{collapsing_header::CollapsingState, vec2, RichText, TextureId};
 use eframe::egui_wgpu::RenderState;
@@ -170,7 +170,7 @@ impl TagView {
 
         let mut arrays: Vec<(u64, TagArray)> = if matches!(
             package_manager().version,
-            PackageVersion::DestinyInternalAlpha | PackageVersion::DestinyTheTakenKing
+            GameVersion::DestinyInternalAlpha | GameVersion::DestinyTheTakenKing
         ) {
             array_offsets
                 .into_iter()
@@ -1043,8 +1043,8 @@ impl ExtendedScanResult {
                     package_manager()
                         .hash64_table
                         .get(&s.hash.0)
-                        .unwrap()
-                        .hash32,
+                        .map(|v| v.hash32)
+                        .unwrap_or(TagHash::NONE),
                 ),
             }
         }));

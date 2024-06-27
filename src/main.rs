@@ -10,7 +10,7 @@ mod util;
 use std::sync::Arc;
 
 use clap::Parser;
-use destiny_pkg::{PackageManager, PackageVersion};
+use destiny_pkg::{GameVersion, PackageManager};
 use eframe::egui::ViewportBuilder;
 use eframe::egui_wgpu::WgpuConfiguration;
 use eframe::wgpu;
@@ -30,7 +30,7 @@ struct Args {
 
     /// Game version for the specified packages directory
     #[arg(short, value_enum)]
-    version: Option<PackageVersion>,
+    version: Option<GameVersion>,
 }
 
 fn main() -> eframe::Result<()> {
@@ -65,8 +65,7 @@ fn main() -> eframe::Result<()> {
     );
     let pm = PackageManager::new(
         packages_path,
-        args.version
-            .unwrap_or(PackageVersion::Destiny2TheFinalShape),
+        args.version.unwrap_or(GameVersion::Destiny2TheFinalShape),
     )
     .unwrap();
 

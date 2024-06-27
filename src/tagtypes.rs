@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use destiny_pkg::PackageVersion;
+use destiny_pkg::GameVersion;
 use eframe::epaint::Color32;
 
 use crate::package_manager::package_manager;
@@ -156,14 +156,14 @@ impl TagType {
     pub fn from_type_subtype(t: u8, st: u8) -> TagType {
         // TODO: Change this match to use ordered version checking after destiny-pkg 0.11
         match package_manager().version {
-            PackageVersion::DestinyInternalAlpha => Self::from_type_subtype_devalpha(t, st),
-            PackageVersion::DestinyTheTakenKing => Self::from_type_subtype_ttk(t, st),
-            PackageVersion::DestinyRiseOfIron => Self::from_type_subtype_roi(t, st),
-            PackageVersion::Destiny2Shadowkeep => Self::from_type_subtype_sk(t, st),
-            PackageVersion::Destiny2BeyondLight
-            | PackageVersion::Destiny2WitchQueen
-            | PackageVersion::Destiny2Lightfall
-            | PackageVersion::Destiny2TheFinalShape => Self::from_type_subtype_lf(t, st),
+            GameVersion::DestinyInternalAlpha => Self::from_type_subtype_devalpha(t, st),
+            GameVersion::DestinyTheTakenKing => Self::from_type_subtype_ttk(t, st),
+            GameVersion::DestinyRiseOfIron => Self::from_type_subtype_roi(t, st),
+            GameVersion::Destiny2Shadowkeep => Self::from_type_subtype_sk(t, st),
+            GameVersion::Destiny2BeyondLight
+            | GameVersion::Destiny2WitchQueen
+            | GameVersion::Destiny2Lightfall
+            | GameVersion::Destiny2TheFinalShape => Self::from_type_subtype_lf(t, st),
             u => panic!("Unsupported game version {u:?} (TagType::from_type_subtype)"),
         }
     }

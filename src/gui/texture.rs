@@ -4,7 +4,7 @@ use crate::package_manager::package_manager;
 use anyhow::Context;
 use binrw::{BinRead, BinReaderExt};
 use destiny_pkg::package::PackagePlatform;
-use destiny_pkg::{PackageVersion, TagHash};
+use destiny_pkg::{GameVersion, TagHash};
 use eframe::egui::load::SizedTexture;
 use eframe::egui_wgpu::RenderState;
 use eframe::epaint::mutex::RwLock;
@@ -124,11 +124,10 @@ impl Texture {
             .read_tag(hash)
             .context("Failed to read texture header")?;
 
-        // TODO(cohae): add a method to PackageVersion to check for prebl
+        // TODO(cohae): add a method to GameVersion to check for prebl
         let is_prebl = matches!(
             package_manager().version,
-            destiny_pkg::PackageVersion::Destiny2Beta
-                | destiny_pkg::PackageVersion::Destiny2Shadowkeep
+            destiny_pkg::GameVersion::Destiny2Beta | destiny_pkg::GameVersion::Destiny2Shadowkeep
         );
 
         let mut cur = std::io::Cursor::new(header_data);
@@ -217,8 +216,8 @@ impl Texture {
         }
 
         match package_manager().version {
-            PackageVersion::DestinyInternalAlpha | PackageVersion::DestinyTheTakenKing => todo!(),
-            PackageVersion::DestinyRiseOfIron => {
+            GameVersion::DestinyInternalAlpha | GameVersion::DestinyTheTakenKing => todo!(),
+            GameVersion::DestinyRiseOfIron => {
                 let texture: TextureHeaderRoiPs4 = package_manager().read_tag_binrw(hash)?;
                 Ok(TextureDesc {
                     format: texture.format.to_wgpu()?,
@@ -228,20 +227,21 @@ impl Texture {
                     premultiply_alpha: false,
                 })
             }
-            PackageVersion::Destiny2Beta
-            | PackageVersion::Destiny2Shadowkeep
-            | PackageVersion::Destiny2BeyondLight
-            | PackageVersion::Destiny2WitchQueen
-            | PackageVersion::Destiny2Lightfall
-            | PackageVersion::Destiny2TheFinalShape => {
+            GameVersion::Destiny2Beta
+            | GameVersion::Destiny2Forsaken
+            | GameVersion::Destiny2Shadowkeep
+            | GameVersion::Destiny2BeyondLight
+            | GameVersion::Destiny2WitchQueen
+            | GameVersion::Destiny2Lightfall
+            | GameVersion::Destiny2TheFinalShape => {
                 let header_data = package_manager()
                     .read_tag(hash)
                     .context("Failed to read texture header")?;
 
                 let is_prebl = matches!(
                     package_manager().version,
-                    destiny_pkg::PackageVersion::Destiny2Beta
-                        | destiny_pkg::PackageVersion::Destiny2Shadowkeep
+                    destiny_pkg::GameVersion::Destiny2Beta
+                        | destiny_pkg::GameVersion::Destiny2Shadowkeep
                 );
 
                 let mut cur = std::io::Cursor::new(header_data);
@@ -268,8 +268,8 @@ impl Texture {
         }
 
         match package_manager().version {
-            PackageVersion::DestinyInternalAlpha | PackageVersion::DestinyTheTakenKing => todo!(),
-            PackageVersion::DestinyRiseOfIron => {
+            GameVersion::DestinyInternalAlpha | GameVersion::DestinyTheTakenKing => todo!(),
+            GameVersion::DestinyRiseOfIron => {
                 let (texture, texture_data, comment) = Self::load_data_roi_ps4(hash, true)?;
                 Self::create_texture(
                     rs,
@@ -285,12 +285,13 @@ impl Texture {
                     Some(comment),
                 )
             }
-            PackageVersion::Destiny2Beta
-            | PackageVersion::Destiny2Shadowkeep
-            | PackageVersion::Destiny2BeyondLight
-            | PackageVersion::Destiny2WitchQueen
-            | PackageVersion::Destiny2Lightfall
-            | PackageVersion::Destiny2TheFinalShape => {
+            GameVersion::Destiny2Beta
+            | GameVersion::Destiny2Forsaken
+            | GameVersion::Destiny2Shadowkeep
+            | GameVersion::Destiny2BeyondLight
+            | GameVersion::Destiny2WitchQueen
+            | GameVersion::Destiny2Lightfall
+            | GameVersion::Destiny2TheFinalShape => {
                 let (texture, texture_data, comment) = Self::load_data_d2(hash, true)?;
                 Self::create_texture(
                     rs,

@@ -6,7 +6,7 @@ use std::{
 
 use binrw::BinReaderExt;
 
-use destiny_pkg::{PackageVersion, TagHash};
+use destiny_pkg::{GameVersion, TagHash};
 use eframe::egui::{self, RichText};
 use itertools::Itertools;
 use rustc_hash::FxHashMap;
@@ -40,7 +40,7 @@ impl StringsView {
         let mut strings_vec_filtered: StringCacheVec =
             strings.iter().map(|(k, v)| (*k, v.clone())).collect();
 
-        let hide_devalpha_str = package_manager().version == PackageVersion::DestinyInternalAlpha;
+        let hide_devalpha_str = package_manager().version == GameVersion::DestinyInternalAlpha;
         if hide_devalpha_str {
             strings_vec_filtered.retain(|(_, s)| !devstr_regex.is_match(&s[0]));
         }
@@ -85,7 +85,7 @@ impl View for StringsView {
                         .checkbox(&mut self.case_sensitive, "Case sensitive")
                         .changed();
 
-                    if package_manager().version == PackageVersion::DestinyInternalAlpha {
+                    if package_manager().version == GameVersion::DestinyInternalAlpha {
                         update_search |= ui
                             .checkbox(&mut self.hide_devalpha_str, "Hide devalpha strXX strings")
                             .changed();
@@ -249,7 +249,7 @@ fn truncate_string_stripped(s: &str, max_length: usize) -> String {
 }
 
 fn dump_all_languages() -> anyhow::Result<()> {
-    let prebl = package_manager().version == PackageVersion::Destiny2Shadowkeep;
+    let prebl = package_manager().version == GameVersion::Destiny2Shadowkeep;
 
     std::fs::create_dir("strings").ok();
     let mut files: FxHashMap<String, File> = Default::default();

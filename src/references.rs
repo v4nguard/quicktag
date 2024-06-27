@@ -103,14 +103,14 @@ pub fn initialize_reference_names() {
     let mut references: FxHashMap<u32, &'static str> = REFERENCE_MAP_BASE_PRIMITIVES.clone();
 
     let version_specific = match package_manager().version {
-        destiny_pkg::PackageVersion::DestinyInternalAlpha => REFERENCE_MAP_DEVALPHA.clone(),
-        destiny_pkg::PackageVersion::DestinyTheTakenKing => REFERENCE_MAP_TTK.clone(),
-        destiny_pkg::PackageVersion::DestinyRiseOfIron => REFERENCE_MAP_ROI.clone(),
-        destiny_pkg::PackageVersion::Destiny2Shadowkeep => REFERENCE_MAP_SK.clone(),
-        destiny_pkg::PackageVersion::Destiny2BeyondLight
-        | destiny_pkg::PackageVersion::Destiny2WitchQueen
-        | destiny_pkg::PackageVersion::Destiny2Lightfall
-        | destiny_pkg::PackageVersion::Destiny2TheFinalShape => REFERENCE_MAP_BL.clone(),
+        destiny_pkg::GameVersion::DestinyInternalAlpha => REFERENCE_MAP_DEVALPHA.clone(),
+        destiny_pkg::GameVersion::DestinyTheTakenKing => REFERENCE_MAP_TTK.clone(),
+        destiny_pkg::GameVersion::DestinyRiseOfIron => REFERENCE_MAP_ROI.clone(),
+        destiny_pkg::GameVersion::Destiny2Shadowkeep => REFERENCE_MAP_SK.clone(),
+        destiny_pkg::GameVersion::Destiny2BeyondLight
+        | destiny_pkg::GameVersion::Destiny2WitchQueen
+        | destiny_pkg::GameVersion::Destiny2Lightfall
+        | destiny_pkg::GameVersion::Destiny2TheFinalShape => REFERENCE_MAP_BL.clone(),
         u => panic!("Unsupported game version {u:?} (initialize_reference_names)"),
     };
 

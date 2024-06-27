@@ -15,7 +15,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use destiny_pkg::{PackageVersion, TagHash};
+use destiny_pkg::{GameVersion, TagHash};
 use eframe::egui::{PointerButton, TextEdit, Widget};
 use eframe::egui_wgpu::RenderState;
 use eframe::{
@@ -84,7 +84,7 @@ pub struct QuickTagApp {
 
 impl QuickTagApp {
     /// Called once before the first frame.
-    pub fn new(cc: &eframe::CreationContext<'_>, version: PackageVersion) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>, version: GameVersion) -> Self {
         let mut fonts = egui::FontDefinitions::default();
         fonts.font_data.insert(
             "Destiny_Keys".into(),

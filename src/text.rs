@@ -6,7 +6,7 @@ use std::ops::Deref;
 use std::slice::Iter;
 
 use binrw::{BinRead, BinReaderExt, BinResult, Endian, VecArgs};
-use destiny_pkg::{PackageVersion, TagHash};
+use destiny_pkg::{GameVersion, TagHash};
 use log::{error, warn};
 use rustc_hash::{FxHashMap, FxHashSet};
 
@@ -366,15 +366,15 @@ pub fn decode_text(data: &[u8], cipher: u16) -> String {
 pub fn create_stringmap() -> anyhow::Result<StringCache> {
     // TODO: Change this match to use ordered version checking after destiny-pkg 0.11
     match package_manager().version {
-        PackageVersion::Destiny2Shadowkeep
-        | PackageVersion::Destiny2BeyondLight
-        | PackageVersion::Destiny2WitchQueen
-        | PackageVersion::Destiny2Lightfall
-        | PackageVersion::Destiny2TheFinalShape
+        GameVersion::Destiny2Shadowkeep
+        | GameVersion::Destiny2BeyondLight
+        | GameVersion::Destiny2WitchQueen
+        | GameVersion::Destiny2Lightfall
+        | GameVersion::Destiny2TheFinalShape
         // cohae: Rise of Iron uses the same string format as D2
-        | PackageVersion::DestinyRiseOfIron => create_stringmap_d2(),
-        PackageVersion::DestinyTheTakenKing => create_stringmap_d1(),
-        PackageVersion::DestinyInternalAlpha => create_stringmap_d1_devalpha(),
+        | GameVersion::DestinyRiseOfIron => create_stringmap_d2(),
+        GameVersion::DestinyTheTakenKing => create_stringmap_d1(),
+        GameVersion::DestinyInternalAlpha => create_stringmap_d1_devalpha(),
         u =>
             panic!("Unsupported game version {u:?} (create_stringmap)")
 
@@ -382,12 +382,12 @@ pub fn create_stringmap() -> anyhow::Result<StringCache> {
 }
 
 pub fn create_stringmap_d2() -> anyhow::Result<StringCache> {
-    // TODO(cohae): We should probably derive PartialOrd for PackageVersion
+    // TODO(cohae): We should probably derive PartialOrd for GameVersion
     let prebl = matches!(
         package_manager().version,
-        PackageVersion::DestinyTheTakenKing
-            | PackageVersion::DestinyRiseOfIron
-            | PackageVersion::Destiny2Shadowkeep
+        GameVersion::DestinyTheTakenKing
+            | GameVersion::DestinyRiseOfIron
+            | GameVersion::Destiny2Shadowkeep
     );
     let mut tmp_map: FxHashMap<u32, FxHashSet<String>> = Default::default();
     for (t, _) in package_manager()

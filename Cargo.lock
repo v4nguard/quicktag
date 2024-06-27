@@ -935,9 +935,9 @@ dependencies = [
 
 [[package]]
 name = "destiny-pkg"
-version = "0.10.3"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ad9e1b1549273e360856722c042c65159d664ef2e8f5857d00f45e0675edc8a"
+checksum = "8e38129da4d312e83c0c22bc48d2c83358687ea5d8d8e19634d5bbfe2e6a2e09"
 dependencies = [
  "aes",
  "aes-gcm",
