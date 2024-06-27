@@ -1336,9 +1336,9 @@ dependencies = [
 
 [[package]]
 name = "game-detector"
-version = "0.1.3"
+version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da20c531faaf4aa01cfe14f3afdddcc4fd29076b7e7d8de910b03e924377823b"
+checksum = "6fbe534daf8e8976fa51d09f4666110d679f13cb19a7676b382e2989cfae6f14"
 dependencies = [
  "anyhow",
  "fs-err",
@@ -2557,7 +2557,7 @@ dependencies = [
 
 [[package]]
 name = "quicktag"
-version = "0.6.0"
+version = "0.6.2"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
