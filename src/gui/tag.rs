@@ -49,6 +49,7 @@ use super::{
 enum TagViewMode {
     Traversal,
     Hex,
+    HexReferenced,
     Float,
 }
 
@@ -83,6 +84,7 @@ pub struct TagView {
     render_state: RenderState,
     texture_cache: TextureCache,
     hexview: TagHexView,
+    hexview_referenced: Option<TagHexView>,
     mode: TagViewMode,
 }
 
@@ -241,8 +243,18 @@ impl TagView {
             Err(anyhow::anyhow!("Tag is not a texture header"))
         };
 
+        let hexview_referenced = if matches!(tag_type, TagType::ConstantBuffer { .. }) {
+            package_manager()
+                .read_tag(tag_entry.reference)
+                .ok()
+                .map(|d| TagHexView::new(d))
+        } else {
+            None
+        };
+
         Some(Self {
             hexview: TagHexView::new(tag_data.clone()),
+            hexview_referenced,
             mode: TagViewMode::Traversal,
 
             arrays,
@@ -767,6 +779,13 @@ impl View for TagView {
                 ui.selectable_value(&mut self.mode, TagViewMode::Traversal, "Traversal");
                 ui.selectable_value(&mut self.mode, TagViewMode::Hex, "Hex");
                 ui.selectable_value(&mut self.mode, TagViewMode::Float, "Floating point");
+                if self.hexview_referenced.is_some() {
+                    ui.selectable_value(
+                        &mut self.mode,
+                        TagViewMode::HexReferenced,
+                        "Hex (referenced data)",
+                    );
+                }
             });
 
             ui.separator();
@@ -777,6 +796,13 @@ impl View for TagView {
                 }
                 TagViewMode::Hex => {
                     open_new_tag = open_new_tag.or(self.hexview.show(ui));
+                }
+                TagViewMode::HexReferenced => {
+                    if let Some(h) = self.hexview_referenced.as_mut() {
+                        open_new_tag = open_new_tag.or(h.show(ui));
+                    } else {
+                        self.mode = TagViewMode::Hex;
+                    }
                 }
                 TagViewMode::Float => {
                     self.floatview_ui(ui);
