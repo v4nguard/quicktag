@@ -97,7 +97,7 @@ pub fn fnv1(data: &[u8]) -> u32 {
     })
 }
 
-pub fn scan_file(context: &ScannerContext, data: &[u8]) -> ScanResult {
+pub fn scan_file(context: &ScannerContext, data: &[u8], tags_only: bool) -> ScanResult {
     profiling::scope!(
         "scan_file",
         format!("data len = {} bytes", data.len()).as_str()
@@ -120,13 +120,15 @@ pub fn scan_file(context: &ScannerContext, data: &[u8]) -> ScanResult {
             });
         }
 
-        // cohae: 0x808000CB is used in the alpha
-        if matches!(value, 0x80800065 | 0x808000CB) {
-            r.raw_strings.extend(
-                read_raw_string_blob(data, offset as u64)
-                    .into_iter()
-                    .map(|(_, s)| s),
-            );
+        if !tags_only {
+            // cohae: 0x808000CB is used in the alpha
+            if matches!(value, 0x80800065 | 0x808000CB) {
+                r.raw_strings.extend(
+                    read_raw_string_blob(data, offset as u64)
+                        .into_iter()
+                        .map(|(_, s)| s),
+                );
+            }
         }
 
         if value != 0x811c9dc5 && context.known_string_hashes.binary_search(&value).is_ok() {
@@ -459,7 +461,7 @@ pub fn load_tag_cache(version: GameVersion) -> TagCache {
                     }
                 };
 
-                let mut scan_result = scan_file(context, &data);
+                let mut scan_result = scan_file(context, &data, false);
                 if version.is_d1() {
                     if let Some(entry) = pkg.entry(t) {
                         let ref_tag = TagHash(entry.reference);

@@ -1049,7 +1049,7 @@ impl Display for ExtendedTagHash {
     }
 }
 
-struct ExtendedScanResult {
+pub struct ExtendedScanResult {
     pub successful: bool,
     pub file_hashes: Vec<ScannedHashWithEntry<ExtendedTagHash>>,
 
@@ -1096,7 +1096,7 @@ impl ExtendedScanResult {
     }
 }
 
-struct ScannedHashWithEntry<T: Sized> {
+pub struct ScannedHashWithEntry<T: Sized> {
     pub offset: u64,
     pub hash: T,
     pub entry: Option<UEntryHeader>,

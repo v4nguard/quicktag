@@ -1,6 +1,7 @@
 mod audio;
 mod common;
 mod dxgi;
+mod external_file;
 mod hexview;
 mod named_tags;
 mod packages;
@@ -26,15 +27,6 @@ use eframe::{
 use egui_notify::Toasts;
 use poll_promise::Promise;
 
-use crate::gui::tag::TagHistory;
-use crate::scanner::fnv1;
-use crate::text::RawStringHashCache;
-use crate::{
-    package_manager::package_manager,
-    scanner::{load_tag_cache, scanner_progress, ScanStatus, TagCache},
-    text::{create_stringmap, StringCache},
-};
-
 use self::named_tags::NamedTagView;
 use self::packages::PackagesView;
 use self::raw_strings::RawStringsView;
@@ -42,6 +34,16 @@ use self::strings::StringsView;
 use self::tag::TagView;
 use self::texture::TextureCache;
 use self::texturelist::TexturesView;
+use crate::gui::external_file::ExternalFileScanView;
+use crate::gui::tag::TagHistory;
+use crate::scanner::{fnv1, ScannerContext};
+use crate::text::RawStringHashCache;
+use crate::{
+    package_manager::package_manager,
+    scanner,
+    scanner::{load_tag_cache, scanner_progress, ScanStatus, TagCache},
+    text::{create_stringmap, StringCache},
+};
 
 #[derive(PartialEq)]
 pub enum Panel {
@@ -51,9 +53,11 @@ pub enum Panel {
     Textures,
     Strings,
     RawStrings,
+    ExternalFile,
 }
 
 pub struct QuickTagApp {
+    scanner_context: ScannerContext,
     cache_load: Option<Promise<TagCache>>,
     cache: Arc<TagCache>,
     tag_history: Rc<RefCell<TagHistory>>,
@@ -72,6 +76,7 @@ pub struct QuickTagApp {
     open_panel: Panel,
 
     tag_view: Option<TagView>,
+    external_file_view: Option<ExternalFileScanView>,
 
     named_tags_view: NamedTagView,
     packages_view: PackagesView,
@@ -103,12 +108,15 @@ impl QuickTagApp {
         let texture_cache = TextureCache::new(cc.wgpu_render_state.clone().unwrap());
 
         QuickTagApp {
+            scanner_context: scanner::create_scanner_context(&package_manager())
+                .expect("Failed to create scanner context"),
             cache_load: Some(Promise::spawn_thread("load_cache", move || {
                 load_tag_cache(version)
             })),
             tag_history: Rc::new(RefCell::new(TagHistory::default())),
             cache: Default::default(),
             tag_view: None,
+            external_file_view: None,
             tag_input: String::new(),
             tag_split: false,
             tag_split_input: (String::new(), String::new()),
@@ -213,6 +221,26 @@ impl eframe::App for QuickTagApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.add_enabled_ui(!is_loading_cache, |ui| {
+                egui::menu::bar(ui, |ui| {
+                    ui.menu_button("File", |ui| if ui.button("Scan file").clicked() {
+                        if let Ok(Some(selected_file)) = native_dialog::FileDialog::new()
+                            .add_filter("All files", &["*"]).show_open_single_file() {
+                            let filename = selected_file.file_name().unwrap().to_string_lossy().to_string();
+                            let data = std::fs::read(&selected_file).unwrap();
+                            self.external_file_view = Some(ExternalFileScanView::new(
+                                filename,
+                                &self.scanner_context,
+                                &data,
+                            ));
+                            
+                            self.open_panel = Panel::ExternalFile;
+                        }
+                        
+                        ui.close_menu();
+                    });
+                });
+                ui.separator();
+
                 ui.horizontal(|ui| {
                     ui.label("Tag:");
                     let mut submitted = false;
@@ -287,6 +315,13 @@ impl eframe::App for QuickTagApp {
                     ui.selectable_value(&mut self.open_panel, Panel::Textures, "Textures");
                     ui.selectable_value(&mut self.open_panel, Panel::Strings, "Strings");
                     ui.selectable_value(&mut self.open_panel, Panel::RawStrings, "Raw Strings");
+                    if let Some(external_file_view) = &self.external_file_view {
+                        ui.selectable_value(
+                            &mut self.open_panel,
+                            Panel::ExternalFile,
+                            format!("File {}", external_file_view.filename),
+                        );
+                    }
                 });
 
                 ui.separator();
@@ -305,6 +340,14 @@ impl eframe::App for QuickTagApp {
                     Panel::Textures => self.textures_view.view(ctx, ui),
                     Panel::Strings => self.strings_view.view(ctx, ui),
                     Panel::RawStrings => self.raw_strings_view.view(ctx, ui),
+                    Panel::ExternalFile => {
+                        if let Some(external_file_view) = &mut self.external_file_view {
+                            external_file_view.view(ctx, ui, &self.texture_cache)
+                        } else {
+                            self.open_panel = Panel::Tag;
+                            None
+                        }
+                    }
                 };
 
                 if self.open_panel == Panel::Tag && action.is_none() {
