@@ -50,7 +50,7 @@ impl ExternalFileScanView {
                         .tag_context_with_texture(
                             tag.hash.hash32(),
                             texture_cache,
-                            tagtype.is_texture(),
+                            tagtype.is_texture() && tagtype.is_header(),
                         )
                         .clicked()
                     {

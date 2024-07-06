@@ -331,7 +331,7 @@ impl TagView {
 
         let tag_label = if let Some(entry) = &traversed.entry {
             let tagtype = TagType::from_type_subtype(entry.file_type, entry.file_subtype);
-            is_texture = tagtype.is_texture();
+            is_texture = tagtype.is_texture() && tagtype.is_header();
 
             let fancy_tag = format_tag_entry(traversed.tag, Some(entry));
             let reason = traversed
