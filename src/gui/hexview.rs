@@ -88,7 +88,7 @@ impl TagHexView {
                     DataRow::Raw(data) => {
                         let string = data
                             .chunks_exact(4)
-                            .map(|b| format!("{:02X} {:02X} {:02X} {:02X}", b[0], b[1], b[2], b[2]))
+                            .map(|b| format!("{:02X} {:02X} {:02X} {:02X}", b[0], b[1], b[2], b[3]))
                             .join("  ");
                         ui.monospace(string);
                     }
@@ -133,6 +133,7 @@ enum DataViewMode {
     U32,
 }
 
+#[derive(Clone, Copy)]
 enum DataRow {
     Raw([u8; 16]),
     Float([f32; 4]),
@@ -203,7 +204,13 @@ fn find_all_array_ranges(data: &[u8]) -> Vec<ArrayRange> {
     for (i, &value) in data_chunks_u32.iter().enumerate() {
         let offset = i as u64 * 4;
 
-        if matches!(value, 0x80809fb8 | 0x80800184 | 0x80800142) {
+        if matches!(
+            value,
+            0x80809fbd | // Pre-BL
+            0x80809fb8 | // Post-BL
+            0x80800184 |
+            0x80800142
+        ) {
             array_offsets.push(offset + 4);
         }
     }

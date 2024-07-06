@@ -1,7 +1,7 @@
 mod audio;
 mod common;
 mod dxgi;
-mod hextag;
+mod hexview;
 mod named_tags;
 mod packages;
 mod raw_strings;

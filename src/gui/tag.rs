@@ -25,7 +25,7 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use std::fmt::Write;
 use std::rc::Rc;
 
-use crate::gui::hextag::TagHexView;
+use crate::gui::hexview::TagHexView;
 use crate::package_manager::get_hash64;
 use crate::{gui::texture::Texture, scanner::read_raw_string_blob, text::RawStringHashCache};
 use crate::{
@@ -143,7 +143,13 @@ impl TagView {
         for (i, &value) in data_chunks_u32.iter().enumerate() {
             let offset = i as u64 * 4;
 
-            if matches!(value, 0x80809fb8 | 0x80800184 | 0x80800142) {
+            if matches!(
+                value,
+                0x80809fbd | // Pre-BL
+                0x80809fb8 | // Post-BL
+                0x80800184 |
+                0x80800142
+            ) {
                 array_offsets.push(offset + 4);
             }
 
