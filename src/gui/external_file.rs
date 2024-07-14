@@ -34,8 +34,8 @@ impl ExternalFileScanView {
     ) -> Option<ViewAction> {
         let mut result = None;
 
-        egui::ScrollArea::vertical().show(ui, |ui| {
-            for tag in &self.file_hashes {
+        egui::ScrollArea::vertical().show_rows(ui, 22.0, self.file_hashes.len(), |ui, range| {
+            for tag in &self.file_hashes[range] {
                 if let Some(entry) = &tag.entry {
                     let tagtype = TagType::from_type_subtype(entry.file_type, entry.file_subtype);
 
