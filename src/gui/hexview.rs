@@ -4,7 +4,7 @@ use crate::swap_to_ne;
 use binrw::{binread, BinReaderExt, Endian};
 use destiny_pkg::{GameVersion, TagHash};
 use eframe::egui;
-use eframe::egui::{vec2, Color32, Rgba, RichText, ScrollArea, Sense, Ui};
+use eframe::egui::{pos2, vec2, Color32, Rgba, RichText, ScrollArea, Sense, Ui};
 use itertools::Itertools;
 use std::io::{Cursor, Seek, SeekFrom};
 
@@ -40,6 +40,11 @@ impl TagHexView {
     }
 
     pub fn show(&mut self, ui: &mut Ui) -> Option<TagHash> {
+        if self.data.len() > 1024 * 1024 * 16 {
+            ui.label("Data too large to display");
+            return None;
+        }
+
         ScrollArea::vertical()
             .auto_shrink([false, false])
             .show(ui, |ui| {
@@ -50,20 +55,18 @@ impl TagHexView {
                     for array in &self.array_ranges {
                         ui.add_space(16.0);
                         ui.horizontal(|ui| {
-                            let ref_label = REFERENCE_NAMES
-                                .read()
-                                .get(&array.class)
-                                .map(|s| format!("{s} ({:08X})", array.class))
-                                .unwrap_or_else(|| format!("{:08X}", array.class));
+                            let heading = if let Some(label) = &array.label {
+                                label.clone()
+                            } else {
+                                let ref_label = REFERENCE_NAMES
+                                    .read()
+                                    .get(&array.class)
+                                    .map(|s| format!("{s} ({:08X})", array.class))
+                                    .unwrap_or_else(|| format!("{:08X}", array.class));
+                                format!("Array {ref_label} ({} elements)", array.length)
+                            };
 
-                            ui.heading(
-                                RichText::new(format!(
-                                    "Array {ref_label} ({} elements)",
-                                    array.length
-                                ))
-                                .color(Color32::WHITE)
-                                .strong(),
-                            );
+                            ui.heading(RichText::new(heading).color(Color32::WHITE).strong());
                         });
 
                         self.show_row_block(
@@ -95,6 +98,7 @@ impl TagHexView {
                     DataRow::Float(data) => {
                         let string = data.iter().map(|f| format!("{f:<11.2}")).join("  ");
                         ui.monospace(string);
+                        ui.add_space(16.0);
 
                         if data.iter().all(|&v| v >= 0.0) {
                             let needs_normalization = data.iter().any(|&v| v > 1.0);
@@ -120,6 +124,31 @@ impl TagHexView {
                         }
                     }
                 }
+
+                if let Some(bytes) = row.as_raw() {
+                    ui.add_space(16.0);
+                    let (_response, painter) =
+                        ui.allocate_painter(vec2(16.0 * 16.0, 16.0), Sense::hover());
+
+                    // ui.monospace(ascii);
+                    ui.style_mut().spacing.item_spacing = vec2(4.0, 3.0);
+                    for (i, &b) in bytes.iter().enumerate() {
+                        let (c, color) = if b.is_ascii_graphic() {
+                            (b as char, Color32::from_rgb(90, 120, 255))
+                        } else {
+                            ('.', Color32::DARK_GRAY)
+                        };
+
+                        let pos = painter.clip_rect().min + vec2(i as f32 * 12.0, 0.0);
+                        painter.text(
+                            pos,
+                            egui::Align2::LEFT_TOP,
+                            c.to_string(),
+                            egui::FontId::monospace(12.0),
+                            color,
+                        );
+                    }
+                }
             });
         }
     }
@@ -138,6 +167,15 @@ enum DataRow {
     Raw([u8; 16]),
     Float([f32; 4]),
     // U32([u32; 4]),
+}
+
+impl DataRow {
+    fn as_raw(&self) -> Option<&[u8; 16]> {
+        match self {
+            DataRow::Raw(data) => Some(data),
+            _ => None,
+        }
+    }
 }
 
 impl From<[u8; 16]> for DataRow {
@@ -178,6 +216,7 @@ struct ArrayRange {
     data_start: u64,
     end: u64,
 
+    label: Option<String>,
     class: u32,
     length: u64,
 }
@@ -201,6 +240,7 @@ fn find_all_array_ranges(data: &[u8]) -> Vec<ArrayRange> {
     }
 
     let mut array_offsets = vec![];
+    let mut strings_offset: Option<u64> = None;
     for (i, &value) in data_chunks_u32.iter().enumerate() {
         let offset = i as u64 * 4;
 
@@ -212,6 +252,10 @@ fn find_all_array_ranges(data: &[u8]) -> Vec<ArrayRange> {
             0x80800142
         ) {
             array_offsets.push(offset + 4);
+        }
+
+        if matches!(value, 0x80800065 | 0x808000CB) {
+            strings_offset = Some(offset + 4);
         }
     }
 
@@ -253,6 +297,7 @@ fn find_all_array_ranges(data: &[u8]) -> Vec<ArrayRange> {
             start,
             data_start,
             end: file_end,
+            label: None,
             class: header.tagtype,
             length: header.count,
         })
