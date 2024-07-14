@@ -308,6 +308,21 @@ fn find_all_array_ranges(data: &[u8]) -> Vec<ArrayRange> {
         array_ranges[i].end = next_start;
     }
 
+    if let Some(strings_offset) = strings_offset {
+        let strings_offset_aligned = strings_offset & !0xf;
+        if !array_ranges.is_empty() {
+            array_ranges.last_mut().unwrap().end = strings_offset_aligned;
+        }
+        array_ranges.push(ArrayRange {
+            start: strings_offset + 4,
+            data_start: strings_offset + 4,
+            end: file_end,
+            label: Some("Raw String Data".to_string()),
+            class: 0,
+            length: 0,
+        });
+    }
+
     array_ranges
 }
 
