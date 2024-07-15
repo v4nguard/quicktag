@@ -801,11 +801,11 @@ impl View for TagView {
                     open_new_tag = open_new_tag.or(self.traverse_ui(ui));
                 }
                 TagViewMode::Hex => {
-                    open_new_tag = open_new_tag.or(self.hexview.show(ui));
+                    open_new_tag = open_new_tag.or(self.hexview.show(ui, &self.scan));
                 }
                 TagViewMode::HexReferenced => {
                     if let Some(h) = self.hexview_referenced.as_mut() {
-                        open_new_tag = open_new_tag.or(h.show(ui));
+                        open_new_tag = open_new_tag.or(h.show(ui, &self.scan));
                     } else {
                         self.mode = TagViewMode::Hex;
                     }

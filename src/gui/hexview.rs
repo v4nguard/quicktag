@@ -1,3 +1,4 @@
+use crate::gui::tag::ExtendedScanResult;
 use crate::package_manager::package_manager;
 use crate::references::REFERENCE_NAMES;
 use crate::swap_to_ne;
@@ -39,7 +40,7 @@ impl TagHexView {
         }
     }
 
-    pub fn show(&mut self, ui: &mut Ui) -> Option<TagHash> {
+    pub fn show(&mut self, ui: &mut Ui, scan: &ExtendedScanResult) -> Option<TagHash> {
         if self.data.len() > 1024 * 1024 * 16 {
             ui.label("Data too large to display");
             return None;
@@ -50,7 +51,7 @@ impl TagHexView {
             .show(ui, |ui| {
                 if self.split_arrays && !self.array_ranges.is_empty() {
                     let first_array_offset = self.array_ranges[0].start as usize;
-                    self.show_row_block(ui, &self.rows[..first_array_offset / 16], 0);
+                    self.show_row_block(ui, &self.rows[..first_array_offset / 16], 0, scan);
 
                     for array in &self.array_ranges {
                         ui.add_space(16.0);
@@ -73,27 +74,51 @@ impl TagHexView {
                             ui,
                             &self.rows[array.data_start as usize / 16..array.end as usize / 16],
                             array.data_start as usize,
+                            scan,
                         );
                     }
                 } else {
-                    self.show_row_block(ui, &self.rows, 0);
+                    self.show_row_block(ui, &self.rows, 0, scan);
                 }
             });
 
         None
     }
 
-    fn show_row_block(&self, ui: &mut Ui, rows: &[DataRow], base_offset: usize) {
+    fn show_row_block(
+        &self,
+        ui: &mut Ui,
+        rows: &[DataRow],
+        base_offset: usize,
+        scan: &ExtendedScanResult,
+    ) {
         for (i, row) in rows.iter().enumerate() {
+            let offset = base_offset + i * 16;
             ui.horizontal(|ui| {
                 ui.strong(format!("{:08X}:", base_offset + i * 16));
+                ui.style_mut().spacing.item_spacing.x = 14.0;
                 match row {
                     DataRow::Raw(data) => {
-                        let string = data
-                            .chunks_exact(4)
-                            .map(|b| format!("{:02X} {:02X} {:02X} {:02X}", b[0], b[1], b[2], b[3]))
-                            .join("  ");
-                        ui.monospace(string);
+                        for (bi, b) in data.chunks_exact(4).enumerate() {
+                            let chunk_offset = offset + bi * 4;
+                            let hash = scan
+                                .file_hashes
+                                .iter()
+                                .find(|v| v.offset == chunk_offset as u64);
+                            let color = if hash.is_some() {
+                                Color32::GOLD
+                            } else {
+                                Color32::GRAY
+                            };
+
+                            ui.monospace(
+                                RichText::new(format!(
+                                    "{:02X} {:02X} {:02X} {:02X}",
+                                    b[0], b[1], b[2], b[3]
+                                ))
+                                .color(color),
+                            );
+                        }
                     }
                     DataRow::Float(data) => {
                         let string = data.iter().map(|f| format!("{f:<11.2}")).join("  ");
@@ -130,8 +155,7 @@ impl TagHexView {
                     let (_response, painter) =
                         ui.allocate_painter(vec2(16.0 * 16.0, 16.0), Sense::hover());
 
-                    // ui.monospace(ascii);
-                    ui.style_mut().spacing.item_spacing = vec2(4.0, 3.0);
+                    ui.style_mut().spacing.item_spacing.x = 4.0;
                     for (i, &b) in bytes.iter().enumerate() {
                         let (c, color) = if b.is_ascii_graphic() {
                             (b as char, Color32::from_rgb(90, 120, 255))

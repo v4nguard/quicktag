@@ -50,6 +50,11 @@ regex = "1.10.4"
 clipboard-win = "5.3.1"
 rodio = "0.18.1"
 
+# tiger-parse structure crates
+alkahest-data = { git = "https://github.com/cohaereo/alkahest.git" }
+#cryptarch-data = { git = "https://github.com/v4nguard/cryptarch.git" }
+#dawn-data = { git = "https://github.com/cohaereo/dawn.git" }
+
 [profile.dev]
 opt-level = 3
 # cohae: Overflow checks are nice for some, but not for us
