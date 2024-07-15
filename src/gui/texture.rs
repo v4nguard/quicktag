@@ -80,6 +80,22 @@ pub struct TextureHeaderRoiPs4 {
     pub flags3: u32,
 }
 
+#[derive(Debug, BinRead)]
+pub struct TextureHeaderRoiXbox {
+    pub format: DxgiFormat,
+
+    #[br(seek_before = SeekFrom::Start(0x2c), assert(beefcafe == 0xbeefcafe))]
+    pub beefcafe: u32,
+
+    pub width: u16,
+    pub height: u16,
+    pub depth: u16,
+    pub array_size: u16,
+    // pub flags1: u32,
+    // pub flags2: u32,
+    // pub flags3: u32,
+}
+
 pub struct Texture {
     pub view: wgpu::TextureView,
     pub handle: wgpu::Texture,
@@ -210,23 +226,105 @@ impl Texture {
         }
     }
 
+    pub fn load_data_roi_xone(
+        hash: TagHash,
+        _load_full_mip: bool,
+    ) -> anyhow::Result<(TextureHeaderRoiXbox, Vec<u8>, String)> {
+        let texture_header_ref = package_manager()
+            .get_entry(hash)
+            .context("Texture header entry not found")?
+            .reference;
+
+        let texture: TextureHeaderRoiXbox = package_manager().read_tag_binrw(hash)?;
+
+        let large_buffer = package_manager()
+            .get_entry(texture_header_ref)
+            .map(|v| TagHash(v.reference))
+            .unwrap_or_default();
+
+        let texture_data = if large_buffer.is_some() {
+            package_manager()
+                .read_tag(large_buffer)
+                .context("Failed to read texture data")?
+        } else {
+            package_manager()
+                .read_tag(texture_header_ref)
+                .context("Failed to read texture data")?
+                .to_vec()
+        };
+
+        let expected_size =
+            (texture.width as usize * texture.height as usize * texture.format.bpp()) / 8;
+
+        if texture_data.len() < expected_size {
+            anyhow::bail!(
+                "Texture data size mismatch for {hash} ({}x{}x{} {:?}): expected {expected_size}, got {}",
+                texture.width, texture.height, texture.depth, texture.format,
+                texture_data.len()
+            );
+        }
+
+        let comment = format!("{texture:#X?}");
+        // if (texture.flags1 & 0xc00) != 0x400 {
+        //     let mut unswizzled = vec![];
+        //     swizzle::ps4::unswizzle(
+        //         &texture_data,
+        //         &mut unswizzled,
+        //         texture.width as usize,
+        //         texture.height as usize,
+        //         texture.format,
+        //     );
+        //     Ok((texture, unswizzled, comment))
+        // } else {
+        // Ok((texture, texture_data, comment))
+        // }
+
+        let mut untiled = vec![];
+        swizzle::xbox::untile(
+            &texture_data,
+            &mut untiled,
+            texture.width as usize,
+            texture.height as usize,
+            texture.format,
+        );
+        Ok((texture, untiled, comment))
+    }
+
     pub fn load_desc(hash: TagHash) -> anyhow::Result<TextureDesc> {
-        if package_manager().version.is_d1() && package_manager().platform != PackagePlatform::PS4 {
+        if package_manager().version.is_d1()
+            && !matches!(
+                package_manager().platform,
+                PackagePlatform::PS4 | PackagePlatform::XOne
+            )
+        {
             anyhow::bail!("Textures are not supported for D1");
         }
 
         match package_manager().version {
             GameVersion::DestinyInternalAlpha | GameVersion::DestinyTheTakenKing => todo!(),
-            GameVersion::DestinyRiseOfIron => {
-                let texture: TextureHeaderRoiPs4 = package_manager().read_tag_binrw(hash)?;
-                Ok(TextureDesc {
-                    format: texture.format.to_wgpu()?,
-                    width: texture.width as u32,
-                    height: texture.height as u32,
-                    depth: texture.depth as u32,
-                    premultiply_alpha: false,
-                })
-            }
+            GameVersion::DestinyRiseOfIron => match package_manager().platform {
+                PackagePlatform::PS4 => {
+                    let texture: TextureHeaderRoiPs4 = package_manager().read_tag_binrw(hash)?;
+                    Ok(TextureDesc {
+                        format: texture.format.to_wgpu()?,
+                        width: texture.width as u32,
+                        height: texture.height as u32,
+                        depth: texture.depth as u32,
+                        premultiply_alpha: false,
+                    })
+                }
+                PackagePlatform::XOne => {
+                    let texture: TextureHeaderRoiXbox = package_manager().read_tag_binrw(hash)?;
+                    Ok(TextureDesc {
+                        format: texture.format.to_wgpu()?,
+                        width: texture.width as u32,
+                        height: texture.height as u32,
+                        depth: texture.depth as u32,
+                        premultiply_alpha: false,
+                    })
+                }
+                _ => unreachable!("Unsupported platform for RoI textures"),
+            },
             GameVersion::Destiny2Beta
             | GameVersion::Destiny2Forsaken
             | GameVersion::Destiny2Shadowkeep
@@ -263,28 +361,53 @@ impl Texture {
         hash: TagHash,
         premultiply_alpha: bool,
     ) -> anyhow::Result<Texture> {
-        if package_manager().version.is_d1() && package_manager().platform != PackagePlatform::PS4 {
+        if package_manager().version.is_d1()
+            && !matches!(
+                package_manager().platform,
+                PackagePlatform::PS4 | PackagePlatform::XOne
+            )
+        {
             anyhow::bail!("Textures are not supported for D1");
         }
 
         match package_manager().version {
             GameVersion::DestinyInternalAlpha | GameVersion::DestinyTheTakenKing => todo!(),
-            GameVersion::DestinyRiseOfIron => {
-                let (texture, texture_data, comment) = Self::load_data_roi_ps4(hash, true)?;
-                Self::create_texture(
-                    rs,
-                    hash,
-                    TextureDesc {
-                        format: texture.format.to_wgpu()?,
-                        width: texture.width as u32,
-                        height: texture.height as u32,
-                        depth: texture.depth as u32,
-                        premultiply_alpha,
-                    },
-                    texture_data,
-                    Some(comment),
-                )
-            }
+            GameVersion::DestinyRiseOfIron => match package_manager().platform {
+                PackagePlatform::PS4 => {
+                    let (texture, texture_data, comment) = Self::load_data_roi_ps4(hash, true)?;
+                    Self::create_texture(
+                        rs,
+                        hash,
+                        TextureDesc {
+                            format: texture.format.to_wgpu()?,
+                            width: texture.width as u32,
+                            height: texture.height as u32,
+                            depth: texture.depth as u32,
+                            premultiply_alpha,
+                        },
+                        texture_data,
+                        Some(comment),
+                    )
+                }
+                PackagePlatform::XOne => {
+                    anyhow::bail!("Xbox One textures are not supported yet");
+                    let (texture, texture_data, comment) = Self::load_data_roi_xone(hash, true)?;
+                    Self::create_texture(
+                        rs,
+                        hash,
+                        TextureDesc {
+                            format: texture.format.to_wgpu()?,
+                            width: texture.width as u32,
+                            height: texture.height as u32,
+                            depth: texture.depth as u32,
+                            premultiply_alpha,
+                        },
+                        texture_data,
+                        Some(comment),
+                    )
+                }
+                _ => unreachable!("Unsupported platform for RoI textures"),
+            },
             GameVersion::Destiny2Beta
             | GameVersion::Destiny2Forsaken
             | GameVersion::Destiny2Shadowkeep
@@ -653,6 +776,22 @@ mod swizzle {
         ) {
             destination.resize(source.len(), 0);
             do_swizzle(source, destination, width, height, format, true);
+        }
+    }
+
+    pub(crate) mod xbox {
+        use crate::gui::dxgi::DxgiFormat;
+
+        pub(crate) fn untile(
+            source: &[u8],
+            destination: &mut Vec<u8>,
+            width: usize,
+            height: usize,
+            format: DxgiFormat,
+        ) {
+            destination.resize(source.len(), 0);
+            let copy_size = format.to_wgpu().unwrap().block_copy_size(None).unwrap();
+            destination[..].copy_from_slice(&source);
         }
     }
 }
