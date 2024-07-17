@@ -256,7 +256,7 @@ pub struct StringCombination {
 pub struct StringPart {
     pub _unk0: u64,
     pub data: RelPointer,
-    pub _unk1: u32,
+    pub variable_hash: u32,
 
     /// String data length.
     /// This is always equal to or larger than the string length due to variable character lengths
@@ -421,10 +421,14 @@ pub fn create_stringmap_d2() -> anyhow::Result<StringCache> {
                 cur.seek(combination.data.into())?;
                 cur.seek(SeekFrom::Current(ip * 0x20))?;
                 let part: StringPart = cur.read_le()?;
-                cur.seek(part.data.into())?;
-                let mut data = vec![0u8; part.byte_length as usize];
-                cur.read_exact(&mut data)?;
-                final_string += &decode_text(&data, part.cipher_shift);
+                if part.variable_hash != 0x811c9dc5 {
+                    final_string += &format!("<{:08X}>", part.variable_hash);
+                } else {
+                    cur.seek(part.data.into())?;
+                    let mut data = vec![0u8; part.byte_length as usize];
+                    cur.read_exact(&mut data)?;
+                    final_string += &decode_text(&data, part.cipher_shift);
+                }
             }
 
             tmp_map.entry(*hash).or_default().insert(final_string);
