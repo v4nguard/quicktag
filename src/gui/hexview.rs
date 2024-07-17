@@ -1,11 +1,15 @@
-use crate::gui::tag::ExtendedScanResult;
+use crate::gui::common::ResponseExt;
+use crate::gui::tag::{format_tag_entry, ExtendedScanResult};
 use crate::package_manager::package_manager;
 use crate::references::REFERENCE_NAMES;
 use crate::swap_to_ne;
+use crate::tagtypes::TagType;
 use binrw::{binread, BinReaderExt, Endian};
 use destiny_pkg::{GameVersion, TagHash};
 use eframe::egui;
-use eframe::egui::{pos2, vec2, Color32, Rgba, RichText, ScrollArea, Sense, Ui};
+use eframe::egui::{
+    pos2, vec2, Color32, CursorIcon, Rgba, RichText, ScrollArea, Sense, Stroke, Ui,
+};
 use itertools::Itertools;
 use std::io::{Cursor, Seek, SeekFrom};
 
@@ -46,12 +50,18 @@ impl TagHexView {
             return None;
         }
 
+        let mut open_tag = None;
         ScrollArea::vertical()
             .auto_shrink([false, false])
             .show(ui, |ui| {
                 if self.split_arrays && !self.array_ranges.is_empty() {
                     let first_array_offset = self.array_ranges[0].start as usize;
-                    self.show_row_block(ui, &self.rows[..first_array_offset / 16], 0, scan);
+                    open_tag = open_tag.or(self.show_row_block(
+                        ui,
+                        &self.rows[..first_array_offset / 16],
+                        0,
+                        scan,
+                    ));
 
                     for array in &self.array_ranges {
                         ui.add_space(16.0);
@@ -70,28 +80,30 @@ impl TagHexView {
                             ui.heading(RichText::new(heading).color(Color32::WHITE).strong());
                         });
 
-                        self.show_row_block(
+                        open_tag = open_tag.or(self.show_row_block(
                             ui,
                             &self.rows[array.data_start as usize / 16..array.end as usize / 16],
                             array.data_start as usize,
                             scan,
-                        );
+                        ));
                     }
                 } else {
-                    self.show_row_block(ui, &self.rows, 0, scan);
+                    open_tag = open_tag.or(self.show_row_block(ui, &self.rows, 0, scan));
                 }
             });
 
-        None
+        open_tag
     }
 
+    #[must_use]
     fn show_row_block(
         &self,
         ui: &mut Ui,
         rows: &[DataRow],
         base_offset: usize,
         scan: &ExtendedScanResult,
-    ) {
+    ) -> Option<TagHash> {
+        let mut open_tag = None;
         for (i, row) in rows.iter().enumerate() {
             let offset = base_offset + i * 16;
             ui.horizontal(|ui| {
@@ -111,13 +123,45 @@ impl TagHexView {
                                 Color32::GRAY
                             };
 
-                            ui.monospace(
+                            let response = ui.monospace(
                                 RichText::new(format!(
                                     "{:02X} {:02X} {:02X} {:02X}",
                                     b[0], b[1], b[2], b[3]
                                 ))
                                 .color(color),
                             );
+                            if let Some(e) = hash {
+                                let hash32 = e.hash.hash32();
+                                let tagline_color = e
+                                    .entry
+                                    .as_ref()
+                                    .map(|e| {
+                                        TagType::from_type_subtype(e.file_type, e.file_subtype)
+                                            .display_color()
+                                    })
+                                    .unwrap_or(Color32::GRAY);
+                                let response = response
+                                    .on_hover_text(
+                                        RichText::new(format_tag_entry(hash32, e.entry.as_ref()))
+                                            .color(tagline_color),
+                                    )
+                                    .tag_context(hash32)
+                                    .interact(Sense::click())
+                                    .on_hover_cursor(CursorIcon::PointingHand);
+
+                                if response.hovered() {
+                                    ui.painter().rect(
+                                        response.rect,
+                                        0.0,
+                                        Color32::from_white_alpha(30),
+                                        Stroke::NONE,
+                                    );
+                                }
+
+                                if response.clicked() {
+                                    open_tag = Some(hash32);
+                                }
+                            }
                         }
                     }
                     DataRow::Float(data) => {
@@ -175,6 +219,8 @@ impl TagHexView {
                 }
             });
         }
+
+        open_tag
     }
 }
 
