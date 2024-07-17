@@ -34,6 +34,20 @@ impl ExternalFileScanView {
     ) -> Option<ViewAction> {
         let mut result = None;
 
+        if ui.button("Copy tag list").clicked() {
+            let mut taglist = String::new();
+
+            for tag in &self.file_hashes {
+                if let Some(entry) = &tag.entry {
+                    // let tagtype = TagType::from_type_subtype(entry.file_type, entry.file_subtype);
+                    let fancy_tag = format_tag_entry(tag.hash.hash32(), Some(entry));
+                    taglist += &format!("{fancy_tag} @ 0x{:X}\n", tag.offset);
+                }
+            }
+
+            ui.output_mut(|o| o.copied_text = taglist);
+        }
+
         egui::ScrollArea::vertical().show_rows(ui, 22.0, self.file_hashes.len(), |ui, range| {
             for tag in &self.file_hashes[range] {
                 if let Some(entry) = &tag.entry {
