@@ -98,7 +98,7 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "Quicktag",
         native_options,
-        Box::new(|cc| Box::new(QuickTagApp::new(cc, package_manager().version))),
+        Box::new(|cc| Ok(Box::new(QuickTagApp::new(cc, package_manager().version)))),
     )
 }
 
