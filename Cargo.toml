@@ -28,6 +28,7 @@ eframe = { version = "0.27.2", default-features = false, features = [
     "persistence",
     "wgpu",
 ] }
+egui_extras = "0.27.2"
 egui-notify = "0.14.0"
 native-dialog = "0.7.0"
 opener = "0.7.0"

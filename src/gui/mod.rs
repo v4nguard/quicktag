@@ -1,4 +1,5 @@
 mod audio;
+mod audio_list;
 mod common;
 mod dxgi;
 mod external_file;
@@ -34,6 +35,7 @@ use self::strings::StringsView;
 use self::tag::TagView;
 use self::texture::TextureCache;
 use self::texturelist::TexturesView;
+use crate::gui::audio_list::AudioView;
 use crate::gui::external_file::ExternalFileScanView;
 use crate::gui::tag::TagHistory;
 use crate::scanner::{fnv1, ScannerContext};
@@ -51,6 +53,7 @@ pub enum Panel {
     NamedTags,
     Packages,
     Textures,
+    Audio,
     Strings,
     RawStrings,
     ExternalFile,
@@ -81,6 +84,7 @@ pub struct QuickTagApp {
     named_tags_view: NamedTagView,
     packages_view: PackagesView,
     textures_view: TexturesView,
+    audio_view: AudioView,
     strings_view: StringsView,
     raw_strings_view: RawStringsView,
 
@@ -128,6 +132,7 @@ impl QuickTagApp {
             named_tags_view: NamedTagView::new(),
             packages_view: PackagesView::new(texture_cache.clone()),
             textures_view: TexturesView::new(texture_cache),
+            audio_view: AudioView::new(),
             strings_view: StringsView::new(strings.clone(), Default::default()),
             raw_strings_view: RawStringsView::new(Default::default()),
 
@@ -222,21 +227,29 @@ impl eframe::App for QuickTagApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.add_enabled_ui(!is_loading_cache, |ui| {
                 egui::menu::bar(ui, |ui| {
-                    ui.menu_button("File", |ui| if ui.button("Scan file").clicked() {
-                        if let Ok(Some(selected_file)) = native_dialog::FileDialog::new()
-                            .add_filter("All files", &["*"]).show_open_single_file() {
-                            let filename = selected_file.file_name().unwrap().to_string_lossy().to_string();
-                            let data = std::fs::read(&selected_file).unwrap();
-                            self.external_file_view = Some(ExternalFileScanView::new(
-                                filename,
-                                &self.scanner_context,
-                                &data,
-                            ));
-                            
-                            self.open_panel = Panel::ExternalFile;
+                    ui.menu_button("File", |ui| {
+                        if ui.button("Scan file").clicked() {
+                            if let Ok(Some(selected_file)) = native_dialog::FileDialog::new()
+                                .add_filter("All files", &["*"])
+                                .show_open_single_file()
+                            {
+                                let filename = selected_file
+                                    .file_name()
+                                    .unwrap()
+                                    .to_string_lossy()
+                                    .to_string();
+                                let data = std::fs::read(&selected_file).unwrap();
+                                self.external_file_view = Some(ExternalFileScanView::new(
+                                    filename,
+                                    &self.scanner_context,
+                                    &data,
+                                ));
+
+                                self.open_panel = Panel::ExternalFile;
+                            }
+
+                            ui.close_menu();
                         }
-                        
-                        ui.close_menu();
                     });
                 });
                 ui.separator();
@@ -313,6 +326,7 @@ impl eframe::App for QuickTagApp {
                     ui.selectable_value(&mut self.open_panel, Panel::NamedTags, "Named tags");
                     ui.selectable_value(&mut self.open_panel, Panel::Packages, "Packages");
                     ui.selectable_value(&mut self.open_panel, Panel::Textures, "Textures");
+                    ui.selectable_value(&mut self.open_panel, Panel::Audio, "Audio");
                     ui.selectable_value(&mut self.open_panel, Panel::Strings, "Strings");
                     ui.selectable_value(&mut self.open_panel, Panel::RawStrings, "Raw Strings");
                     if let Some(external_file_view) = &self.external_file_view {
@@ -338,6 +352,7 @@ impl eframe::App for QuickTagApp {
                     Panel::NamedTags => self.named_tags_view.view(ctx, ui),
                     Panel::Packages => self.packages_view.view(ctx, ui),
                     Panel::Textures => self.textures_view.view(ctx, ui),
+                    Panel::Audio => self.audio_view.view(ctx, ui),
                     Panel::Strings => self.strings_view.view(ctx, ui),
                     Panel::RawStrings => self.raw_strings_view.view(ctx, ui),
                     Panel::ExternalFile => {

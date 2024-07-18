@@ -1,5 +1,6 @@
 use crate::gui::texture::{LoadedTexture, Texture};
 use crate::package_manager::package_manager;
+use binrw::BinReaderExt;
 use destiny_pkg::TagHash;
 use eframe::egui::mutex::RwLock;
 use eframe::egui::TextureId;
@@ -14,6 +15,7 @@ use rodio::buffer::SamplesBuffer;
 use rodio::Source;
 use rustc_hash::FxHasher;
 use std::hash::BuildHasherDefault;
+use std::io::{Cursor, Seek, SeekFrom};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use vgmstream::info::VgmstreamInfo;
@@ -168,4 +170,23 @@ impl AudioPlayer {
             cache.pop_front();
         }
     }
+}
+
+pub fn get_stream_duration_fast(tag: TagHash) -> f32 {
+    let Ok(data) = package_manager().read_tag(tag) else {
+        return 0.0;
+    };
+
+    if data.len() < 0x20 {
+        return 0.0;
+    }
+
+    let mut cur = Cursor::new(data);
+
+    cur.seek(SeekFrom::Start(0x4));
+    let data_size = cur.read_le::<u32>().unwrap();
+    cur.seek(SeekFrom::Start(0x1c));
+    let byte_rate = cur.read_le::<u32>().unwrap();
+
+    (data_size as f64 / byte_rate as f64) as f32
 }
