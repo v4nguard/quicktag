@@ -8,11 +8,31 @@ use std::{
     time::{Duration, Instant},
 };
 
+use super::{
+    common::{
+        open_audio_file_in_default_application, open_tag_in_default_application, tag_context,
+        ResponseExt,
+    },
+    texture::TextureCache,
+    View, ViewAction,
+};
+use crate::gui::hexview::TagHexView;
+use crate::package_manager::get_hash64;
+use crate::scanner::ScannedHash;
+use crate::{gui::texture::Texture, scanner::read_raw_string_blob, text::RawStringHashCache};
+use crate::{
+    package_manager::package_manager,
+    references::REFERENCE_NAMES,
+    scanner::{ScanResult, TagCache},
+    tagtypes::TagType,
+    text::StringCache,
+};
 use binrw::{binread, BinReaderExt, Endian};
 use destiny_pkg::{package::UEntryHeader, GameVersion, TagHash, TagHash64};
 use eframe::egui::load::SizedTexture;
 use eframe::egui::{collapsing_header::CollapsingState, vec2, RichText, TextureId};
 use eframe::egui_wgpu::RenderState;
+use eframe::wgpu::naga::{FastHashMap, FastHashSet, FastIndexMap};
 use eframe::{
     egui::{self, CollapsingHeader},
     epaint::Color32,
@@ -23,27 +43,8 @@ use log::error;
 use poll_promise::Promise;
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::fmt::Write;
+use std::hash::{Hash, Hasher};
 use std::rc::Rc;
-
-use crate::gui::hexview::TagHexView;
-use crate::package_manager::get_hash64;
-use crate::{gui::texture::Texture, scanner::read_raw_string_blob, text::RawStringHashCache};
-use crate::{
-    package_manager::package_manager,
-    references::REFERENCE_NAMES,
-    scanner::{ScanResult, TagCache},
-    tagtypes::TagType,
-    text::StringCache,
-};
-
-use super::{
-    common::{
-        open_audio_file_in_default_application, open_tag_in_default_application, tag_context,
-        ResponseExt,
-    },
-    texture::TextureCache,
-    View, ViewAction,
-};
 
 #[derive(Copy, Clone, PartialEq)]
 enum TagViewMode {
@@ -51,6 +52,7 @@ enum TagViewMode {
     Hex,
     HexReferenced,
     Float,
+    Search,
 }
 
 pub struct TagView {
@@ -80,6 +82,13 @@ pub struct TagView {
     traversal_interactive: bool,
     hide_already_traversed: bool,
     start_time: Instant,
+
+    search_tagtype: TagType,
+    search_reference: u32,
+    search_min_depth: usize,
+    search_depth_limit: usize,
+    search_package_name_filter: String,
+    search_results: Vec<(TagHash, UEntryHeader)>,
 
     render_state: RenderState,
     texture_cache: TextureCache,
@@ -282,6 +291,14 @@ impl TagView {
             traversal_show_strings: false,
             traversal_interactive: false,
             hide_already_traversed: true,
+
+            search_tagtype: TagType::Tag,
+            search_reference: u32::MAX,
+            search_min_depth: 0,
+            search_depth_limit: 32,
+            search_package_name_filter: String::new(),
+            search_results: vec![],
+
             string_cache,
             raw_string_hash_cache,
             raw_strings,
@@ -309,6 +326,9 @@ impl TagView {
             tv.traversal_show_strings = self.traversal_show_strings;
             tv.traversal_interactive = self.traversal_interactive;
             tv.mode = self.mode;
+            tv.search_tagtype = self.search_tagtype;
+            tv.search_reference = self.search_reference;
+            tv.search_depth_limit = self.search_depth_limit;
 
             *self = tv;
         } else {
@@ -581,6 +601,93 @@ impl TagView {
             }
         }
     }
+
+    #[must_use]
+    pub fn search_ui(&mut self, ui: &mut egui::Ui) -> Option<TagHash> {
+        ui.label(RichText::new("Perform a search for a specific tag type").italics());
+
+        ui.horizontal(|ui| {
+            egui::ComboBox::from_label("Tag type")
+                .selected_text(
+                    RichText::new(self.search_tagtype.to_string())
+                        .color(self.search_tagtype.display_color()),
+                )
+                .show_ui(ui, |ui| {
+                    for t in TagType::all_filterable() {
+                        if ui
+                            .selectable_label(
+                                false,
+                                RichText::new(t.to_string()).color(t.display_color()),
+                            )
+                            .clicked()
+                        {
+                            self.search_tagtype = *t;
+                        }
+                    }
+                });
+
+            ui.add(egui::DragValue::new(&mut self.search_min_depth).clamp_range(0..=256));
+            ui.label("Min depth");
+
+            ui.add(egui::DragValue::new(&mut self.search_depth_limit).clamp_range(1..=256));
+            ui.label("Max depth");
+
+            ui.text_edit_singleline(&mut self.search_package_name_filter);
+            ui.label("Package name filter");
+        });
+
+        if ui.button("Search").clicked() {
+            self.search_results = perform_tagsearch(
+                &self.cache,
+                self.tag,
+                self.search_tagtype,
+                self.search_reference,
+                self.search_depth_limit,
+                self.search_min_depth,
+            );
+
+            if !self.search_package_name_filter.is_empty() {
+                self.search_results.retain(|(tag, _)| {
+                    package_manager()
+                        .package_paths
+                        .get(&tag.pkg_id())
+                        .map(|p| {
+                            p.name
+                                .to_lowercase()
+                                .contains(&self.search_package_name_filter.to_lowercase())
+                        })
+                        .unwrap_or(false)
+                });
+            }
+        }
+
+        ui.separator();
+
+        let mut result = None;
+        egui::ScrollArea::vertical().show_rows(ui, 22.0, self.search_results.len(), |ui, range| {
+            for (tag, entry) in &self.search_results[range] {
+                let tagtype = TagType::from_type_subtype(entry.file_type, entry.file_subtype);
+
+                let fancy_tag = format_tag_entry(*tag, Some(entry));
+
+                let tag_label = egui::RichText::new(fancy_tag).color(tagtype.display_color());
+
+                let response = ui.selectable_label(false, tag_label);
+                if response
+                    .tag_context_with_texture(
+                        *tag,
+                        &self.texture_cache,
+                        tagtype.is_texture() && tagtype.is_header(),
+                    )
+                    .clicked()
+                {
+                    result = Some(*tag)
+                }
+            }
+        });
+
+        result
+    }
 }
 
 impl View for TagView {
@@ -792,6 +899,7 @@ impl View for TagView {
                         "Hex (referenced data)",
                     );
                 }
+                ui.selectable_value(&mut self.mode, TagViewMode::Search, "Search");
             });
 
             ui.separator();
@@ -812,6 +920,9 @@ impl View for TagView {
                 }
                 TagViewMode::Float => {
                     self.floatview_ui(ui);
+                }
+                TagViewMode::Search => {
+                    open_new_tag = open_new_tag.or(self.search_ui(ui));
                 }
             }
         });
@@ -1022,6 +1133,7 @@ impl Drop for TagView {
     }
 }
 
+#[derive(Eq, PartialEq, Copy, Clone)]
 pub enum ExtendedTagHash {
     Hash32(TagHash),
     Hash64(TagHash64),
@@ -1045,6 +1157,15 @@ impl Display for ExtendedTagHash {
         match self {
             ExtendedTagHash::Hash32(h) => h.fmt(f),
             ExtendedTagHash::Hash64(h) => h.fmt(f),
+        }
+    }
+}
+
+impl Hash for ExtendedTagHash {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            ExtendedTagHash::Hash32(h) => state.write_u32(h.0),
+            ExtendedTagHash::Hash64(h) => state.write_u64(h.0),
         }
     }
 }
@@ -1449,4 +1570,88 @@ impl TagHistory {
             None
         }
     }
+}
+
+fn perform_tagsearch(
+    cache: &TagCache,
+    start_tag: TagHash,
+    tagtype: TagType,
+    reference: u32,
+    max_depth: usize,
+    min_depth: usize,
+) -> Vec<(TagHash, UEntryHeader)> {
+    let results = search_for_tag(
+        cache,
+        start_tag,
+        tagtype,
+        reference,
+        0,
+        max_depth,
+        &mut FastHashSet::default(),
+    );
+
+    // Remove any duplicates, but keep the order by using an indexmap
+    let results_filtered: FastIndexMap<TagHash, UEntryHeader> = results
+        .into_iter()
+        .filter(|(_, _, depth)| *depth > min_depth)
+        .map(|(a, b, _)| (a, b))
+        .collect();
+
+    results_filtered.into_iter().collect()
+}
+
+fn search_for_tag(
+    cache: &TagCache,
+    tag: TagHash,
+    target_tagtype: TagType,
+    target_reference: u32,
+    depth: usize,
+    max_depth: usize,
+    seen: &mut FastHashSet<TagHash>,
+) -> Vec<(TagHash, UEntryHeader, usize)> {
+    if depth > max_depth {
+        return vec![];
+    }
+
+    let Some(references) = cache.hashes.get(&tag) else {
+        return vec![];
+    };
+
+    let mut results = vec![];
+
+    let mut hashes = references.file_hashes.clone();
+    hashes.extend(references.file_hashes64.iter().map(|r| ScannedHash {
+        offset: r.offset,
+        hash: ExtendedTagHash::Hash64(r.hash).hash32(),
+    }));
+
+    for r in &hashes {
+        if seen.contains(&r.hash) {
+            continue;
+        }
+
+        seen.insert(r.hash);
+
+        if let Some(entry) = package_manager().get_entry(r.hash) {
+            let tagtype = TagType::from_type_subtype(entry.file_type, entry.file_subtype);
+            if tagtype == target_tagtype {
+                results.push((r.hash, entry, depth));
+            } else if tagtype.is_tag() {
+                // Pesky material impact/footstep tags
+                if !matches!(entry.reference, 0x8080873D | 0x8080873F) {
+                    results.extend(search_for_tag(
+                        cache,
+                        r.hash,
+                        target_tagtype,
+                        target_reference,
+                        depth + 1,
+                        max_depth,
+                        seen,
+                    ));
+                }
+            }
+        }
+    }
+
+    results
 }

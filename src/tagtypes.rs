@@ -5,7 +5,7 @@ use eframe::epaint::Color32;
 
 use crate::package_manager::package_manager;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Copy, Clone)]
 pub enum TagType {
     TextureOld,
     Texture2D { is_header: bool },
@@ -65,6 +65,10 @@ impl TagType {
         matches!(self, TagType::Tag | TagType::TagGlobal)
     }
 
+    pub fn is_wwise(&self) -> bool {
+        matches!(self, TagType::WwiseBank | TagType::WwiseStream)
+    }
+
     pub fn display_color(&self) -> Color32 {
         match self {
             TagType::TextureOld
@@ -90,6 +94,29 @@ impl TagType {
 
             TagType::Unknown { .. } => Color32::LIGHT_RED,
         }
+    }
+
+    pub fn all_filterable() -> &'static [Self] {
+        &[
+            Self::Texture2D { is_header: true },
+            Self::TextureCube { is_header: true },
+            Self::Texture3D { is_header: true },
+            Self::TextureSampler { is_header: true },
+            Self::TextureLargeBuffer,
+            Self::VertexBuffer { is_header: true },
+            Self::IndexBuffer { is_header: true },
+            Self::ConstantBuffer { is_header: true },
+            Self::PixelShader { is_header: true },
+            Self::VertexShader { is_header: true },
+            Self::ComputeShader { is_header: true },
+            Self::WwiseBank,
+            Self::WwiseStream,
+            Self::Havok,
+            Self::OtfFontOrUmbraTome,
+            Self::CriwareUsm,
+            Self::Tag,
+            Self::TagGlobal,
+        ]
     }
 }
 

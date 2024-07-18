@@ -2665,6 +2665,7 @@ dependencies = [
  "env_logger",
  "game-detector",
  "image 0.25.1",
+ "indexmap",
  "itertools 0.13.0",
  "lazy_static",
  "linked-hash-map",
