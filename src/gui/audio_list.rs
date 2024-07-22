@@ -3,12 +3,14 @@ use crate::gui::common::{tag_context, ResponseExt};
 use crate::gui::texturelist::Sorting;
 use crate::gui::{audio, View, ViewAction};
 use crate::package_manager::package_manager;
+use crate::tagtypes::TagType;
 use destiny_pkg::manager::PackagePath;
-use destiny_pkg::TagHash;
+use destiny_pkg::{GameVersion, TagHash};
 use eframe::egui;
-use eframe::egui::Key;
+use eframe::egui::{Key, Widget};
 use eframe::wgpu::naga::FastIndexMap;
 use egui_extras::{Column, TableBuilder};
+use std::time::{Duration, Instant};
 
 struct PackageAudio {
     pub streams: Vec<(TagHash, f32)>,
@@ -25,10 +27,26 @@ enum AudioSorting {
     DurationDesc,
 }
 
+fn wwise_stream_type() -> (u8, u8) {
+    match package_manager().version {
+        GameVersion::DestinyInternalAlpha => (16, 8),
+        GameVersion::DestinyTheTakenKing => (2, 21),
+        GameVersion::DestinyRiseOfIron => (8, 21),
+        GameVersion::Destiny2Beta
+        | GameVersion::Destiny2Forsaken
+        | GameVersion::Destiny2Shadowkeep => (26, 6),
+        GameVersion::Destiny2BeyondLight
+        | GameVersion::Destiny2WitchQueen
+        | GameVersion::Destiny2Lightfall
+        | GameVersion::Destiny2TheFinalShape => (26, 7),
+    }
+}
+
 impl PackageAudio {
     pub fn by_pkg_id(id: u16) -> Self {
+        let (wwise_type, wwise_subtype) = wwise_stream_type();
         Self {
-            // TODO(cohae): This only works for game versions after beyond light
+            // TODO(cohae): Reading events only works for game versions after beyond light
             events: package_manager()
                 .get_all_by_reference(0x80809738)
                 .iter()
@@ -36,9 +54,9 @@ impl PackageAudio {
                 .map(|(t, _)| *t)
                 .collect(),
             streams: package_manager()
-                .get_all_by_type(26, Some(7))
+                .get_all_by_type(wwise_type, Some(wwise_subtype))
                 .iter()
-                .filter(|(t, _)| t.pkg_id() == id)
+                .filter(|(t, e)| t.pkg_id() == id)
                 .map(|(t, _)| (*t, audio::get_stream_duration_fast(*t)))
                 .collect(),
         }
@@ -68,6 +86,7 @@ struct PackageAudioTypes {
 
 impl PackageAudioTypes {
     pub fn by_pkg_id(id: u16) -> Self {
+        let (wwise_type, wwise_subtype) = wwise_stream_type();
         Self {
             // TODO(cohae): This only works for game versions after beyond light
             events: package_manager()
@@ -75,7 +94,7 @@ impl PackageAudioTypes {
                 .iter()
                 .any(|(t, _)| t.pkg_id() == id),
             streams: package_manager()
-                .get_all_by_type(26, Some(7))
+                .get_all_by_type(wwise_type, Some(wwise_subtype))
                 .iter()
                 .any(|(t, _)| t.pkg_id() == id),
         }
@@ -87,6 +106,10 @@ pub struct AudioView {
     selected_audio: Option<PackageAudio>,
     packages: FastIndexMap<u16, (PackagePath, PackageAudioTypes)>,
     current_row: usize,
+
+    autoplay: bool,
+    autoplay_timer: Instant,
+    autoplay_interval: f32,
 }
 
 impl AudioView {
@@ -108,6 +131,9 @@ impl AudioView {
             selected_audio: None,
             packages: sorted_package_paths.into_iter().collect(),
             current_row: 0,
+            autoplay: false,
+            autoplay_timer: Instant::now(),
+            autoplay_interval: 1.0,
         }
     }
 }
@@ -174,12 +200,32 @@ impl View for AudioView {
             row_changed = true;
         }
 
+        // Abort autoplay
+        if self.autoplay && row_changed {
+            self.autoplay = false;
+        }
+
+        if self.autoplay {
+            ui.ctx().request_repaint_after(Duration::from_millis(200));
+            if self.autoplay_timer.elapsed().as_secs_f32() >= self.autoplay_interval {
+                self.current_row = self.current_row.wrapping_add(1);
+                row_changed = true;
+                self.autoplay_timer = Instant::now();
+            }
+        }
+
         if let Some(audio) = &self.selected_audio {
             self.current_row = self.current_row.clamp(0, audio.streams.len());
             let text_height = egui::TextStyle::Body
                 .resolve(ui.style())
                 .size
                 .max(ui.spacing().interact_size.y);
+
+            ui.horizontal(|ui| {
+                ui.checkbox(&mut self.autoplay, "Autoplay").on_hover_text(format!("Automatically plays all the sounds in sequence.\nSkips to the next file each {:.1} seconds", self.autoplay_interval));
+                egui::DragValue::new(&mut self.autoplay_interval).speed(0.1).range(0.2f32..=5f32).max_decimals(1).ui(ui);
+                ui.label("Autoplay Interval");
+            });
 
             let available_height = ui.available_height();
             let mut table = TableBuilder::new(ui)
