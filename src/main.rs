@@ -66,6 +66,7 @@ fn main() -> eframe::Result<()> {
     let pm = PackageManager::new(
         packages_path,
         args.version.unwrap_or(GameVersion::Destiny2TheFinalShape),
+        None
     )
     .unwrap();
 
@@ -98,7 +99,7 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "Quicktag",
         native_options,
-        Box::new(|cc| Ok(Box::new(QuickTagApp::new(cc, package_manager().version)))),
+        Box::new(|cc| Ok(Box::new(QuickTagApp::new(cc)))),
     )
 }
 

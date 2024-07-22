@@ -294,7 +294,7 @@ impl Texture {
         if package_manager().version.is_d1()
             && !matches!(
                 package_manager().platform,
-                PackagePlatform::PS4 | PackagePlatform::XOne
+                PackagePlatform::PS4 | PackagePlatform::XboxOne
             )
         {
             anyhow::bail!("Textures are not supported for D1");
@@ -313,7 +313,7 @@ impl Texture {
                         premultiply_alpha: false,
                     })
                 }
-                PackagePlatform::XOne => {
+                PackagePlatform::XboxOne => {
                     let texture: TextureHeaderRoiXbox = package_manager().read_tag_binrw(hash)?;
                     Ok(TextureDesc {
                         format: texture.format.to_wgpu()?,
@@ -364,7 +364,7 @@ impl Texture {
         if package_manager().version.is_d1()
             && !matches!(
                 package_manager().platform,
-                PackagePlatform::PS4 | PackagePlatform::XOne
+                PackagePlatform::PS4 | PackagePlatform::XboxOne
             )
         {
             anyhow::bail!("Textures are not supported for D1");
@@ -389,7 +389,7 @@ impl Texture {
                         Some(comment),
                     )
                 }
-                PackagePlatform::XOne => {
+                PackagePlatform::XboxOne => {
                     anyhow::bail!("Xbox One textures are not supported yet");
                     let (texture, texture_data, comment) = Self::load_data_roi_xone(hash, true)?;
                     Self::create_texture(

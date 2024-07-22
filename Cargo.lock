@@ -110,7 +110,7 @@ dependencies = [
  "anyhow",
  "binrw",
  "bitflags 2.6.0",
- "destiny-pkg",
+ "destiny-pkg 0.11.0",
  "glam",
  "rayon",
  "rustc-hash 2.0.0",
@@ -123,7 +123,7 @@ version = "0.1.0"
 source = "git+https://github.com/cohaereo/alkahest.git#cb44e9102339f374eb739dd9fea5054cd0910e65"
 dependencies = [
  "anyhow",
- "destiny-pkg",
+ "destiny-pkg 0.11.0",
  "lazy_static",
  "parking_lot",
 ]
@@ -1004,6 +1004,32 @@ name = "destiny-pkg"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8e38129da4d312e83c0c22bc48d2c83358687ea5d8d8e19634d5bbfe2e6a2e09"
+dependencies = [
+ "aes",
+ "aes-gcm",
+ "anyhow",
+ "binrw",
+ "clap",
+ "clap-num",
+ "ddsfile",
+ "hex",
+ "itertools 0.13.0",
+ "json",
+ "lazy_static",
+ "libloading 0.8.4",
+ "parking_lot",
+ "rayon",
+ "rustc-hash 1.1.0",
+ "serde",
+ "serde_json",
+ "tracing",
+]
+
+[[package]]
+name = "destiny-pkg"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6431bc288b2d38f51ba097bd3f07f9976399be52f7928da5163ba8b1409cd902"
 dependencies = [
  "aes",
  "aes-gcm",
@@ -2704,7 +2730,7 @@ dependencies = [
  "chrono",
  "clap",
  "clipboard-win",
- "destiny-pkg",
+ "destiny-pkg 0.12.0",
  "eframe",
  "egui-notify",
  "egui_extras",
@@ -3203,7 +3229,7 @@ version = "0.1.12"
 source = "git+https://github.com/v4nguard/tiger-parse#742a1fed5c4210686a64711a63c119dbef9841b6"
 dependencies = [
  "anyhow",
- "destiny-pkg",
+ "destiny-pkg 0.11.0",
  "glam",
  "tiger-parse-derive",
  "tracing",

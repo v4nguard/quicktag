@@ -93,7 +93,7 @@ pub struct QuickTagApp {
 
 impl QuickTagApp {
     /// Called once before the first frame.
-    pub fn new(cc: &eframe::CreationContext<'_>, version: GameVersion) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         let mut fonts = egui::FontDefinitions::default();
         fonts.font_data.insert(
             "Destiny_Keys".into(),
@@ -115,7 +115,7 @@ impl QuickTagApp {
             scanner_context: scanner::create_scanner_context(&package_manager())
                 .expect("Failed to create scanner context"),
             cache_load: Some(Promise::spawn_thread("load_cache", move || {
-                load_tag_cache(version)
+                load_tag_cache()
             })),
             tag_history: Rc::new(RefCell::new(TagHistory::default())),
             cache: Default::default(),

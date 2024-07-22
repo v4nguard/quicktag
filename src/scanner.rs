@@ -292,8 +292,8 @@ pub fn scanner_progress() -> ScanStatus {
     *SCANNER_PROGRESS.read()
 }
 
-pub fn load_tag_cache(version: GameVersion) -> TagCache {
-    let cache_name = format!("tags_{}.cache", version.id());
+pub fn load_tag_cache() -> TagCache {
+    let cache_name = format!("tags_{}.cache", package_manager().cache_key());
     let cache_file_path = exe_relative_path(&cache_name);
 
     if let Ok(cache_file) = File::open(&cache_file_path) {
@@ -388,6 +388,7 @@ pub fn load_tag_cache(version: GameVersion) -> TagCache {
         .cloned()
         .collect_vec();
 
+    let version = package_manager().version;
     let package_count = all_pkgs.len();
     let cache: FxHashMap<TagHash, ScanResult> = all_pkgs
         .par_iter()

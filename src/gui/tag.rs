@@ -652,7 +652,7 @@ impl TagView {
                         .package_paths
                         .get(&tag.pkg_id())
                         .map(|p| {
-                            p.name
+                            p.filename
                                 .to_lowercase()
                                 .contains(&self.search_package_name_filter.to_lowercase())
                         })
