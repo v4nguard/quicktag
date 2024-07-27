@@ -1077,33 +1077,63 @@ impl View for TagView {
                                             if let Some(strings) =
                                                 self.raw_string_hash_cache.get(hash)
                                             {
-                                                if strings.len() > 1 {
-                                                    ui.selectable_label(
-                                                        false,
-                                                        format!(
-                                                            "'{}' ({} collisions) {:08x} @ 0x{:X}",
-                                                            strings[(self
-                                                                .start_time
-                                                                .elapsed()
-                                                                .as_secs()
+                                                let (response, is_from_wordlist) =
+                                                    if strings.len() > 1 {
+                                                        let current_string =
+                                                            (self.start_time.elapsed().as_secs()
                                                                 as usize)
-                                                                % strings.len()],
+                                                                % strings.len();
+                                                        let color = if strings[current_string].1 {
+                                                            Color32::from_rgb(0, 128, 255)
+                                                        } else {
+                                                            Color32::GRAY
+                                                        };
+
+                                                        let response = ui
+                                                            .selectable_label(
+                                                                false,
+                                                                RichText::new(format!(
+                                                            "'{}' ({} collisions) {:08x} @ 0x{:X}",
+                                                            &strings[current_string].0,
                                                             strings.len(),
                                                             hash,
                                                             offset
-                                                        ),
-                                                    )
-                                                    .on_hover_text(strings.join("\n"))
-                                                    .clicked();
-                                                } else {
-                                                    ui.selectable_label(
-                                                        false,
-                                                        format!(
-                                                            "'{}' {:08x} @ 0x{:X}",
-                                                            strings[0], hash, offset
-                                                        ),
-                                                    )
-                                                    .clicked();
+                                                        ))
+                                                                .color(color),
+                                                            )
+                                                            .on_hover_text(
+                                                                strings
+                                                                    .iter()
+                                                                    .map(|(s, _)| s)
+                                                                    .join("\n"),
+                                                            );
+
+                                                        (response, strings[current_string].1)
+                                                    } else {
+                                                        let color = if strings[0].1 {
+                                                            Color32::from_rgb(0, 128, 255)
+                                                        } else {
+                                                            Color32::GRAY
+                                                        };
+                                                        let response = ui.selectable_label(
+                                                            false,
+                                                            RichText::new(format!(
+                                                                "'{}' {:08x} @ 0x{:X}",
+                                                                strings[0].0, hash, offset
+                                                            ))
+                                                            .color(color),
+                                                        );
+
+                                                        (response, strings[0].1)
+                                                    };
+
+                                                if is_from_wordlist {
+                                                    response.on_hover_text(
+                                                        RichText::new(
+                                                            "This string is from wordlist.txt",
+                                                        )
+                                                        .color(Color32::from_rgb(0, 128, 255)),
+                                                    );
                                                 }
                                             }
                                         }

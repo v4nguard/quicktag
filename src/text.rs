@@ -555,4 +555,4 @@ pub fn create_stringmap_d1_devalpha() -> anyhow::Result<StringCache> {
 
 pub type StringCache = FxHashMap<u32, Vec<String>>;
 pub type StringCacheVec = Vec<(u32, Vec<String>)>;
-pub type RawStringHashCache = StringCache;
+pub type RawStringHashCache = FxHashMap<u32, Vec<(String, bool)>>;

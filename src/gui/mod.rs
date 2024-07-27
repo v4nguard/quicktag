@@ -26,6 +26,7 @@ use eframe::{
     epaint::{Color32, Rounding, Vec2},
 };
 use egui_notify::Toasts;
+use log::info;
 use poll_promise::Promise;
 
 use self::named_tags::NamedTagView;
@@ -210,15 +211,40 @@ impl eframe::App for QuickTagApp {
                 match new_rsh_cache.entry(h) {
                     std::collections::hash_map::Entry::Occupied(mut o) => {
                         let v = o.get_mut();
-                        if v.contains(&s) {
+                        if v.iter().any(|(v, _)| *v == s) {
                             continue;
                         }
-                        v.push(s);
+                        v.push((s, false));
                     }
                     std::collections::hash_map::Entry::Vacant(v) => {
-                        v.insert(vec![s]);
+                        v.insert(vec![(s, false)]);
                     }
                 };
+            }
+
+            #[cfg(feature = "wordlist")]
+            {
+                const WORDLIST: &'static str = include_str!("../../wordlist.txt");
+                info!(
+                    "Loading {} strings from embedded wordlist",
+                    WORDLIST.lines().count()
+                );
+                for s in WORDLIST.lines() {
+                    let s = s.to_string();
+                    let h = fnv1(s.as_bytes());
+                    match new_rsh_cache.entry(h) {
+                        std::collections::hash_map::Entry::Occupied(mut o) => {
+                            let v = o.get_mut();
+                            if v.iter().any(|(v, _)| *v == s) {
+                                continue;
+                            }
+                            v.push((s.to_string(), true));
+                        }
+                        std::collections::hash_map::Entry::Vacant(v) => {
+                            v.insert(vec![(s.to_string(), true)]);
+                        }
+                    };
+                }
             }
 
             self.raw_strings = Arc::new(new_rsh_cache);

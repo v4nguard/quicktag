@@ -57,6 +57,11 @@ alkahest-data = { git = "https://github.com/cohaereo/alkahest.git" }
 #cryptarch-data = { git = "https://github.com/v4nguard/cryptarch.git" }
 #dawn-data = { git = "https://github.com/cohaereo/dawn.git" }
 
+[features]
+default = []
+# Embeds `wordlist.txt` into the executable and adds it's contents to the raw string list
+wordlist = []
+
 [profile.dev]
 opt-level = 3
 # cohae: Overflow checks are nice for some, but not for us
