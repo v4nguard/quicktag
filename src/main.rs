@@ -66,7 +66,7 @@ fn main() -> eframe::Result<()> {
     let pm = PackageManager::new(
         packages_path,
         args.version.unwrap_or(GameVersion::Destiny2TheFinalShape),
-        None
+        None,
     )
     .unwrap();
 
@@ -76,10 +76,12 @@ fn main() -> eframe::Result<()> {
 
     let native_options = eframe::NativeOptions {
         renderer: eframe::Renderer::Wgpu,
-        viewport: ViewportBuilder::default().with_icon(
-            eframe::icon_data::from_png_bytes(include_bytes!("../quicktag.png"))
-                .expect("Failed to load icon"),
-        ),
+        viewport: ViewportBuilder::default()
+            .with_title(format!("Quicktag - {}", package_manager().version.name()))
+            .with_icon(
+                eframe::icon_data::from_png_bytes(include_bytes!("../quicktag.png"))
+                    .expect("Failed to load icon"),
+            ),
         persist_window: true,
         follow_system_theme: false,
         default_theme: eframe::Theme::Dark,
