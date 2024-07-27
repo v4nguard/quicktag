@@ -1,7 +1,3 @@
-
-		
-		i
-_
 _adm
 _admin
 _ajax
