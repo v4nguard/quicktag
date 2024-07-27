@@ -444,6 +444,7 @@ impl TagView {
                 {
                     let tag = self.tag;
                     let cache = self.cache.clone();
+                    let string_cache = self.raw_string_hash_cache.clone();
                     let depth_limit = self.traversal_depth_limit;
                     let show_strings = self.traversal_show_strings;
                     self.tag_traversal = Some(Promise::spawn_thread("traverse tags", move || {
@@ -451,6 +452,7 @@ impl TagView {
                             tag,
                             depth_limit,
                             cache,
+                            string_cache,
                             show_strings,
                             TraversalDirection::Down,
                         )
@@ -469,6 +471,7 @@ impl TagView {
                 {
                     let tag = self.tag;
                     let cache = self.cache.clone();
+                    let string_cache = self.raw_string_hash_cache.clone();
                     let depth_limit = self.traversal_depth_limit;
                     let show_strings = self.traversal_show_strings;
                     self.tag_traversal = Some(Promise::spawn_thread("traverse tags", move || {
@@ -476,6 +479,7 @@ impl TagView {
                             tag,
                             depth_limit,
                             cache,
+                            string_cache,
                             show_strings,
                             TraversalDirection::Up,
                         )
@@ -1264,6 +1268,7 @@ fn traverse_tags(
     starting_tag: TagHash,
     depth_limit: usize,
     cache: Arc<TagCache>,
+    raw_strings: Arc<RawStringHashCache>,
     show_strings: bool,
     direction: TraversalDirection,
 ) -> (TraversedTag, String) {
@@ -1280,6 +1285,7 @@ fn traverse_tags(
         &mut pipe_stack,
         depth_limit,
         cache,
+        raw_strings,
         show_strings,
         direction,
     );
@@ -1304,6 +1310,7 @@ fn traverse_tag(
     pipe_stack: &mut Vec<char>,
     depth_limit: usize,
     cache: Arc<TagCache>,
+    raw_strings_cache: Arc<RawStringHashCache>,
     show_strings: bool,
     direction: TraversalDirection,
 ) -> TraversedTag {
@@ -1386,9 +1393,14 @@ fn traverse_tag(
     if show_strings {
         let tag_data = package_manager().read_tag(tag).unwrap();
         let mut raw_strings = vec![];
+        let mut raw_string_hashes = vec![];
         for (i, b) in tag_data.chunks_exact(4).enumerate() {
             let v: [u8; 4] = b.try_into().unwrap();
             let hash = u32::from_le_bytes(v);
+
+            if let Some(v) = raw_strings_cache.get(&hash) {
+                raw_string_hashes.push(v[0].clone());
+            }
 
             if hash == 0x80800065 {
                 raw_strings.extend(read_raw_string_blob(&tag_data, i as u64 * 4));
@@ -1398,8 +1410,22 @@ fn traverse_tag(
         if !raw_strings.is_empty() {
             writeln!(
                 out,
-                "{line_header}├──Strings: [{}]",
+                "{line_header}├──Raw Strings: [{}]",
                 raw_strings.into_iter().map(|(_, string)| string).join(", ")
+            )
+            .ok();
+        }
+
+        if !raw_string_hashes.is_empty() {
+            writeln!(
+                out,
+                "{line_header}├──Raw String Hashes: [{}]",
+                raw_string_hashes
+                    .into_iter()
+                    .map(|(string, _)|
+                    //     format!("{} (wordlist.txt)", string)
+                        string)
+                    .join(", ")
             )
             .ok();
         }
@@ -1478,6 +1504,7 @@ fn traverse_tag(
                 pipe_stack,
                 depth_limit,
                 cache.clone(),
+                raw_strings_cache.clone(),
                 show_strings,
                 direction,
             );
