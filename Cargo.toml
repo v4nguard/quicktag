@@ -58,7 +58,7 @@ alkahest-data = { git = "https://github.com/cohaereo/alkahest.git" }
 #dawn-data = { git = "https://github.com/cohaereo/dawn.git" }
 
 [features]
-default = []
+default = ["wordlist"]
 # Embeds `wordlist.txt` into the executable and adds it's contents to the raw string list
 wordlist = []
 
