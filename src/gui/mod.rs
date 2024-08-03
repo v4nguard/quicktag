@@ -277,6 +277,10 @@ impl eframe::App for QuickTagApp {
                             ui.close_menu();
                         }
                     });
+
+                    // ui.with_layout(egui::Layout::right_to_left(egui::Align::Max), |ui| {
+                    //     egui::global_dark_light_mode_switch(ui);
+                    // });
                 });
                 ui.separator();
 

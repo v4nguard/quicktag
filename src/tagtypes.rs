@@ -184,8 +184,9 @@ impl TagType {
         // TODO: Change this match to use ordered version checking after destiny-pkg 0.11
         match package_manager().version {
             GameVersion::DestinyInternalAlpha => Self::from_type_subtype_devalpha(t, st),
-            GameVersion::DestinyTheTakenKing => Self::from_type_subtype_ttk(t, st),
-            GameVersion::DestinyRiseOfIron => Self::from_type_subtype_roi(t, st),
+            GameVersion::DestinyTheTakenKing | GameVersion::DestinyRiseOfIron => {
+                Self::from_type_subtype_d1(t, st)
+            }
             GameVersion::Destiny2Shadowkeep => Self::from_type_subtype_sk(t, st),
             GameVersion::Destiny2BeyondLight
             | GameVersion::Destiny2WitchQueen
@@ -198,25 +199,16 @@ impl TagType {
     pub fn from_type_subtype_devalpha(t: u8, st: u8) -> TagType {
         match (t, st) {
             (0, 0) => TagType::Tag,
-            (0, 2) => TagType::TagGlobal,
-            (0, 4) => TagType::Havok,
-            (15, 8) => TagType::WwiseBank,
-            (16, 8) => TagType::WwiseStream,
+            (64, 0) => TagType::Tag,
+            // (0, 2) => TagType::TagGlobal,
+            // (0, 4) => TagType::Havok,
+            (0, 15) => TagType::WwiseBank,
+            (8, 16) => TagType::WwiseStream,
             (ftype, fsubtype) => TagType::Unknown { ftype, fsubtype },
         }
     }
 
-    pub fn from_type_subtype_ttk(t: u8, st: u8) -> TagType {
-        match (t, st) {
-            (0, 0) => TagType::Tag,
-            (0, 1) => TagType::TextureOld,
-            (2, 20) => TagType::WwiseBank,
-            (2, 21) => TagType::WwiseStream,
-            (ftype, fsubtype) => TagType::Unknown { ftype, fsubtype },
-        }
-    }
-
-    pub fn from_type_subtype_roi(t: u8, st: u8) -> TagType {
+    pub fn from_type_subtype_d1(t: u8, st: u8) -> TagType {
         match (t, st) {
             (0, 20) => TagType::WwiseBank,
             (8, 21) => TagType::WwiseStream,

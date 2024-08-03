@@ -1027,9 +1027,9 @@ dependencies = [
 
 [[package]]
 name = "destiny-pkg"
-version = "0.12.0"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6431bc288b2d38f51ba097bd3f07f9976399be52f7928da5163ba8b1409cd902"
+checksum = "c3ae0fd73973cff8f1d0a27bc310cd536b17252b9bc169602e5669e480fb1ba7"
 dependencies = [
  "aes",
  "aes-gcm",
@@ -2730,7 +2730,7 @@ dependencies = [
  "chrono",
  "clap",
  "clipboard-win",
- "destiny-pkg 0.12.0",
+ "destiny-pkg 0.12.1",
  "eframe",
  "egui-notify",
  "egui_extras",
