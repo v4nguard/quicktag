@@ -199,11 +199,24 @@ impl TagType {
     pub fn from_type_subtype_devalpha(t: u8, st: u8) -> TagType {
         match (t, st) {
             (0, 0) => TagType::Tag,
-            (64, 0) => TagType::Tag,
-            // (0, 2) => TagType::TagGlobal,
-            // (0, 4) => TagType::Havok,
+            (16, 0) => TagType::Tag,
+            (128, 0) => TagType::TagGlobal,
             (0, 15) => TagType::WwiseBank,
-            (8, 16) => TagType::WwiseStream,
+            (2, 16) => TagType::WwiseStream,
+            (32 | 0, _) => {
+                let is_header = t == 32;
+                match st {
+                    1 => TagType::Texture2D { is_header },
+                    // 2 => TagType::TextureCube { is_header },
+                    3 => TagType::Texture3D { is_header },
+                    4 => TagType::VertexBuffer { is_header },
+                    6 => TagType::IndexBuffer { is_header },
+                    // 7 => TagType::ConstantBuffer { is_header },
+                    8 => TagType::PixelShader { is_header },
+                    9 => TagType::VertexShader { is_header },
+                    fsubtype => TagType::Unknown { ftype: t, fsubtype },
+                }
+            }
             (ftype, fsubtype) => TagType::Unknown { ftype, fsubtype },
         }
     }

@@ -420,9 +420,11 @@ pub fn load_tag_cache() -> TagCache {
             };
 
             let mut all_tags = match version {
-                GameVersion::DestinyInternalAlpha => {
-                    [pkg.get_all_by_type(64, None), pkg.get_all_by_type(0, None)].concat()
-                }
+                GameVersion::DestinyInternalAlpha => [
+                    pkg.get_all_by_type(16, None),
+                    pkg.get_all_by_type(128, None),
+                ]
+                .concat(),
                 GameVersion::DestinyRiseOfIron | GameVersion::DestinyTheTakenKing => [
                     pkg.get_all_by_type(16, None),
                     pkg.get_all_by_type(128, None),

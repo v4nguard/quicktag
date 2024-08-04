@@ -9,7 +9,7 @@ use eframe::wgpu;
 use either::{Either, Left, Right};
 use lazy_static::lazy_static;
 use linked_hash_map::LinkedHashMap;
-use log::error;
+use log::{error, warn};
 use poll_promise::Promise;
 use rodio::buffer::SamplesBuffer;
 use rodio::Source;
@@ -183,10 +183,31 @@ pub fn get_stream_duration_fast(tag: TagHash) -> f32 {
 
     let mut cur = Cursor::new(data);
 
-    cur.seek(SeekFrom::Start(0x4));
-    let data_size = cur.read_le::<u32>().unwrap();
-    cur.seek(SeekFrom::Start(0x1c));
-    let byte_rate = cur.read_le::<u32>().unwrap();
+    let magic: [u8; 4] = cur.read_le().unwrap();
 
-    (data_size as f64 / byte_rate as f64) as f32
+    match &magic {
+        b"RIFF" => {
+            cur.seek(SeekFrom::Start(0x4));
+            let data_size = cur.read_le::<u32>().unwrap();
+            cur.seek(SeekFrom::Start(0x1c));
+            let byte_rate = cur.read_le::<u32>().unwrap();
+
+            (data_size as f64 / byte_rate as f64) as f32
+        }
+        b"RIFX" => {
+            cur.seek(SeekFrom::Start(0x4));
+            let data_size = cur.read_le::<u32>().unwrap();
+            cur.seek(SeekFrom::Start(0x1c));
+            let byte_rate = cur.read_be::<u32>().unwrap();
+
+            (data_size as f64 / byte_rate as f64) as f32
+        }
+        _ => {
+            warn!(
+                "Unknown audio file format 0x{:02X}{:02X}{:02X}{:02X} for tag {tag}",
+                magic[0], magic[1], magic[2], magic[3]
+            );
+            0.0
+        }
+    }
 }
