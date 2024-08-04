@@ -203,7 +203,7 @@ impl TagType {
             (128, 0) => TagType::TagGlobal,
             (0, 15) => TagType::WwiseBank,
             (2, 16) => TagType::WwiseStream,
-            (32 | 0, _) => {
+            (32 | 64 | 1, _) => {
                 let is_header = t == 32;
                 match st {
                     1 => TagType::Texture2D { is_header },

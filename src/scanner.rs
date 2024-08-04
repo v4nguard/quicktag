@@ -287,7 +287,6 @@ lazy_static::lazy_static! {
     static ref SCANNER_PROGRESS: RwLock<ScanStatus> = RwLock::new(ScanStatus::None);
 }
 
-/// Returns Some((current_package, total_packages)) if there's a scan in progress
 pub fn scanner_progress() -> ScanStatus {
     *SCANNER_PROGRESS.read()
 }
