@@ -9,7 +9,6 @@ use log::{error, info, warn};
 use std::io::{Cursor, Write};
 use std::num::NonZeroU32;
 
-use crate::gui::audio::{AudioPlayer, AudioPlayerState};
 use crate::package_manager::get_hash64;
 use crate::{package_manager::package_manager, tagtypes::TagType};
 
@@ -98,7 +97,9 @@ fn tag_hover_ui(ui: &mut egui::Ui, tag: TagHash) {
     }
 
     // Render the audio playback state
+    #[cfg(feature = "audio")]
     if let Some(entry) = package_manager().get_entry(tag) {
+        use crate::gui::audio::{AudioPlayer, AudioPlayerState};
         let tag_type = TagType::from_type_subtype(entry.file_type, entry.file_subtype);
         if tag_type == TagType::WwiseStream {
             let state = AudioPlayer::instance().play(tag);
@@ -249,6 +250,10 @@ pub fn open_tag_in_default_application(tag: TagHash) {
     opener::open(path).ok();
 }
 
+#[cfg(not(feature = "audio"))]
+pub fn open_audio_file_in_default_application(_tag: TagHash, _ext: &str) {}
+
+#[cfg(feature = "audio")]
 pub fn open_audio_file_in_default_application(tag: TagHash, ext: &str) {
     let filename = format!(".\\{tag}.{ext}");
     std::thread::spawn(move || {
@@ -286,6 +291,10 @@ pub fn open_audio_file_in_default_application(tag: TagHash, ext: &str) {
     });
 }
 
+#[cfg(not(feature = "audio"))]
+pub fn dump_wwise_info(_package_id: u16) {}
+
+#[cfg(feature = "audio")]
 pub fn dump_wwise_info(package_id: u16) {
     let package_path = package_manager()
         .package_paths

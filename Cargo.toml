@@ -42,7 +42,7 @@ binrw = "0.13.3"
 destiny-pkg = { version = "0.12.2", features = ["bincode"] }
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.108"
-vgmstream = { git = "https://github.com/cohaereo/vgmstream-rs/", version = "0.1.5" }
+vgmstream = { git = "https://github.com/cohaereo/vgmstream-rs/", version = "0.1.5", optional = true }
 wav = "1.0.0"
 zstd = { version = "0.13.0", features = ["zstdmt"] }
 either = "1.10.0"
@@ -58,9 +58,10 @@ alkahest-data = { git = "https://github.com/cohaereo/alkahest.git" }
 #dawn-data = { git = "https://github.com/cohaereo/dawn.git" }
 
 [features]
-default = ["wordlist"]
+default = ["wordlist", "audio"]
 # Embeds `wordlist.txt` into the executable and adds it's contents to the raw string list
 wordlist = []
+audio = ["vgmstream"]
 
 [profile.dev]
 opt-level = 3
