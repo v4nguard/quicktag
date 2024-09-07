@@ -12,7 +12,9 @@ use eframe::egui::{
     ScrollArea, Sense, Stroke, Ui,
 };
 use itertools::Itertools;
+use log::warn;
 use std::io::{Cursor, Seek, SeekFrom};
+use std::str::FromStr;
 
 pub struct TagHexView {
     data: Vec<u8>,
@@ -22,6 +24,7 @@ pub struct TagHexView {
     mode: DataViewMode,
     detect_floats: bool,
     split_arrays: bool,
+    raw_array_data: bool,
 }
 
 impl TagHexView {
@@ -42,6 +45,7 @@ impl TagHexView {
             mode: DataViewMode::Auto,
             detect_floats: true,
             split_arrays: true,
+            raw_array_data: false,
         }
     }
 
@@ -50,6 +54,9 @@ impl TagHexView {
             ui.label("Data too large to display");
             return None;
         }
+
+        ui.checkbox(&mut self.raw_array_data, "Show raw array data");
+        ui.separator();
 
         let mut open_tag = None;
         ScrollArea::vertical()
@@ -89,12 +96,29 @@ impl TagHexView {
                             });
                         })
                         .body_unindented(|ui| {
-                            open_tag = open_tag.or(self.show_row_block(
-                                ui,
-                                &self.rows[array.data_start as usize / 16..array.end as usize / 16],
-                                array.data_start as usize,
-                                scan,
-                            ));
+                            if !self.raw_array_data && !array.pretty_rows.is_empty() {
+                                let class_size =
+                                    CLASS_MAP.load().get(&array.class).and_then(|c| c.size);
+                                for (i, row) in array.pretty_rows.iter().enumerate() {
+                                    ui.horizontal(|ui| {
+                                        if let Some(class_size) = class_size {
+                                            let offset = array.data_start as usize + i * class_size;
+                                            ui.strong(format!("{:08X}:", offset));
+                                        }
+                                        ui.strong(format!("[{i}]"));
+                                        ui.style_mut().spacing.item_spacing.x = 14.0;
+                                        ui.monospace(row);
+                                    });
+                                }
+                            } else {
+                                open_tag = open_tag.or(self.show_row_block(
+                                    ui,
+                                    &self.rows
+                                        [array.data_start as usize / 16..array.end as usize / 16],
+                                    array.data_start as usize,
+                                    scan,
+                                ));
+                            }
                         });
                     }
                 } else {
@@ -299,6 +323,8 @@ struct ArrayRange {
     label: Option<String>,
     class: u32,
     length: u64,
+
+    pretty_rows: Vec<String>,
 }
 
 fn find_all_array_ranges(data: &[u8]) -> Vec<ArrayRange> {
@@ -372,6 +398,32 @@ fn find_all_array_ranges(data: &[u8]) -> Vec<ArrayRange> {
     for (offset, header) in arrays {
         let start = offset;
         let data_start = offset + 16;
+        let mut pretty_rows = vec![];
+        if let Some(class) = CLASS_MAP.load().get(&header.tagtype) {
+            if class.has_pretty_formatter() {
+                let class_size = class
+                    .size
+                    .expect("Class size zero but has a pretty formatter??");
+                if data_start + (class.array_size(header.count as usize).unwrap_or_default() as u64)
+                    <= file_end
+                {
+                    for i in 0..header.count as usize {
+                        let offset = data_start as usize + i * class_size;
+                        let data = &data[offset..offset + class_size];
+                        pretty_rows.push(
+                            class
+                                .parse_and_format(data, endian)
+                                .unwrap_or_else(|| format!("Failed to parse row")),
+                        );
+                    }
+                } else {
+                    warn!(
+                        "Array data for class {:08X}/{} goes beyond file end (data_start=0x{data_start:X} array_size=0x{:X} file_end=0x{file_end:X}",
+                        class.id, class.name, class.array_size(header.count as usize).unwrap_or_default()
+                    );
+                }
+            }
+        }
 
         array_ranges.push(ArrayRange {
             start,
@@ -380,6 +432,7 @@ fn find_all_array_ranges(data: &[u8]) -> Vec<ArrayRange> {
             label: None,
             class: header.tagtype,
             length: header.count,
+            pretty_rows,
         })
     }
 
@@ -400,6 +453,8 @@ fn find_all_array_ranges(data: &[u8]) -> Vec<ArrayRange> {
             label: Some("Raw String Data".to_string()),
             class: 0,
             length: 0,
+            // TODO: would be cool maybe?
+            pretty_rows: vec![],
         });
     }
 

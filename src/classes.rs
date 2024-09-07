@@ -30,6 +30,10 @@ impl TagClass {
         Some(self.pretty_parser?(data, endian))
     }
 
+    pub fn has_pretty_formatter(&self) -> bool {
+        self.pretty_parser.is_some() && self.size.is_some()
+    }
+
     pub fn array_size(&self, array_length: usize) -> Option<usize> {
         self.size.map(|s| s * array_length)
     }
@@ -123,14 +127,14 @@ pub const CLASSES_BL: &[TagClass] = &[
     class!(0x80806D28 s_static_mesh_instance_map),
     class!(0x80806D2F s_static_mesh_decal),
     class!(0x80806D30 s_static_mesh_data),
-    class!(0x80806D36 s_static_mesh_buffers),
-    class!(0x80806D37 s_static_mesh_part),
-    class!(0x80806D38 s_static_mesh_material_assignment),
+    class!(0x80806D36 s_static_mesh_buffers @size(16)),
+    class!(0x80806D37 s_static_mesh_part @size(12)),
+    class!(0x80806D38 s_static_mesh_group @size(6)),
     class!(0x80806D40 s_static_mesh_instance_transform),
     class!(0x80806D44 s_static_mesh),
     class!(0x80806DAA s_technique),
     class!(0x80806DBA s_scope),
-    class!(0x80806DCF s_texture_tag_64),
+    class!(0x80806DCF s_texture_tag_64 @size(24)),
     class!(0x80806EC5 s_entity_model_mesh),
     class!(0x80806F07 s_entity_model),
     class!(0x80807211 s_texture_tag),
@@ -204,6 +208,7 @@ fn parse_hex(data: &[u8], _: Endian) -> String {
     for &b in data {
         result.push(HEX_CHARS[((b >> 4) & 0xf) as usize] as char);
         result.push(HEX_CHARS[(b & 0xf) as usize] as char);
+        result.push(' ');
     }
 
     result
