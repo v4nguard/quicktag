@@ -90,7 +90,7 @@ pub struct QuickTagApp {
     packages_view: PackagesView,
     textures_view: TexturesView,
     #[cfg(feature = "audio")]
-    audio_view: AudioView,
+    audio_view: crate::gui::audio_list::AudioView,
     strings_view: StringsView,
     raw_strings_view: RawStringsView,
 
