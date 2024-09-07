@@ -558,6 +558,10 @@ impl Texture {
         data: Vec<u8>,
         comment: Option<String>,
     ) -> anyhow::Result<Texture> {
+        if desc.format.is_compressed() && desc.depth > 1 {
+            anyhow::bail!("Compressed 3D textures are not supported by wgpu");
+        }
+
         let mut texture_data = data;
         // Pre-multiply alpha where possible
         if matches!(
