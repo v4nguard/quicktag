@@ -36,7 +36,7 @@ impl Default for TagCache {
     fn default() -> Self {
         Self {
             timestamp: 0,
-            version: 5,
+            version: 6,
             hashes: Default::default(),
         }
     }
