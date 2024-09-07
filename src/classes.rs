@@ -182,15 +182,13 @@ pub fn initialize_reference_names() {
         destiny_pkg::GameVersion::DestinyInternalAlpha => CLASSES_DEVALPHA,
         destiny_pkg::GameVersion::DestinyTheTakenKing => CLASSES_TTK,
         destiny_pkg::GameVersion::DestinyRiseOfIron => CLASSES_ROI,
-        destiny_pkg::GameVersion::Destiny2Forsaken
+        destiny_pkg::GameVersion::Destiny2Beta
+        | destiny_pkg::GameVersion::Destiny2Forsaken
         | destiny_pkg::GameVersion::Destiny2Shadowkeep => CLASSES_SK,
         destiny_pkg::GameVersion::Destiny2BeyondLight
         | destiny_pkg::GameVersion::Destiny2WitchQueen
         | destiny_pkg::GameVersion::Destiny2Lightfall
         | destiny_pkg::GameVersion::Destiny2TheFinalShape => CLASSES_BL,
-        u @ destiny_pkg::GameVersion::Destiny2Beta => {
-            panic!("Unsupported game version {u:?} (initialize_reference_names)")
-        }
     };
 
     new_classes.extend(version_specific.iter().map(|c| (c.id, c.clone())));
