@@ -1,14 +1,15 @@
+use crate::classes::CLASS_MAP;
 use crate::gui::common::ResponseExt;
 use crate::gui::tag::{format_tag_entry, ExtendedScanResult};
 use crate::package_manager::package_manager;
-use crate::references::REFERENCE_NAMES;
 use crate::swap_to_ne;
 use crate::tagtypes::TagType;
 use binrw::{binread, BinReaderExt, Endian};
 use destiny_pkg::{GameVersion, TagHash};
 use eframe::egui;
 use eframe::egui::{
-    pos2, vec2, Color32, CursorIcon, Rgba, RichText, ScrollArea, Sense, Stroke, Ui,
+    collapsing_header::CollapsingState, pos2, vec2, Color32, CursorIcon, Rgba, RichText,
+    ScrollArea, Sense, Stroke, Ui,
 };
 use itertools::Itertools;
 use std::io::{Cursor, Seek, SeekFrom};
@@ -63,29 +64,38 @@ impl TagHexView {
                         scan,
                     ));
 
-                    for array in &self.array_ranges {
+                    for (i, array) in self.array_ranges.iter().enumerate() {
                         ui.add_space(16.0);
-                        ui.horizontal(|ui| {
-                            let heading = if let Some(label) = &array.label {
-                                label.clone()
-                            } else {
-                                let ref_label = REFERENCE_NAMES
-                                    .read()
-                                    .get(&array.class)
-                                    .map(|s| format!("{s} ({:08X})", array.class))
-                                    .unwrap_or_else(|| format!("{:08X}", array.class));
-                                format!("Array {ref_label} ({} elements)", array.length)
-                            };
 
-                            ui.heading(RichText::new(heading).color(Color32::WHITE).strong());
+                        CollapsingState::load_with_default_open(
+                            ui.ctx(),
+                            egui::Id::new(format!("hexview_array_{i}",)),
+                            array.length < 256,
+                        )
+                        .show_header(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                let heading = if let Some(label) = &array.label {
+                                    label.clone()
+                                } else {
+                                    let ref_label = CLASS_MAP
+                                        .load()
+                                        .get(&array.class)
+                                        .map(|c| format!("{} ({:08X})", c.name, array.class))
+                                        .unwrap_or_else(|| format!("{:08X}", array.class));
+                                    format!("Array {ref_label} ({} elements)", array.length)
+                                };
+
+                                ui.heading(RichText::new(heading).color(Color32::WHITE).strong());
+                            });
+                        })
+                        .body_unindented(|ui| {
+                            open_tag = open_tag.or(self.show_row_block(
+                                ui,
+                                &self.rows[array.data_start as usize / 16..array.end as usize / 16],
+                                array.data_start as usize,
+                                scan,
+                            ));
                         });
-
-                        open_tag = open_tag.or(self.show_row_block(
-                            ui,
-                            &self.rows[array.data_start as usize / 16..array.end as usize / 16],
-                            array.data_start as usize,
-                            scan,
-                        ));
                     }
                 } else {
                     open_tag = open_tag.or(self.show_row_block(ui, &self.rows, 0, scan));

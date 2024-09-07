@@ -19,14 +19,14 @@ use super::{
 use crate::gui::hexview::TagHexView;
 use crate::package_manager::get_hash64;
 use crate::scanner::ScannedHash;
-use crate::{gui::texture::Texture, scanner::read_raw_string_blob, text::RawStringHashCache};
 use crate::{
+    classes::CLASS_MAP,
     package_manager::package_manager,
-    references::REFERENCE_NAMES,
     scanner::{ScanResult, TagCache},
     tagtypes::TagType,
     text::StringCache,
 };
+use crate::{gui::texture::Texture, scanner::read_raw_string_blob, text::RawStringHashCache};
 use binrw::{binread, BinReaderExt, Endian};
 use destiny_pkg::{package::UEntryHeader, GameVersion, TagHash, TagHash64};
 use eframe::egui::load::SizedTexture;
@@ -947,14 +947,14 @@ impl View for TagView {
                                         ui.label(RichText::new("No arrays found").italics());
                                     } else {
                                         for (offset, array) in &self.arrays {
-                                            let ref_label = REFERENCE_NAMES
-                                                .read()
+                                            let ref_label = CLASS_MAP
+                                                .load()
                                                 .get(&array.tagtype)
-                                                .map(|s| {
-                                                    format!("{s} ({:08X})", array.tagtype.to_be())
+                                                .map(|c| {
+                                                    format!("{} ({:08X})", c.name, array.tagtype)
                                                 })
                                                 .unwrap_or_else(|| {
-                                                    format!("{:08X}", array.tagtype.to_be())
+                                                    format!("{:08X}", array.tagtype)
                                                 });
 
                                             ui.selectable_label(
@@ -1533,10 +1533,10 @@ pub fn format_tag_entry(tag: TagHash, entry: Option<&UEntryHeader>) -> String {
             .map(|v| format!("{} ", v.name))
             .unwrap_or_default();
 
-        let ref_label = REFERENCE_NAMES
-            .read()
+        let ref_label = CLASS_MAP
+            .load()
             .get(&entry.reference)
-            .map(|s| format!(" ({s})"))
+            .map(|c| format!(" ({})", c.name))
             .unwrap_or_default();
 
         format!(
@@ -1557,7 +1557,7 @@ pub fn format_tag_entry(tag: TagHash, entry: Option<&UEntryHeader>) -> String {
 }
 
 #[binread]
-struct TagArray {
+pub struct TagArray {
     pub count: u64,
     pub tagtype: u32,
 

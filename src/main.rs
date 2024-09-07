@@ -1,7 +1,7 @@
+mod classes;
 mod gui;
 mod package_manager;
 mod panic_handler;
-mod references;
 mod scanner;
 mod tagtypes;
 mod text;
@@ -18,8 +18,8 @@ use env_logger::Env;
 use game_detector::InstalledGame;
 use log::info;
 
+use crate::classes::initialize_reference_names;
 use crate::package_manager::initialize_package_manager;
-use crate::references::initialize_reference_names;
 use crate::{gui::QuickTagApp, package_manager::package_manager};
 
 #[derive(clap::Parser, Debug)]

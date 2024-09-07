@@ -4,9 +4,8 @@ use crate::gui::tag::{
 };
 use crate::gui::texture::TextureCache;
 use crate::gui::ViewAction;
-use crate::package_manager::package_manager;
 use crate::scanner;
-use crate::scanner::{ScannerContext, TagCache};
+use crate::scanner::ScannerContext;
 use crate::tagtypes::TagType;
 use eframe::egui;
 

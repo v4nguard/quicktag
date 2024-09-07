@@ -16,6 +16,7 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use rustc_hash::FxHashMap;
 
 use crate::{
+    classes::{TagClass, CLASS_MAP},
     package_manager::package_manager,
     text::create_stringmap,
     util::{u32_from_endian, u64_from_endian},
@@ -105,10 +106,61 @@ pub fn scan_file(context: &ScannerContext, data: &[u8], tags_only: bool) -> Scan
 
     let mut r = ScanResult::default();
 
+    // Pass 1: find array ranges we should skip (classes marked with @block_tags)
+    let mut blocked_ranges = vec![];
     for offset in (0..data.len()).step_by(4) {
         if offset + 4 > data.len() {
             break;
         }
+        let m: [u8; 4] = data[offset..offset + 4].try_into().unwrap();
+        let value = u32_from_endian(context.endian, m);
+
+        if matches!(
+            value,
+            0x80809fbd | // Pre-BL
+            0x80809fb8 | // Post-BL
+            0x80800184 |
+            0x80800142
+        ) {
+            let array_offset = offset as u64 + 4;
+            let array: Option<(u64, u32)> = (|| {
+                let mut c = Cursor::new(&data);
+                c.seek(SeekFrom::Start(array_offset)).ok()?;
+                if matches!(
+                    package_manager().version,
+                    GameVersion::DestinyInternalAlpha | GameVersion::DestinyTheTakenKing
+                ) {
+                    Some((c.read_be::<u32>().ok()? as u64, c.read_be::<u32>().ok()?))
+                } else {
+                    Some((c.read_le::<u64>().ok()?, c.read_le::<u32>().ok()?))
+                }
+            })();
+
+            if let Some((count, class)) = array {
+                if let Some(class) = CLASS_MAP.load().get(&class) {
+                    if class.block_tags {
+                        let array_size = class.array_size(count as usize).unwrap_or(count as usize);
+                        blocked_ranges.push(array_offset..array_offset + array_size as u64);
+                    }
+                }
+            }
+        }
+    }
+
+    // Pass 2: everything else
+    for offset in (0..data.len()).step_by(4) {
+        if offset + 4 > data.len() {
+            break;
+        }
+
+        if blocked_ranges
+            .iter()
+            .find(|range| range.contains(&(offset as u64)))
+            .is_some()
+        {
+            continue;
+        }
+
         let m: [u8; 4] = data[offset..offset + 4].try_into().unwrap();
         let value = u32_from_endian(context.endian, m);
         let hash = TagHash(value);
