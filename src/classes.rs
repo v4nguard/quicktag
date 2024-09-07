@@ -1,7 +1,11 @@
-use std::sync::Arc;
+use std::{
+    fmt::{Display, UpperHex},
+    sync::Arc,
+};
 
 use arc_swap::{access::Access, ArcSwap};
 use binrw::Endian;
+use bytemuck::{Pod, Zeroable};
 use destiny_pkg::TagHash;
 use eframe::epaint::mutex::RwLock;
 use rustc_hash::FxHashMap;
@@ -77,10 +81,11 @@ macro_rules! class_internal {
 pub const CLASSES_BASE: &[TagClass] = &[
     class!(0x80800000 s_bungie_script),
     class!(0x80800005 char @size(1) @block_tags),
-    class!(0x80800007 u32 @size(4) @block_tags),
-    class!(0x80800009 byte @size(1) @parse(parse_u8) @block_tags),
-    class!(0x8080000A u16 @size(2) @parse(parse_u16) @block_tags),
+    class!(0x80800007 u32 @size(4) @parse(parse_raw_hex::<u32>) @block_tags),
+    class!(0x80800009 byte @size(1) @parse(parse_raw_hex::<u8>) @block_tags),
+    class!(0x8080000A u16 @size(2) @parse(parse_raw_hex::<u16>) @block_tags),
     class!(0x80800014 taghash @size(4) @parse(parse_taghash)),
+    class!(0x80800070 f32 @size(4) @parse(parse_raw::<f32>) @block_tags),
     class!(0x80800090 vec4 @size(16) @parse(parse_vec4) @block_tags),
 ];
 
@@ -112,7 +117,37 @@ pub const CLASSES_ROI: &[TagClass] = &[
     class!(0x808033EB sui_simple_dialog),
 ];
 
-pub const CLASSES_SK: &[TagClass] = &[];
+pub const CLASSES_SK: &[TagClass] = &[
+    class!(0x80804607 s_unk80804607 @size(12)),
+    class!(0x80804616 s_unk80804616 @size(4)),
+    class!(0x80804618 s_unk80804618 @size(4)),
+    class!(0x80804622 s_unk80804622 @size(16)),
+    class!(0x808046D4 s_unk808046d4 @size(24)),
+    class!(0x808046F3 s_unk808046f3 @size(24)),
+    class!(0x8080473B s_unk8080473b @size(16)),
+    class!(0x80804743 s_unk80804743 @size(24)),
+    class!(0x80804747 s_unk80804747 @size(8)),
+    class!(0x8080474f s_unk8080474f @size(8)),
+    class!(0x80804756 s_unk80804756 @size(128)),
+    class!(0x8080475f s_unk8080475f @size(40)),
+    class!(0x80804762 s_unk80804762 @size(8)),
+    class!(0x80804763 s_unk80804763 @size(8)),
+    class!(0x80804767 s_unk80804767 @size(8)),
+    class!(0x80804768 s_unk80804768 @size(64)),
+    class!(0x80804770 s_unk80804770 @size(32)),
+    class!(0x80804772 s_unk80804772 @size(32)),
+    class!(0x808047C6 s_unk808047c6 @size(8)),
+    class!(0x808047CB s_unk808047cb @size(24)),
+    class!(0x808047CD s_unk808047cd @size(8)),
+    class!(0x80804858 s_unk80804858 @size(24)),
+    class!(0x808048D7 s_unk808048d7 @size(32)),
+    class!(0x80806B10 s_unk80806b10 @size(12)),
+    class!(0x808071E8 s_technique),
+    class!(0x808071F3 s_scope),
+    class!(0x80809802 s_wwise_event),
+    class!(0x80809A88 s_localized_strings),
+    class!(0x80809A8A s_localized_strings_data),
+];
 
 pub const CLASSES_BL: &[TagClass] = &[
     class!(0x808045EB s_music_score),
@@ -212,23 +247,29 @@ fn parse_hex(data: &[u8], _: Endian) -> String {
     result
 }
 
-fn parse_u8(data: &[u8], _endian: Endian) -> String {
-    format!("0x{:02X}", data[0])
+fn parse_raw<T: Sized + Pod + Display>(data: &[u8], endian: Endian) -> String {
+    assert!(data.len() >= size_of::<T>());
+    let mut bytes = data[0..size_of::<T>()].to_vec();
+    if endian != Endian::NATIVE {
+        bytes.reverse();
+    }
+    let v: T = bytemuck::try_pod_read_unaligned(&bytes).unwrap();
+    v.to_string()
 }
 
-fn parse_u16(data: &[u8], endian: Endian) -> String {
-    let from_bytes = match endian {
-        Endian::Big => u16::from_be_bytes,
-        Endian::Little => u16::from_le_bytes,
-    };
-
-    let value = from_bytes([data[0], data[1]]);
-    format!("0x{value:04X}")
+fn parse_raw_hex<T: Sized + Pod + UpperHex>(data: &[u8], endian: Endian) -> String {
+    assert!(data.len() >= size_of::<T>());
+    let mut bytes = data[0..size_of::<T>()].to_vec();
+    if endian != Endian::NATIVE {
+        bytes.reverse();
+    }
+    let v: T = bytemuck::try_pod_read_unaligned(&bytes).unwrap();
+    format!("0x{v:X}")
 }
 
 fn parse_taghash(data: &[u8], endian: Endian) -> String {
     let taghash = TagHash(u32_from_endian(endian, data.try_into().unwrap()));
-    taghash.to_string()
+    format!("tag({taghash})")
 }
 
 fn parse_vec4(data: &[u8], endian: Endian) -> String {
