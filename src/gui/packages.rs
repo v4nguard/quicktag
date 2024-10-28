@@ -16,12 +16,13 @@ use super::{
 
 pub struct PackagesView {
     selected_package: u16,
-    package_entry_search_cache: Vec<(String, TagType, UEntryHeader)>,
+    package_entry_search_cache: Vec<(usize, String, TagType, UEntryHeader)>,
     package_filter: String,
     package_entry_filter: String,
     texture_cache: TextureCache,
     sorted_package_paths: Vec<(u16, PackagePath)>,
     show_only_hash64: bool,
+    sort_by_size: bool,
 }
 
 impl PackagesView {
@@ -42,6 +43,18 @@ impl PackagesView {
             texture_cache,
             sorted_package_paths,
             show_only_hash64: false,
+            sort_by_size: false,
+        }
+    }
+
+    pub fn sort_entries(&mut self) {
+        if self.sort_by_size {
+            self.package_entry_search_cache
+                .sort_by_key(|(_, _, _, entry)| entry.file_size);
+            self.package_entry_search_cache.reverse();
+        } else {
+            self.package_entry_search_cache
+                .sort_by_key(|(i, _, _, _)| *i);
         }
     }
 }
@@ -64,6 +77,7 @@ impl View for PackagesView {
                 egui::ScrollArea::vertical()
                     .max_width(f32::INFINITY)
                     .show(ui, |ui| {
+                        let mut sort_entries = false;
                         for (id, path) in self.sorted_package_paths.iter() {
                             let package_name = format!("{}_{}", path.name, path.id);
                             if !self.package_filter.is_empty()
@@ -95,13 +109,19 @@ impl View for PackagesView {
                                             format_tag_entry(TagHash::new(*id, i as u16), Some(e));
 
                                         self.package_entry_search_cache.push((
+                                            i,
                                             label,
                                             TagType::from_type_subtype(e.file_type, e.file_subtype),
                                             e.clone(),
                                         ));
+                                        sort_entries = true;
                                     }
                                 }
                             }
+                        }
+
+                        if sort_entries {
+                            self.sort_entries();
                         }
                     });
             });
@@ -124,6 +144,12 @@ impl View for PackagesView {
                         }
 
                         ui.checkbox(&mut self.show_only_hash64, "★ Only show hash64");
+                        if ui
+                            .checkbox(&mut self.sort_by_size, "Sort by size descending")
+                            .changed()
+                        {
+                            self.sort_entries();
+                        }
                     });
                     egui::ScrollArea::vertical()
                         .max_width(f32::INFINITY)
@@ -134,14 +160,14 @@ impl View for PackagesView {
                                 .package_entry_search_cache
                                 .iter()
                                 .enumerate()
-                                .filter(|(_, (label, _, _))| {
+                                .filter(|(_, (_, label, _, _))| {
                                     self.package_entry_filter.is_empty()
                                         || label
                                             .to_lowercase()
                                             .contains(&self.package_entry_filter.to_lowercase())
                                 })
-                                .map(|(i, (label, tag_type, entry))| {
-                                    let tag = TagHash::new(self.selected_package, i as u16);
+                                .map(|(_, (i, label, tag_type, entry))| {
+                                    let tag = TagHash::new(self.selected_package, *i as u16);
                                     (i, (tag, label.clone(), tag_type, entry))
                                 })
                                 .filter(|(_, (tag, _, _, _))| {

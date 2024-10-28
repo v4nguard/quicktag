@@ -1,4 +1,7 @@
 use std::cell::RefCell;
+use std::fs::File;
+use std::io::Write as _;
+use std::path::PathBuf;
 use std::{
     collections::HashSet,
     fmt::Display,
@@ -19,20 +22,20 @@ use super::{
 use crate::gui::hexview::TagHexView;
 use crate::package_manager::get_hash64;
 use crate::scanner::ScannedHash;
-use crate::{gui::texture::Texture, scanner::read_raw_string_blob, text::RawStringHashCache};
 use crate::{
+    classes::CLASS_MAP,
     package_manager::package_manager,
-    references::REFERENCE_NAMES,
     scanner::{ScanResult, TagCache},
     tagtypes::TagType,
     text::StringCache,
 };
+use crate::{gui::texture::Texture, scanner::read_raw_string_blob, text::RawStringHashCache};
 use binrw::{binread, BinReaderExt, Endian};
 use destiny_pkg::{package::UEntryHeader, GameVersion, TagHash, TagHash64};
 use eframe::egui::load::SizedTexture;
 use eframe::egui::{collapsing_header::CollapsingState, vec2, RichText, TextureId};
 use eframe::egui_wgpu::RenderState;
-use eframe::wgpu::naga::{FastHashMap, FastHashSet, FastIndexMap};
+use eframe::wgpu::naga::{FastHashSet, FastIndexMap};
 use eframe::{
     egui::{self, CollapsingHeader},
     epaint::Color32,
@@ -503,6 +506,26 @@ impl TagView {
                 );
                 ui.checkbox(&mut self.traversal_interactive, "Interactive");
                 ui.checkbox(&mut self.hide_already_traversed, "Hide already traversed");
+
+                if let Some(traversal) = self.tag_traversal.as_ref() {
+                    if let Some((trav_interactive, _)) = traversal.ready() {
+                        if ui
+                            .button("Dump all tag data")
+                            .on_hover_text("Dumps the tag data for all tags in the traversal tree")
+                            .clicked()
+                        {
+                            let directory = PathBuf::from("dump")
+                                .join(format!("tagdump_{}", trav_interactive.tag));
+                            std::fs::create_dir_all(&directory).ok();
+                            if let Err(e) = Self::dump_traversed_tag_data_recursive(
+                                trav_interactive,
+                                &directory,
+                            ) {
+                                error!("Failed to dump tag data: {e:?}");
+                            }
+                        }
+                    }
+                }
             });
 
             if let Some(traversal) = self.tag_traversal.as_ref() {
@@ -691,6 +714,35 @@ impl TagView {
         });
 
         result
+    }
+
+    pub fn dump_traversed_tag_data_recursive(
+        tag: &TraversedTag,
+        directory: &Path,
+    ) -> anyhow::Result<()> {
+        let tag_postfix = if let Some(entry) = &tag.entry {
+            format!(
+                "_{}",
+                TagType::from_type_subtype(entry.file_type, entry.file_subtype)
+            )
+        } else {
+            "".to_string()
+        };
+
+        let path = directory.join(format!("{}{}.bin", tag.tag, tag_postfix));
+        match package_manager().read_tag(tag.tag) {
+            Ok(o) => {
+                let mut file = File::create(&path)?;
+                file.write_all(&o)?;
+            }
+            Err(e) => error!("Failed to dump data for tag {}: {e:?}", tag.tag),
+        }
+
+        for subtag in &tag.subtags {
+            Self::dump_traversed_tag_data_recursive(subtag, directory)?;
+        }
+
+        Ok(())
     }
 }
 
@@ -947,14 +999,14 @@ impl View for TagView {
                                         ui.label(RichText::new("No arrays found").italics());
                                     } else {
                                         for (offset, array) in &self.arrays {
-                                            let ref_label = REFERENCE_NAMES
-                                                .read()
+                                            let ref_label = CLASS_MAP
+                                                .load()
                                                 .get(&array.tagtype)
-                                                .map(|s| {
-                                                    format!("{s} ({:08X})", array.tagtype.to_be())
+                                                .map(|c| {
+                                                    format!("{} ({:08X})", c.name, array.tagtype)
                                                 })
                                                 .unwrap_or_else(|| {
-                                                    format!("{:08X}", array.tagtype.to_be())
+                                                    format!("{:08X}", array.tagtype)
                                                 });
 
                                             ui.selectable_label(
@@ -1533,10 +1585,10 @@ pub fn format_tag_entry(tag: TagHash, entry: Option<&UEntryHeader>) -> String {
             .map(|v| format!("{} ", v.name))
             .unwrap_or_default();
 
-        let ref_label = REFERENCE_NAMES
-            .read()
+        let ref_label = CLASS_MAP
+            .load()
             .get(&entry.reference)
-            .map(|s| format!(" ({s})"))
+            .map(|c| format!(" ({})", c.name))
             .unwrap_or_default();
 
         format!(
@@ -1557,7 +1609,7 @@ pub fn format_tag_entry(tag: TagHash, entry: Option<&UEntryHeader>) -> String {
 }
 
 #[binread]
-struct TagArray {
+pub struct TagArray {
     pub count: u64,
     pub tagtype: u32,
 

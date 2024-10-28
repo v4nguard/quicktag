@@ -1,4 +1,6 @@
+#[cfg(feature = "audio")]
 mod audio;
+#[cfg(feature = "audio")]
 mod audio_list;
 mod common;
 mod dxgi;
@@ -14,8 +16,10 @@ mod texture;
 mod texturelist;
 
 use std::cell::RefCell;
+use std::io::Write;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::time::Instant;
 
 use destiny_pkg::{GameVersion, TagHash};
 use eframe::egui::{PointerButton, TextEdit, Widget};
@@ -36,7 +40,6 @@ use self::strings::StringsView;
 use self::tag::TagView;
 use self::texture::TextureCache;
 use self::texturelist::TexturesView;
-use crate::gui::audio_list::AudioView;
 use crate::gui::external_file::ExternalFileScanView;
 use crate::gui::tag::TagHistory;
 use crate::scanner::{fnv1, ScannerContext};
@@ -54,6 +57,7 @@ pub enum Panel {
     NamedTags,
     Packages,
     Textures,
+    #[cfg(feature = "audio")]
     Audio,
     Strings,
     RawStrings,
@@ -85,7 +89,8 @@ pub struct QuickTagApp {
     named_tags_view: NamedTagView,
     packages_view: PackagesView,
     textures_view: TexturesView,
-    audio_view: AudioView,
+    #[cfg(feature = "audio")]
+    audio_view: crate::gui::audio_list::AudioView,
     strings_view: StringsView,
     raw_strings_view: RawStringsView,
 
@@ -133,7 +138,8 @@ impl QuickTagApp {
             named_tags_view: NamedTagView::new(),
             packages_view: PackagesView::new(texture_cache.clone()),
             textures_view: TexturesView::new(texture_cache),
-            audio_view: AudioView::new(),
+            #[cfg(feature = "audio")]
+            audio_view: audio_list::AudioView::new(),
             strings_view: StringsView::new(strings.clone(), Default::default()),
             raw_strings_view: RawStringsView::new(Default::default()),
 
@@ -208,44 +214,44 @@ impl eframe::App for QuickTagApp {
                 .flat_map(|(_, sc)| sc.raw_strings.iter().cloned())
             {
                 let h = fnv1(s.as_bytes());
-                match new_rsh_cache.entry(h) {
-                    std::collections::hash_map::Entry::Occupied(mut o) => {
-                        let v = o.get_mut();
-                        if v.iter().any(|(v, _)| *v == s) {
-                            continue;
-                        }
-                        v.push((s, false));
-                    }
-                    std::collections::hash_map::Entry::Vacant(v) => {
-                        v.insert(vec![(s, false)]);
-                    }
-                };
+                let entry = new_rsh_cache.entry(h).or_default();
+                if entry.iter().any(|(s2, _)| s2 == &s) {
+                    continue;
+                }
+
+                entry.push((s, false));
             }
 
             #[cfg(feature = "wordlist")]
             {
                 const WORDLIST: &'static str = include_str!("../../wordlist.txt");
-                info!(
-                    "Loading {} strings from embedded wordlist",
-                    WORDLIST.lines().count()
-                );
+                let load_start = Instant::now();
                 for s in WORDLIST.lines() {
                     let s = s.to_string();
                     let h = fnv1(s.as_bytes());
-                    match new_rsh_cache.entry(h) {
-                        std::collections::hash_map::Entry::Occupied(mut o) => {
-                            let v = o.get_mut();
-                            if v.iter().any(|(v, _)| *v == s) {
-                                continue;
-                            }
-                            v.push((s.to_string(), true));
-                        }
-                        std::collections::hash_map::Entry::Vacant(v) => {
-                            v.insert(vec![(s.to_string(), true)]);
-                        }
-                    };
+                    let entry = new_rsh_cache.entry(h).or_default();
+                    if entry.iter().any(|(s2, _)| s2 == &s) {
+                        continue;
+                    }
+
+                    entry.push((s, true));
                 }
+                info!(
+                    "Loading {} strings from embedded wordlist in {}ms",
+                    WORDLIST.lines().count(),
+                    load_start.elapsed().as_millis()
+                );
             }
+
+            // // Dump all raw strings to a csv file
+            // if let Ok(mut f) = std::fs::File::create("raw_strings.csv") {
+            //     writeln!(f, "hash|string|is_wordlist").unwrap();
+            //     for (hash, strings) in new_rsh_cache.iter() {
+            //         for (string, is_wordlist) in strings {
+            //             writeln!(f, "{:08X}|{}|{}", hash, string, is_wordlist).unwrap();
+            //         }
+            //     }
+            // }
 
             self.raw_strings = Arc::new(new_rsh_cache);
         }
@@ -356,6 +362,7 @@ impl eframe::App for QuickTagApp {
                     ui.selectable_value(&mut self.open_panel, Panel::NamedTags, "Named tags");
                     ui.selectable_value(&mut self.open_panel, Panel::Packages, "Packages");
                     ui.selectable_value(&mut self.open_panel, Panel::Textures, "Textures");
+                    #[cfg(feature = "audio")]
                     ui.selectable_value(&mut self.open_panel, Panel::Audio, "Audio");
                     ui.selectable_value(&mut self.open_panel, Panel::Strings, "Strings");
                     ui.selectable_value(&mut self.open_panel, Panel::RawStrings, "Raw Strings");
@@ -382,6 +389,7 @@ impl eframe::App for QuickTagApp {
                     Panel::NamedTags => self.named_tags_view.view(ctx, ui),
                     Panel::Packages => self.packages_view.view(ctx, ui),
                     Panel::Textures => self.textures_view.view(ctx, ui),
+                    #[cfg(feature = "audio")]
                     Panel::Audio => self.audio_view.view(ctx, ui),
                     Panel::Strings => self.strings_view.view(ctx, ui),
                     Panel::RawStrings => self.raw_strings_view.view(ctx, ui),

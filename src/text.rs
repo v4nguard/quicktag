@@ -366,7 +366,9 @@ pub fn decode_text(data: &[u8], cipher: u16) -> String {
 pub fn create_stringmap() -> anyhow::Result<StringCache> {
     // TODO: Change this match to use ordered version checking after destiny-pkg 0.11
     match package_manager().version {
-        GameVersion::Destiny2Shadowkeep
+        GameVersion::Destiny2Beta
+        | GameVersion::Destiny2Forsaken
+        | GameVersion::Destiny2Shadowkeep
         | GameVersion::Destiny2BeyondLight
         | GameVersion::Destiny2WitchQueen
         | GameVersion::Destiny2Lightfall

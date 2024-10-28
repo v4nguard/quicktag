@@ -187,12 +187,13 @@ impl TagType {
             GameVersion::DestinyTheTakenKing | GameVersion::DestinyRiseOfIron => {
                 Self::from_type_subtype_d1(t, st)
             }
-            GameVersion::Destiny2Shadowkeep => Self::from_type_subtype_sk(t, st),
+            GameVersion::Destiny2Beta
+            | GameVersion::Destiny2Forsaken
+            | GameVersion::Destiny2Shadowkeep => Self::from_type_subtype_sk(t, st),
             GameVersion::Destiny2BeyondLight
             | GameVersion::Destiny2WitchQueen
             | GameVersion::Destiny2Lightfall
             | GameVersion::Destiny2TheFinalShape => Self::from_type_subtype_lf(t, st),
-            u => panic!("Unsupported game version {u:?} (TagType::from_type_subtype)"),
         }
     }
 

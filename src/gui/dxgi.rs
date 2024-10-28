@@ -676,3 +676,234 @@ impl TryFrom<u16> for GcnSurfaceFormat {
         })
     }
 }
+
+#[allow(non_snake_case, non_camel_case_types)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[repr(u8)]
+#[allow(dead_code)]
+pub enum XenosSurfaceFormat {
+    k_1_REVERSE = 0,
+    k_1 = 1,
+    k_8 = 2,
+    k_1_5_5_5 = 3,
+    k_5_6_5 = 4,
+    k_6_5_5 = 5,
+    k_8_8_8_8 = 6,
+    k_2_10_10_10 = 7,
+    k_8_A = 8,
+    k_8_B = 9,
+    k_8_8 = 10,
+    k_Cr_Y1_Cb_Y0_REP = 11,
+    k_Y1_Cr_Y0_Cb_REP = 12,
+    k_16_16_EDRAM = 13,
+    k_8_8_8_8_A = 14,
+    k_4_4_4_4 = 15,
+    k_10_11_11 = 16,
+    k_11_11_10 = 17,
+    k_DXT1 = 18,
+    k_DXT2_3 = 19,
+    k_DXT4_5 = 20,
+    k_16_16_16_16_EDRAM = 21,
+    k_24_8 = 22,
+    k_24_8_FLOAT = 23,
+    k_16 = 24,
+    k_16_16 = 25,
+    k_16_16_16_16 = 26,
+    k_16_EXPAND = 27,
+    k_16_16_EXPAND = 28,
+    k_16_16_16_16_EXPAND = 29,
+    k_16_FLOAT = 30,
+    k_16_16_FLOAT = 31,
+    k_16_16_16_16_FLOAT = 32,
+    k_32 = 33,
+    k_32_32 = 34,
+    k_32_32_32_32 = 35,
+    k_32_FLOAT = 36,
+    k_32_32_FLOAT = 37,
+    k_32_32_32_32_FLOAT = 38,
+    k_32_AS_8 = 39,
+    k_32_AS_8_8 = 40,
+    k_16_MPEG = 41,
+    k_16_16_MPEG = 42,
+    k_8_INTERLACED = 43,
+    k_32_AS_8_INTERLACED = 44,
+    k_32_AS_8_8_INTERLACED = 45,
+    k_16_INTERLACED = 46,
+    k_16_MPEG_INTERLACED = 47,
+    k_16_16_MPEG_INTERLACED = 48,
+    k_DXN = 49,
+    k_8_8_8_8_AS_16_16_16_16 = 50,
+    k_DXT1_AS_16_16_16_16 = 51,
+    k_DXT2_3_AS_16_16_16_16 = 52,
+    k_DXT4_5_AS_16_16_16_16 = 53,
+    k_2_10_10_10_AS_16_16_16_16 = 54,
+    k_10_11_11_AS_16_16_16_16 = 55,
+    k_11_11_10_AS_16_16_16_16 = 56,
+    k_32_32_32_FLOAT = 57,
+    k_DXT3A = 58,
+    k_DXT5A = 59,
+    k_CTX1 = 60,
+    k_DXT3A_AS_1_1_1_1 = 61,
+    k_8_8_8_8_GAMMA_EDRAM = 62,
+    k_2_10_10_10_FLOAT_EDRAM = 63,
+}
+
+pub struct FormatInfo {
+    // wgpu_format: Option<wgpu::TextureFormat>,
+    pub block_width: u32,
+    pub block_height: u32,
+    pub bits_per_pixel: u32,
+}
+
+impl FormatInfo {
+    pub fn bytes_per_block(&self) -> u32 {
+        self.block_width * self.block_height * self.bits_per_pixel / 8
+    }
+}
+
+macro_rules! format_info {
+    ($block_width:expr, $block_height:expr, $bpp:expr) => {
+        FormatInfo {
+            // wgpu_format: Some(wgpu::TextureFormat::$wgpu_format),
+            block_width: $block_width,
+            block_height: $block_height,
+            bits_per_pixel: $bpp,
+        }
+    };
+}
+
+impl XenosSurfaceFormat {
+    pub fn to_wgpu(self) -> anyhow::Result<wgpu::TextureFormat> {
+        Ok(match self {
+            // XenosSurfaceFormat::k_1_REVERSE => wgpu::TextureFormat::UNKNOWN,
+            // XenosSurfaceFormat::k_1 => wgpu::TextureFormat::UNKNOWN,
+            XenosSurfaceFormat::k_8 => wgpu::TextureFormat::R8Unorm,
+            // XenosSurfaceFormat::k_1_5_5_5 => wgpu::TextureFormat::UNKNOWN,
+            // XenosSurfaceFormat::k_5_6_5 => wgpu::TextureFormat::UNKNOWN,
+            // XenosSurfaceFormat::k_6_5_5 => wgpu::TextureFormat::UNKNOWN,
+            XenosSurfaceFormat::k_8_8_8_8 => wgpu::TextureFormat::Rgba8Unorm,
+            XenosSurfaceFormat::k_2_10_10_10 => wgpu::TextureFormat::Rgb10a2Unorm,
+            XenosSurfaceFormat::k_8_A => wgpu::TextureFormat::R8Unorm,
+            XenosSurfaceFormat::k_8_B => wgpu::TextureFormat::R8Unorm,
+            XenosSurfaceFormat::k_8_8 => wgpu::TextureFormat::Rg8Unorm,
+            XenosSurfaceFormat::k_8_8_8_8_A => wgpu::TextureFormat::Rgba8Unorm,
+            // XenosSurfaceFormat::k_4_4_4_4 => wgpu::TextureFormat::UNKNOWN,
+            // XenosSurfaceFormat::k_10_11_11 => wgpu::TextureFormat::UNKNOWN,
+            // XenosSurfaceFormat::k_11_11_10 => wgpu::TextureFormat::UNKNOWN,
+            XenosSurfaceFormat::k_DXT1 => wgpu::TextureFormat::Bc1RgbaUnorm,
+            XenosSurfaceFormat::k_DXT2_3 => wgpu::TextureFormat::Bc2RgbaUnorm,
+            XenosSurfaceFormat::k_DXT4_5 => wgpu::TextureFormat::Bc3RgbaUnorm,
+            XenosSurfaceFormat::k_16_16_16_16_EDRAM => wgpu::TextureFormat::Rgba16Unorm,
+            // XenosSurfaceFormat::k_24_8 => wgpu::TextureFormat::UNKNOWN,
+            // XenosSurfaceFormat::k_24_8_FLOAT => wgpu::TextureFormat::UNKNOWN,
+            XenosSurfaceFormat::k_16 => wgpu::TextureFormat::R16Unorm,
+            XenosSurfaceFormat::k_16_16 => wgpu::TextureFormat::Rg16Unorm,
+            XenosSurfaceFormat::k_16_16_16_16 => wgpu::TextureFormat::Rgba16Unorm,
+            XenosSurfaceFormat::k_16_EXPAND => wgpu::TextureFormat::R16Unorm,
+            XenosSurfaceFormat::k_16_16_EXPAND => wgpu::TextureFormat::Rg16Unorm,
+            XenosSurfaceFormat::k_16_16_16_16_EXPAND => wgpu::TextureFormat::Rgba16Unorm,
+            XenosSurfaceFormat::k_16_FLOAT => wgpu::TextureFormat::R16Float,
+            XenosSurfaceFormat::k_16_16_FLOAT => wgpu::TextureFormat::Rg16Float,
+            XenosSurfaceFormat::k_16_16_16_16_FLOAT => wgpu::TextureFormat::Rgba16Float,
+            XenosSurfaceFormat::k_DXN => wgpu::TextureFormat::Bc5RgUnorm,
+            XenosSurfaceFormat::k_8_8_8_8_AS_16_16_16_16 => wgpu::TextureFormat::R8Unorm,
+            XenosSurfaceFormat::k_DXT1_AS_16_16_16_16 => wgpu::TextureFormat::Bc1RgbaUnorm,
+            XenosSurfaceFormat::k_DXT2_3_AS_16_16_16_16 => wgpu::TextureFormat::Bc2RgbaUnorm,
+            XenosSurfaceFormat::k_DXT4_5_AS_16_16_16_16 => wgpu::TextureFormat::Bc3RgbaUnorm,
+            XenosSurfaceFormat::k_DXT3A => wgpu::TextureFormat::Bc2RgbaUnorm,
+            XenosSurfaceFormat::k_DXT5A => wgpu::TextureFormat::Bc4RUnorm,
+            XenosSurfaceFormat::k_CTX1 => wgpu::TextureFormat::Rg8Unorm,
+            XenosSurfaceFormat::k_DXT3A_AS_1_1_1_1 => wgpu::TextureFormat::Bc2RgbaUnorm,
+            u => anyhow::bail!("Unsupported Xenos surface format conversion ({u:?} => ??)"),
+        })
+    }
+
+    // https://github.com/xenia-project/xenia/blob/3d30b2eec3ab1f83140b09745bee881fb5d5dde2/src/xenia/gpu/texture_info_formats.cc
+    pub fn format_info(&self) -> FormatInfo {
+        match self {
+            XenosSurfaceFormat::k_1_REVERSE => format_info!(1, 1, 1),
+            XenosSurfaceFormat::k_1 => format_info!(1, 1, 1),
+            XenosSurfaceFormat::k_8 => format_info!(1, 1, 8),
+            XenosSurfaceFormat::k_1_5_5_5 => format_info!(1, 1, 16),
+            XenosSurfaceFormat::k_5_6_5 => format_info!(1, 1, 16),
+            XenosSurfaceFormat::k_6_5_5 => format_info!(1, 1, 16),
+            XenosSurfaceFormat::k_8_8_8_8 => format_info!(1, 1, 32),
+            XenosSurfaceFormat::k_2_10_10_10 => format_info!(1, 1, 32),
+            XenosSurfaceFormat::k_8_A => format_info!(1, 1, 8),
+            XenosSurfaceFormat::k_8_B => format_info!(1, 1, 8),
+            XenosSurfaceFormat::k_8_8 => format_info!(1, 1, 16),
+            XenosSurfaceFormat::k_Cr_Y1_Cb_Y0_REP => format_info!(2, 1, 16),
+            XenosSurfaceFormat::k_Y1_Cr_Y0_Cb_REP => format_info!(2, 1, 16),
+            XenosSurfaceFormat::k_16_16_EDRAM => format_info!(1, 1, 32),
+            XenosSurfaceFormat::k_8_8_8_8_A => format_info!(1, 1, 32),
+            XenosSurfaceFormat::k_4_4_4_4 => format_info!(1, 1, 16),
+            XenosSurfaceFormat::k_10_11_11 => format_info!(1, 1, 32),
+            XenosSurfaceFormat::k_11_11_10 => format_info!(1, 1, 32),
+            XenosSurfaceFormat::k_DXT1 => format_info!(4, 4, 4),
+            XenosSurfaceFormat::k_DXT2_3 => format_info!(4, 4, 8),
+            XenosSurfaceFormat::k_DXT4_5 => format_info!(4, 4, 8),
+            XenosSurfaceFormat::k_16_16_16_16_EDRAM => format_info!(1, 1, 64),
+            XenosSurfaceFormat::k_24_8 => format_info!(1, 1, 32),
+            XenosSurfaceFormat::k_24_8_FLOAT => format_info!(1, 1, 32),
+            XenosSurfaceFormat::k_16 => format_info!(1, 1, 16),
+            XenosSurfaceFormat::k_16_16 => format_info!(1, 1, 32),
+            XenosSurfaceFormat::k_16_16_16_16 => format_info!(1, 1, 64),
+            XenosSurfaceFormat::k_16_EXPAND => format_info!(1, 1, 16),
+            XenosSurfaceFormat::k_16_16_EXPAND => format_info!(1, 1, 32),
+            XenosSurfaceFormat::k_16_16_16_16_EXPAND => format_info!(1, 1, 64),
+            XenosSurfaceFormat::k_16_FLOAT => format_info!(1, 1, 16),
+            XenosSurfaceFormat::k_16_16_FLOAT => format_info!(1, 1, 32),
+            XenosSurfaceFormat::k_16_16_16_16_FLOAT => format_info!(1, 1, 64),
+            XenosSurfaceFormat::k_32 => format_info!(1, 1, 32),
+            XenosSurfaceFormat::k_32_32 => format_info!(1, 1, 64),
+            XenosSurfaceFormat::k_32_32_32_32 => format_info!(1, 1, 128),
+            XenosSurfaceFormat::k_32_FLOAT => format_info!(1, 1, 32),
+            XenosSurfaceFormat::k_32_32_FLOAT => format_info!(1, 1, 64),
+            XenosSurfaceFormat::k_32_32_32_32_FLOAT => format_info!(1, 1, 128),
+            XenosSurfaceFormat::k_32_AS_8 => format_info!(4, 1, 8),
+            XenosSurfaceFormat::k_32_AS_8_8 => format_info!(2, 1, 16),
+            XenosSurfaceFormat::k_16_MPEG => format_info!(1, 1, 16),
+            XenosSurfaceFormat::k_16_16_MPEG => format_info!(1, 1, 32),
+            XenosSurfaceFormat::k_8_INTERLACED => format_info!(1, 1, 8),
+            XenosSurfaceFormat::k_32_AS_8_INTERLACED => format_info!(4, 1, 8),
+            XenosSurfaceFormat::k_32_AS_8_8_INTERLACED => format_info!(1, 1, 16),
+            XenosSurfaceFormat::k_16_INTERLACED => format_info!(1, 1, 16),
+            XenosSurfaceFormat::k_16_MPEG_INTERLACED => format_info!(1, 1, 16),
+            XenosSurfaceFormat::k_16_16_MPEG_INTERLACED => format_info!(1, 1, 32),
+            XenosSurfaceFormat::k_DXN => format_info!(4, 4, 8),
+            XenosSurfaceFormat::k_8_8_8_8_AS_16_16_16_16 => format_info!(1, 1, 32),
+            XenosSurfaceFormat::k_DXT1_AS_16_16_16_16 => format_info!(4, 4, 4),
+            XenosSurfaceFormat::k_DXT2_3_AS_16_16_16_16 => format_info!(4, 4, 8),
+            XenosSurfaceFormat::k_DXT4_5_AS_16_16_16_16 => format_info!(4, 4, 8),
+            XenosSurfaceFormat::k_2_10_10_10_AS_16_16_16_16 => format_info!(1, 1, 32),
+            XenosSurfaceFormat::k_10_11_11_AS_16_16_16_16 => format_info!(1, 1, 32),
+            XenosSurfaceFormat::k_11_11_10_AS_16_16_16_16 => format_info!(1, 1, 32),
+            XenosSurfaceFormat::k_32_32_32_FLOAT => format_info!(1, 1, 96),
+            XenosSurfaceFormat::k_DXT3A => format_info!(4, 4, 4),
+            XenosSurfaceFormat::k_DXT5A => format_info!(4, 4, 4),
+            XenosSurfaceFormat::k_CTX1 => format_info!(4, 4, 4),
+            XenosSurfaceFormat::k_DXT3A_AS_1_1_1_1 => format_info!(4, 4, 4),
+            XenosSurfaceFormat::k_8_8_8_8_GAMMA_EDRAM => format_info!(1, 1, 32),
+            XenosSurfaceFormat::k_2_10_10_10_FLOAT_EDRAM => format_info!(1, 1, 32),
+        }
+    }
+
+    pub fn bpp(&self) -> u32 {
+        self.format_info().bits_per_pixel
+    }
+
+    pub fn bytes_per_block(&self) -> u32 {
+        self.format_info().bytes_per_block()
+    }
+}
+
+impl TryFrom<u8> for XenosSurfaceFormat {
+    type Error = anyhow::Error;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        Ok(match value {
+            0..=63 => unsafe { transmute(value) },
+            e => return Err(anyhow::anyhow!("Xenos format is out of range ({e})")),
+        })
+    }
+}

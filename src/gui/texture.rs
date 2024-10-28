@@ -24,7 +24,7 @@ use std::io::SeekFrom;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use super::dxgi::GcnSurfaceFormat;
+use super::dxgi::{GcnSurfaceFormat, XenosSurfaceFormat};
 
 #[derive(Debug, BinRead)]
 #[br(import(prebl: bool))]
@@ -82,6 +82,28 @@ pub struct TextureHeaderRoiPs4 {
 
 #[derive(Debug, BinRead)]
 pub struct TextureHeaderDevAlphaX360 {
+    #[br(seek_before = SeekFrom::Start(0x20))]
+    _dataformat: u32,
+
+    #[br(calc((_dataformat & 0x80) != 0))]
+    pub unk_flag: bool,
+
+    #[br(try_calc(XenosSurfaceFormat::try_from(_dataformat as u8 & 0x3F)))]
+    pub format: XenosSurfaceFormat,
+
+    #[br(seek_before = SeekFrom::Start(0x36))]
+    pub width: u16,
+    pub height: u16,
+    pub depth: u16,
+    // pub flags1: u32,
+    // pub flags2: u32,
+    // pub flags3: u32,
+    #[br(seek_before = SeekFrom::Start(0x48), assert(beefcafe == 0xbeefcafe))]
+    pub beefcafe: u32,
+}
+
+#[derive(Debug, BinRead)]
+pub struct TextureHeaderRoiXbox {
     pub format: DxgiFormat,
 
     #[br(seek_before = SeekFrom::Start(0x2c), assert(beefcafe == 0xbeefcafe))]
@@ -96,24 +118,10 @@ pub struct TextureHeaderDevAlphaX360 {
     // pub flags3: u32,
 }
 
-#[derive(Debug, BinRead)]
-pub struct TextureHeaderRoiXbox {
-    pub format: DxgiFormat,
-
-    #[br(seek_before = SeekFrom::Start(0x36))]
-    pub width: u16,
-    pub height: u16,
-    pub depth: u16,
-    // pub flags1: u32,
-    // pub flags2: u32,
-    // pub flags3: u32,
-    #[br(seek_before = SeekFrom::Start(0x48), assert(beefcafe == 0xbeefcafe))]
-    pub beefcafe: u32,
-}
-
 pub struct Texture {
     pub view: wgpu::TextureView,
     pub handle: wgpu::Texture,
+    pub tex3d: Option<(wgpu::Texture, wgpu::TextureView)>,
     pub format: wgpu::TextureFormat,
     pub aspect_ratio: f32,
     pub width: u32,
@@ -241,6 +249,60 @@ impl Texture {
         }
     }
 
+    pub fn load_data_roi_x360(
+        hash: TagHash,
+        _load_full_mip: bool,
+    ) -> anyhow::Result<(TextureHeaderDevAlphaX360, Vec<u8>, String)> {
+        let texture_header_ref = package_manager()
+            .get_entry(hash)
+            .context("Texture header entry not found")?
+            .reference;
+
+        let texture: TextureHeaderDevAlphaX360 = package_manager().read_tag_binrw(hash)?;
+
+        let large_buffer = package_manager()
+            .get_entry(texture_header_ref)
+            .map(|v| TagHash(v.reference))
+            .unwrap_or_default();
+
+        let texture_data = if large_buffer.is_some() {
+            package_manager()
+                .read_tag(large_buffer)
+                .context("Failed to read texture data")?
+        } else {
+            package_manager()
+                .read_tag(texture_header_ref)
+                .context("Failed to read texture data")?
+                .to_vec()
+        };
+
+        let expected_size =
+            (texture.width as usize * texture.height as usize * texture.format.bpp() as usize) / 8;
+
+        if texture_data.len() < expected_size {
+            anyhow::bail!(
+                "Texture data size mismatch for {hash} ({}x{}x{} {:?}): expected {expected_size}, got {}",
+                texture.width, texture.height, texture.depth, texture.format,
+                texture_data.len()
+            );
+        }
+
+        let comment = format!("{texture:#X?}");
+
+        let mut untiled = vec![];
+        let format_info = texture.format.format_info();
+        swizzle::xbox::untile(
+            &texture_data,
+            &mut untiled,
+            texture.width as u32,
+            texture.height as u32,
+            format_info.block_width,
+            format_info.block_height,
+            format_info.bytes_per_block(),
+        );
+        Ok((texture, untiled, comment))
+    }
+
     pub fn load_data_roi_xone(
         hash: TagHash,
         _load_full_mip: bool,
@@ -294,15 +356,15 @@ impl Texture {
         // Ok((texture, texture_data, comment))
         // }
 
-        let mut untiled = vec![];
-        swizzle::xbox::untile(
-            &texture_data,
-            &mut untiled,
-            texture.width as usize,
-            texture.height as usize,
-            texture.format,
-        );
-        Ok((texture, untiled, comment))
+        // let mut untiled = vec![];
+        // swizzle::xbox::untile(
+        //     &texture_data,
+        //     &mut untiled,
+        //     texture.width as usize,
+        //     texture.height as usize,
+        //     texture.format,
+        // );
+        Ok((texture, texture_data, comment))
     }
 
     pub fn load_desc(hash: TagHash) -> anyhow::Result<TextureDesc> {
@@ -406,23 +468,23 @@ impl Texture {
         match package_manager().version {
             GameVersion::DestinyInternalAlpha | GameVersion::DestinyTheTakenKing => {
                 match package_manager().platform {
-                    // PackagePlatform::X360 => {
-                    //     let (texture, texture_data, comment) =
-                    //         Self::load_data_roi_x360(hash, true)?;
-                    //     Self::create_texture(
-                    //         rs,
-                    //         hash,
-                    //         TextureDesc {
-                    //             format: texture.format.to_wgpu()?,
-                    //             width: texture.width as u32,
-                    //             height: texture.height as u32,
-                    //             depth: texture.depth as u32,
-                    //             premultiply_alpha,
-                    //         },
-                    //         texture_data,
-                    //         Some(comment),
-                    //     )
-                    // }
+                    PackagePlatform::X360 => {
+                        let (texture, texture_data, comment) =
+                            Self::load_data_roi_x360(hash, true)?;
+                        Self::create_texture(
+                            rs,
+                            hash,
+                            TextureDesc {
+                                format: texture.format.to_wgpu()?,
+                                width: texture.width as u32,
+                                height: texture.height as u32,
+                                depth: texture.depth as u32,
+                                premultiply_alpha,
+                            },
+                            texture_data,
+                            Some(comment),
+                        )
+                    }
                     _ => anyhow::bail!("Unsupported platform for legacy D1 textures"),
                 }
             }
@@ -496,6 +558,10 @@ impl Texture {
         data: Vec<u8>,
         comment: Option<String>,
     ) -> anyhow::Result<Texture> {
+        if desc.format.is_compressed() && desc.depth > 1 {
+            anyhow::bail!("Compressed 3D textures are not supported by wgpu");
+        }
+
         let mut texture_data = data;
         // Pre-multiply alpha where possible
         if matches!(
@@ -540,9 +606,47 @@ impl Texture {
             array_layer_count: None,
         });
 
+        let tex3d = if desc.depth > 1 {
+            let handle = rs.device.create_texture_with_data(
+                &rs.queue,
+                &wgpu::TextureDescriptor {
+                    label: Some(&*format!("Texture {hash}")),
+                    size: wgpu::Extent3d {
+                        width: desc.width as _,
+                        height: desc.height as _,
+                        depth_or_array_layers: desc.depth as _,
+                    },
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: TextureDimension::D3,
+                    format: desc.format,
+                    usage: wgpu::TextureUsages::TEXTURE_BINDING,
+                    view_formats: &[desc.format],
+                },
+                wgpu::util::TextureDataOrder::default(),
+                &texture_data,
+            );
+
+            let view = handle.create_view(&wgpu::TextureViewDescriptor {
+                label: None,
+                format: None,
+                dimension: None,
+                aspect: Default::default(),
+                base_mip_level: 0,
+                mip_level_count: None,
+                base_array_layer: 0,
+                array_layer_count: None,
+            });
+
+            Some((handle, view))
+        } else {
+            None
+        };
+
         Ok(Texture {
             view,
             handle,
+            tex3d,
             format: desc.format,
             aspect_ratio: desc.width as f32 / desc.height as f32,
             width: desc.width,
@@ -834,18 +938,44 @@ mod swizzle {
     }
 
     pub(crate) mod xbox {
-        use crate::gui::dxgi::DxgiFormat;
+        // https://github.com/BinomialLLC/crunch/blob/ea9b8d8c00c8329791256adafa8cf11e4e7942a2/inc/crn_decomp.h#L4108
+        fn tiled_offset2d_row(y: u32, width: u32, log2_bpp: u32) -> u32 {
+            let umacro = ((y / 32) * (width / 32)) << (log2_bpp + 7);
+            let micro = ((y & 6) << 2) << log2_bpp;
+            return umacro
+                + ((micro & !0xF) << 1)
+                + (micro & 0xF)
+                + ((y & 8) << (3 + log2_bpp))
+                + ((y & 1) << 4);
+        }
+
+        fn tiled_offset2d_column(x: u32, y: u32, log2_bpp: u32, base_offset: u32) -> u32 {
+            let umacro = (x / 32) << (log2_bpp + 7);
+            let micro = (x & 7) << log2_bpp;
+            let offset = base_offset + (umacro + ((micro & !0xF) << 1) + (micro & 0xF));
+            return ((offset & !0x1FF) << 3)
+                + ((offset & 0x1C0) << 2)
+                + (offset & 0x3F)
+                + ((y & 16) << 7)
+                + (((((y & 8) >> 2) + (x >> 3)) & 3) << 6);
+        }
 
         pub(crate) fn untile(
             source: &[u8],
             destination: &mut Vec<u8>,
-            width: usize,
-            height: usize,
-            format: DxgiFormat,
+            width: u32,
+            height: u32,
+            block_width: u32,
+            block_height: u32,
+            bytes_per_block: u32,
         ) {
             destination.resize(source.len(), 0);
-            let copy_size = format.to_wgpu().unwrap().block_copy_size(None).unwrap();
-            destination[..].copy_from_slice(&source);
+            destination.copy_from_slice(source);
+            let width_blocks = (width + block_width - 1) / block_width;
+            let height_blocks = (height + block_height - 1) / block_height;
+
+            let pitch = width_blocks * bytes_per_block;
+            let log2_bpp = (bytes_per_block / 4) + ((bytes_per_block / 2) >> (bytes_per_block / 4));
         }
     }
 }
@@ -864,6 +994,11 @@ mod texture_capture {
         texture: &super::Texture,
     ) -> anyhow::Result<(Vec<u8>, u32, u32)> {
         use eframe::wgpu::*;
+
+        // anyhow::ensure!(
+        //     texture.handle.dimension() == TextureDimension::D2,
+        //     "Texture capture only supports 2D textures right now"
+        // );
 
         let super::RenderState { device, queue, .. } = rs;
 
