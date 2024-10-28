@@ -1,13 +1,12 @@
 use std::{
-    fmt::{Display, UpperHex},
+    fmt::{Debug, Display, UpperHex},
     sync::Arc,
 };
 
-use arc_swap::{access::Access, ArcSwap};
+use arc_swap::ArcSwap;
 use binrw::Endian;
 use bytemuck::{Pod, Zeroable};
 use destiny_pkg::TagHash;
-use eframe::epaint::mutex::RwLock;
 use rustc_hash::FxHashMap;
 
 use crate::{
@@ -126,7 +125,7 @@ pub const CLASSES_SK: &[TagClass] = &[
     class!(0x808046F3 s_unk808046f3 @size(24)),
     class!(0x8080473B s_unk8080473b @size(16)),
     class!(0x80804743 s_unk80804743 @size(24)),
-    class!(0x80804747 s_unk80804747 @size(8)),
+    class!(0x80804747 s_unk80804747 @size(8) @parse(parse_raw_unchecked::<(FnvHash, TagHash)>)),
     class!(0x8080474f s_unk8080474f @size(8)),
     class!(0x80804756 s_unk80804756 @size(128)),
     class!(0x8080475f s_unk8080475f @size(40)),
@@ -247,6 +246,16 @@ fn parse_hex(data: &[u8], _: Endian) -> String {
     result
 }
 
+fn parse_raw_unchecked<T: Sized + Debug>(data: &[u8], endian: Endian) -> String {
+    assert!(data.len() >= size_of::<T>());
+    let mut bytes = data[0..size_of::<T>()].to_vec();
+    if endian != Endian::NATIVE {
+        bytes.reverse();
+    }
+    let v: T = unsafe { (bytes.as_ptr() as *const T).read() };
+    format!("{v:X?}")
+}
+
 fn parse_raw<T: Sized + Pod + Display>(data: &[u8], endian: Endian) -> String {
     assert!(data.len() >= size_of::<T>());
     let mut bytes = data[0..size_of::<T>()].to_vec();
@@ -286,4 +295,14 @@ fn parse_vec4(data: &[u8], endian: Endian) -> String {
     ];
 
     format!("vec4({}, {}, {}, {})", vec4[0], vec4[1], vec4[2], vec4[3])
+}
+
+#[derive(Pod, Zeroable, Clone, Copy)]
+#[repr(transparent)]
+pub struct FnvHash(u32);
+
+impl Debug for FnvHash {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "fnv({:08X})", self.0)
+    }
 }
