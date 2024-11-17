@@ -44,7 +44,7 @@ pub fn install_hook(header: Option<String>) {
         let panic_message_stripped = strip_ansi_codes(&format!("{info}"));
         if let Err(e) = native_dialog::MessageDialog::new()
             .set_type(native_dialog::MessageType::Error)
-            .set_title("Alkahest crashed!")
+            .set_title("QuickTag crashed!")
             .set_text(&format!(
                 "{}\n\nA full crash log has been written to panic.log",
                 panic_message_stripped
