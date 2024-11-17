@@ -983,7 +983,10 @@ impl View for TagView {
             }
         });
 
-        if !self.string_hashes.is_empty() || !self.raw_strings.is_empty() || !self.arrays.is_empty()
+        if !self.string_hashes.is_empty()
+            || !self.raw_strings.is_empty()
+            || !self.raw_string_hashes.is_empty()
+            || !self.arrays.is_empty()
         {
             egui::SidePanel::right("tv_right_panel")
                 .resizable(true)

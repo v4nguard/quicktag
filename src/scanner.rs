@@ -18,7 +18,7 @@ use rustc_hash::FxHashMap;
 use crate::{
     classes::{TagClass, CLASS_MAP},
     package_manager::package_manager,
-    text::create_stringmap,
+    text::{create_stringmap, StringCache},
     util::{u32_from_endian, u64_from_endian},
 };
 
@@ -36,7 +36,7 @@ impl Default for TagCache {
     fn default() -> Self {
         Self {
             timestamp: 0,
-            version: 6,
+            version: 7,
             hashes: Default::default(),
         }
     }
@@ -47,6 +47,7 @@ pub struct ScannerContext {
     pub valid_file_hashes: Vec<TagHash>,
     pub valid_file_hashes64: Vec<TagHash64>,
     pub known_string_hashes: Vec<u32>,
+    pub known_wordlist_hashes: Vec<u32>,
     pub endian: Endian,
 }
 
@@ -58,6 +59,7 @@ pub struct ScanResult {
     pub file_hashes: Vec<ScannedHash<TagHash>>,
     pub file_hashes64: Vec<ScannedHash<TagHash64>>,
     pub string_hashes: Vec<ScannedHash<u32>>,
+    pub wordlist_hashes: Vec<ScannedHash<u32>>,
     pub raw_strings: Vec<String>,
 
     /// References from other files
@@ -71,6 +73,7 @@ impl Default for ScanResult {
             file_hashes: Default::default(),
             file_hashes64: Default::default(),
             string_hashes: Default::default(),
+            wordlist_hashes: Default::default(),
             raw_strings: Default::default(),
             references: Default::default(),
         }
@@ -190,6 +193,13 @@ pub fn scan_file(context: &ScannerContext, data: &[u8], tags_only: bool) -> Scan
             });
         }
 
+        if value != 0x811c9dc5 && context.known_wordlist_hashes.binary_search(&value).is_ok() {
+            r.wordlist_hashes.push(ScannedHash {
+                offset: offset as u64,
+                hash: value,
+            });
+        }
+
         if (offset % 8) == 0 && offset + 8 <= data.len() {
             let m: [u8; 8] = data[offset..offset + 8].try_into().unwrap();
             let value64 = u64_from_endian(context.endian, m);
@@ -269,6 +279,21 @@ pub fn create_scanner_context(package_manager: &PackageManager) -> anyhow::Resul
 
     let stringmap = create_stringmap()?;
 
+    let mut wordlist = StringCache::default();
+    {
+        const WORDLIST: &'static str = include_str!("../wordlist.txt");
+        for s in WORDLIST.lines() {
+            let s = s.to_string();
+            let h = fnv1(s.as_bytes());
+            let entry = wordlist.entry(h).or_default();
+            if entry.iter().any(|s2| s2 == &s) {
+                continue;
+            }
+
+            entry.push(s);
+        }
+    }
+
     let mut res = ScannerContext {
         valid_file_hashes: package_manager
             .package_entry_index
@@ -287,12 +312,14 @@ pub fn create_scanner_context(package_manager: &PackageManager) -> anyhow::Resul
             .map(|&v| TagHash64(v))
             .collect(),
         known_string_hashes: stringmap.keys().cloned().collect(),
+        known_wordlist_hashes: wordlist.keys().cloned().collect(),
         endian,
     };
 
     res.valid_file_hashes.sort_unstable();
     res.valid_file_hashes64.sort_unstable();
     res.known_string_hashes.sort_unstable();
+    res.known_wordlist_hashes.sort_unstable();
 
     Ok(res)
 }

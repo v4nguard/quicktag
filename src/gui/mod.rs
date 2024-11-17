@@ -32,6 +32,8 @@ use eframe::{
 use egui_notify::Toasts;
 use log::info;
 use poll_promise::Promise;
+use rustc_hash::FxHashSet;
+use strings::StringViewVariant;
 
 use self::named_tags::NamedTagView;
 use self::packages::PackagesView;
@@ -61,6 +63,7 @@ pub enum Panel {
     Audio,
     Strings,
     RawStrings,
+    RawStringHashes,
     ExternalFile,
 }
 
@@ -93,6 +96,7 @@ pub struct QuickTagApp {
     audio_view: audio_list::AudioView,
     strings_view: StringsView,
     raw_strings_view: RawStringsView,
+    raw_string_hashes_view: StringsView,
 
     pub wgpu_state: RenderState,
 }
@@ -140,8 +144,17 @@ impl QuickTagApp {
             textures_view: TexturesView::new(texture_cache),
             #[cfg(feature = "audio")]
             audio_view: audio_list::AudioView::new(),
-            strings_view: StringsView::new(strings.clone(), Default::default()),
+            strings_view: StringsView::new(
+                strings.clone(),
+                Default::default(),
+                StringViewVariant::LocalizedStrings,
+            ),
             raw_strings_view: RawStringsView::new(Default::default()),
+            raw_string_hashes_view: StringsView::new(
+                Arc::new(Default::default()),
+                Default::default(),
+                StringViewVariant::RawWordlist,
+            ),
 
             strings,
             raw_strings: Default::default(),
@@ -203,7 +216,11 @@ impl eframe::App for QuickTagApp {
             let cache = c.try_take().unwrap_or_default();
             self.cache = Arc::new(cache);
 
-            self.strings_view = StringsView::new(self.strings.clone(), self.cache.clone());
+            self.strings_view = StringsView::new(
+                self.strings.clone(),
+                self.cache.clone(),
+                StringViewVariant::LocalizedStrings,
+            );
             self.raw_strings_view = RawStringsView::new(self.cache.clone());
 
             let mut new_rsh_cache = RawStringHashCache::default();
@@ -242,6 +259,38 @@ impl eframe::App for QuickTagApp {
                     load_start.elapsed().as_millis()
                 );
             }
+
+            let mut filtered_wordlist_hashes: StringCache = Default::default();
+            let found_hashes: FxHashSet<u32> = self
+                .cache
+                .hashes
+                .iter()
+                .flat_map(|(_, scan)| scan.wordlist_hashes.iter().map(|h| h.hash))
+                .collect();
+            for hash in found_hashes {
+                if let Some(strings) = new_rsh_cache.get(&hash) {
+                    filtered_wordlist_hashes
+                        .insert(hash, strings.iter().map(|(s, _)| s.clone()).collect());
+                }
+            }
+            // for (tag, _) in self
+            //     .cache
+            //     .hashes
+            //     .iter()
+            //     .filter(|(_, scan)| scan.wordlist_hashes.iter().any(|c| c.hash == *hash))
+            // {
+            //     self.string_selected_entries.push((
+            //         *tag,
+            //         label,
+            //         TagType::from_type_subtype(e.file_type, e.file_subtype),
+            //     ));
+            // }
+
+            self.raw_string_hashes_view = StringsView::new(
+                Arc::new(filtered_wordlist_hashes),
+                self.cache.clone(),
+                StringViewVariant::RawWordlist,
+            );
 
             // // Dump all raw strings to a csv file
             // if let Ok(mut f) = std::fs::File::create("raw_strings.csv") {
@@ -366,6 +415,11 @@ impl eframe::App for QuickTagApp {
                     ui.selectable_value(&mut self.open_panel, Panel::Audio, "Audio");
                     ui.selectable_value(&mut self.open_panel, Panel::Strings, "Strings");
                     ui.selectable_value(&mut self.open_panel, Panel::RawStrings, "Raw Strings");
+                    ui.selectable_value(
+                        &mut self.open_panel,
+                        Panel::RawStringHashes,
+                        "Wordlist Hashes",
+                    );
                     if let Some(external_file_view) = &self.external_file_view {
                         ui.selectable_value(
                             &mut self.open_panel,
@@ -393,6 +447,7 @@ impl eframe::App for QuickTagApp {
                     Panel::Audio => self.audio_view.view(ctx, ui),
                     Panel::Strings => self.strings_view.view(ctx, ui),
                     Panel::RawStrings => self.raw_strings_view.view(ctx, ui),
+                    Panel::RawStringHashes => self.raw_string_hashes_view.view(ctx, ui),
                     Panel::ExternalFile => {
                         if let Some(external_file_view) = &mut self.external_file_view {
                             external_file_view.view(ctx, ui, &self.texture_cache)

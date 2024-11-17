@@ -13,7 +13,7 @@ use rustc_hash::FxHashMap;
 
 use crate::{
     package_manager::package_manager,
-    scanner::TagCache,
+    scanner::{fnv1, TagCache},
     tagtypes::TagType,
     text::{decode_text, StringCache, StringCacheVec, StringContainer, StringData, StringPart},
 };
@@ -32,10 +32,21 @@ pub struct StringsView {
     exact_match: bool,
     case_sensitive: bool,
     hide_devalpha_str: bool,
+    variant: StringViewVariant,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum StringViewVariant {
+    LocalizedStrings,
+    RawWordlist,
 }
 
 impl StringsView {
-    pub fn new(strings: Arc<StringCache>, cache: Arc<TagCache>) -> Self {
+    pub fn new(
+        strings: Arc<StringCache>,
+        cache: Arc<TagCache>,
+        variant: StringViewVariant,
+    ) -> Self {
         let devstr_regex = regex::Regex::new(r"^str[0-9]*").unwrap();
         let mut strings_vec_filtered: StringCacheVec =
             strings.iter().map(|(k, v)| (*k, v.clone())).collect();
@@ -55,6 +66,7 @@ impl StringsView {
             exact_match: false,
             case_sensitive: false,
             hide_devalpha_str,
+            variant,
         }
     }
 }
@@ -70,8 +82,10 @@ impl View for StringsView {
             .resizable(true)
             .min_width(384.0)
             .show_inside(ui, |ui| {
-                if ui.button("Dump all languages").clicked() {
-                    dump_all_languages().unwrap();
+                if self.variant == StringViewVariant::LocalizedStrings {
+                    if ui.button("Dump all languages").clicked() {
+                        dump_all_languages().unwrap();
+                    }
                 }
 
                 ui.separator();
@@ -178,9 +192,15 @@ impl View for StringsView {
                                 };
 
                                 if response.clicked() {
-                                    self.string_selected_entries = vec![];
-                                    for (tag, _) in self.cache.hashes.iter().filter(|v| {
-                                        v.1.string_hashes.iter().any(|c| c.hash == *hash)
+                                    self.string_selected_entries.clear();
+                                    for (tag, _) in self.cache.hashes.iter().filter(|(_, scan)| {
+                                        let hashes = match self.variant {
+                                            StringViewVariant::LocalizedStrings => {
+                                                &scan.string_hashes
+                                            }
+                                            StringViewVariant::RawWordlist => &scan.wordlist_hashes,
+                                        };
+                                        hashes.iter().any(|c| c.hash == *hash)
                                     }) {
                                         if let Some(e) = package_manager().get_entry(*tag) {
                                             let label = format_tag_entry(*tag, Some(&e));
