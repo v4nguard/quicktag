@@ -199,7 +199,7 @@ impl TagHexView {
                         }
                     }
                     DataRow::Float(data) => {
-                        let string = data.iter().map(|f| format!("{f:<11.2}")).join("  ");
+                        let string = data.iter().map(|f| format!("{f:<11.6}")).join("  ");
                         ui.monospace(string);
                         ui.add_space(16.0);
 
