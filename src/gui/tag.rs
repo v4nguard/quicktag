@@ -834,6 +834,22 @@ impl View for TagView {
             {
                 open_tag_in_default_application(self.tag_entry.reference.into());
             }
+
+            
+            if ui.button("Copy all hashes referencing this tag").clicked() {
+                let mut tag_hashes = Vec::new();
+                for (tag, entry) in &self.scan.references {
+                    tag_hashes.push(*tag);
+                }
+
+                let tag_hashes_str = tag_hashes
+                    .iter()
+                    .map(|hash| format!("{}", hash))
+                    .collect::<Vec<String>>()
+                    .join("\n");
+
+                ui.output_mut(|o| o.copied_text = tag_hashes_str);
+            }
         });
 
         ui.separator();
