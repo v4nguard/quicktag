@@ -834,6 +834,17 @@ impl View for TagView {
             {
                 open_tag_in_default_application(self.tag_entry.reference.into());
             }
+
+            
+            if ui.button("Copy all hashes referencing this tag").clicked() {
+                let tag_hashes_str = self.scan.references
+                    .iter()
+                    .map(|(hash, _entry)| format!("{}", hash))
+                    .collect::<Vec<String>>()
+                    .join("\n");
+
+                ui.output_mut(|o| o.copied_text = tag_hashes_str);
+            }
         });
 
         ui.separator();

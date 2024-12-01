@@ -235,11 +235,11 @@ impl StringContainer {
 }
 
 #[derive(BinRead, Debug)]
-#[br(import(prebl: bool))]
+#[br(import(prebl: bool, bl: bool))]
 pub struct StringData {
     pub file_size: u64,
     pub string_parts: TablePointer<StringPart>,
-    #[br(if(prebl))]
+    #[br(if(prebl || bl))]
     pub _unk1: (u64, u64),
     pub _unk2: TablePointer<()>,
     pub string_data: TablePointer<u8>,
@@ -391,6 +391,9 @@ pub fn create_stringmap_d2() -> anyhow::Result<StringCache> {
             | GameVersion::DestinyRiseOfIron
             | GameVersion::Destiny2Shadowkeep
     );
+    // Beyond Light still uses the same struct layout as prebl, was updated in WQ
+    let bl = package_manager().version == GameVersion::Destiny2BeyondLight;
+
     let mut tmp_map: FxHashMap<u32, FxHashSet<String>> = Default::default();
     for (t, _) in package_manager()
         .get_all_by_reference(if package_manager().version.is_d1() {
@@ -410,7 +413,7 @@ pub fn create_stringmap_d2() -> anyhow::Result<StringCache> {
             continue;
         };
         let mut cur = Cursor::new(&data);
-        let text_data: StringData = cur.read_le_args((prebl,))?;
+        let text_data: StringData = cur.read_le_args((prebl,bl))?;
 
         for (combination, hash) in text_data
             .string_combinations
