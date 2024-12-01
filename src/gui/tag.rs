@@ -837,14 +837,9 @@ impl View for TagView {
 
             
             if ui.button("Copy all hashes referencing this tag").clicked() {
-                let mut tag_hashes = Vec::new();
-                for (tag, entry) in &self.scan.references {
-                    tag_hashes.push(*tag);
-                }
-
-                let tag_hashes_str = tag_hashes
+                let tag_hashes_str = self.scan.references
                     .iter()
-                    .map(|hash| format!("{}", hash))
+                    .map(|(hash, _entry)| format!("{}", hash))
                     .collect::<Vec<String>>()
                     .join("\n");
 
