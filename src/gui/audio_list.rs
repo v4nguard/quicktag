@@ -17,7 +17,7 @@ struct PackageAudio {
     pub events: Vec<TagHash>,
 }
 
-#[derive(Default, PartialEq)]
+#[derive(Clone, Copy, Default, PartialEq)]
 enum AudioSorting {
     #[default]
     IndexAsc,
@@ -25,6 +25,17 @@ enum AudioSorting {
 
     DurationAsc,
     DurationDesc,
+}
+
+impl AudioSorting {
+    pub fn to_string(&self) -> &str {
+        match self {
+            AudioSorting::IndexAsc => "Index ⬆",
+            AudioSorting::IndexDesc => "Index ⬇",
+            AudioSorting::DurationAsc => "Duration ⬆",
+            AudioSorting::DurationDesc => "Duration ⬇",
+        }
+    }
 }
 
 fn wwise_stream_type() -> (u8, u8) {
@@ -110,6 +121,7 @@ pub struct AudioView {
     autoplay: bool,
     autoplay_timer: Instant,
     autoplay_interval: f32,
+    sorting: AudioSorting,
 }
 
 impl AudioView {
@@ -134,6 +146,13 @@ impl AudioView {
             autoplay: false,
             autoplay_timer: Instant::now(),
             autoplay_interval: 1.0,
+            sorting: AudioSorting::IndexAsc,
+        }
+    }
+
+    pub fn apply_sorting(&mut self) {
+        if let Some(audio) = self.selected_audio.as_mut() {
+            audio.sort(self.sorting);
         }
     }
 }
@@ -173,7 +192,7 @@ impl View for AudioView {
                                 self.selected_audio
                                     .as_mut()
                                     .unwrap()
-                                    .sort(AudioSorting::DurationAsc);
+                                    .sort(self.sorting);
                                 self.current_row = 0;
                             }
                         }
@@ -214,19 +233,46 @@ impl View for AudioView {
             }
         }
 
+        if self.selected_audio.is_some() {
+            ui.horizontal(|ui| {
+                ui.checkbox(&mut self.autoplay, "Autoplay").on_hover_text(format!("Automatically plays all the sounds in sequence.\nSkips to the next file each {:.1} seconds", self.autoplay_interval));
+                egui::DragValue::new(&mut self.autoplay_interval).speed(0.1).range(0.2f32..=5f32).max_decimals(1).ui(ui);
+                ui.label("Autoplay Interval");
+
+                
+                #[allow(clippy::blocks_in_conditions)]
+                if egui::ComboBox::from_label("Sort by")
+                    .selected_text(self.sorting.to_string())
+                    .show_ui(ui, |ui| {
+                        let mut changed = ui
+                            .selectable_value(&mut self.sorting, AudioSorting::IndexAsc, "Index ⬆")
+                            .changed();
+                        changed |= ui
+                            .selectable_value(&mut self.sorting, AudioSorting::IndexDesc, "Index ⬇")
+                            .changed();
+                        changed |= ui
+                            .selectable_value(&mut self.sorting, AudioSorting::DurationAsc, "Duration ⬆")
+                            .changed();
+                        changed |= ui
+                            .selectable_value(&mut self.sorting, AudioSorting::DurationDesc, "Duration ⬇")
+                            .changed();
+                        changed
+                    })
+                    .inner
+                    .unwrap_or(false)
+                {
+                    self.apply_sorting();
+                }
+            });
+        }
+
+
         if let Some(audio) = &self.selected_audio {
             self.current_row = self.current_row.clamp(0, audio.streams.len());
             let text_height = egui::TextStyle::Body
                 .resolve(ui.style())
                 .size
                 .max(ui.spacing().interact_size.y);
-
-            ui.horizontal(|ui| {
-                ui.checkbox(&mut self.autoplay, "Autoplay").on_hover_text(format!("Automatically plays all the sounds in sequence.\nSkips to the next file each {:.1} seconds", self.autoplay_interval));
-                egui::DragValue::new(&mut self.autoplay_interval).speed(0.1).range(0.2f32..=5f32).max_decimals(1).ui(ui);
-                ui.label("Autoplay Interval");
-            });
-
             let available_height = ui.available_height();
             let mut table = TableBuilder::new(ui)
                 .striped(true)
