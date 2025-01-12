@@ -8,13 +8,12 @@ use binrw::{binread, BinReaderExt, Endian};
 use destiny_pkg::{GameVersion, TagHash};
 use eframe::egui;
 use eframe::egui::{
-    collapsing_header::CollapsingState, pos2, vec2, Color32, CursorIcon, Rgba, RichText,
-    ScrollArea, Sense, Stroke, Ui,
+    collapsing_header::CollapsingState, vec2, Color32, CursorIcon, Rgba, RichText, ScrollArea,
+    Sense, Stroke, Ui,
 };
 use itertools::Itertools;
 use log::warn;
 use std::io::{Cursor, Seek, SeekFrom};
-use std::str::FromStr;
 
 pub struct TagHexView {
     data: Vec<u8>,

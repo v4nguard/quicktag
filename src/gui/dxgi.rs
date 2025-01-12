@@ -891,10 +891,6 @@ impl XenosSurfaceFormat {
     pub fn bpp(&self) -> u32 {
         self.format_info().bits_per_pixel
     }
-
-    pub fn bytes_per_block(&self) -> u32 {
-        self.format_info().bytes_per_block()
-    }
 }
 
 impl TryFrom<u8> for XenosSurfaceFormat {

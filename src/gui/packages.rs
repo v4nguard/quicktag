@@ -69,7 +69,7 @@ impl View for PackagesView {
             .resizable(true)
             .min_width(256.0)
             .show_inside(ui, |ui| {
-                ui.style_mut().wrap = Some(false);
+                ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
                 ui.horizontal(|ui| {
                     ui.label("Search:");
                     ui.text_edit_singleline(&mut self.package_filter);
@@ -154,7 +154,7 @@ impl View for PackagesView {
                     egui::ScrollArea::vertical()
                         .max_width(f32::INFINITY)
                         .show(ui, |ui| {
-                            ui.style_mut().wrap = Some(false);
+                            ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
 
                             for (i, (tag, label, tag_type, entry)) in self
                                 .package_entry_search_cache

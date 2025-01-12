@@ -16,7 +16,7 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use rustc_hash::FxHashMap;
 
 use crate::{
-    classes::{get_class_by_id, TagClass},
+    classes::get_class_by_id,
     package_manager::package_manager,
     text::{create_stringmap, StringCache},
     util::{u32_from_endian, u64_from_endian},

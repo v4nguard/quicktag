@@ -1,6 +1,6 @@
 use std::fs::File;
 
-use destiny_pkg::{TagHash, TagHash64};
+use destiny_pkg::TagHash;
 use eframe::egui;
 use eframe::egui::RichText;
 use image::ImageFormat;
@@ -272,6 +272,8 @@ pub fn open_audio_file_in_default_application(tag: TagHash, ext: &str) {
         let path = std::env::temp_dir().join(filename_wav);
         // std::fs::write(&path, data).ok();
         if let Ok(mut f) = File::create(&path) {
+            // TODO(cohae): Replace with `hound` crate
+            #[allow(deprecated)]
             wav::write(
                 wav::Header {
                     audio_format: wav::WAV_FORMAT_PCM,

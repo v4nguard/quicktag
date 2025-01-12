@@ -497,7 +497,7 @@ impl TagView {
                     }
                 }
 
-                ui.add(egui::DragValue::new(&mut self.traversal_depth_limit).clamp_range(1..=256));
+                ui.add(egui::DragValue::new(&mut self.traversal_depth_limit).range(1..=256));
                 ui.label("Max depth");
 
                 ui.checkbox(
@@ -545,7 +545,7 @@ impl TagView {
                                     0,
                                 ));
                             } else {
-                                ui.style_mut().wrap = Some(false);
+                                ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
                                 ui.label(RichText::new(trav_static).monospace());
                             }
                         });
@@ -658,10 +658,10 @@ impl TagView {
                     }
                 });
 
-            ui.add(egui::DragValue::new(&mut self.search_min_depth).clamp_range(0..=256));
+            ui.add(egui::DragValue::new(&mut self.search_min_depth).range(0..=256));
             ui.label("Min depth");
 
-            ui.add(egui::DragValue::new(&mut self.search_depth_limit).clamp_range(1..=256));
+            ui.add(egui::DragValue::new(&mut self.search_depth_limit).range(1..=256));
             ui.label("Max depth");
 
             ui.text_edit_singleline(&mut self.search_package_name_filter);
@@ -879,7 +879,7 @@ impl View for TagView {
             .resizable(true)
             .min_width(256.0)
             .show_inside(ui, |ui| {
-                ui.style_mut().wrap = Some(false);
+                ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     CollapsingHeader::new(
                         egui::RichText::new("Files referencing this tag").strong(),
@@ -1030,7 +1030,7 @@ impl View for TagView {
                 .resizable(true)
                 .min_width(320.0)
                 .show_inside(ui, |ui| {
-                    ui.style_mut().wrap = Some(false);
+                    ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
                     egui::ScrollArea::vertical().show(ui, |ui| {
                         CollapsingHeader::new(egui::RichText::new("Arrays").strong())
                             .default_open(true)

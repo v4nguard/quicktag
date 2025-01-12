@@ -7,7 +7,7 @@ use std::slice::Iter;
 
 use binrw::{BinRead, BinReaderExt, BinResult, Endian, VecArgs};
 use destiny_pkg::{GameVersion, TagHash};
-use log::{error, warn};
+use log::error;
 use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::package_manager::package_manager;
@@ -377,8 +377,6 @@ pub fn create_stringmap() -> anyhow::Result<StringCache> {
         | GameVersion::DestinyRiseOfIron => create_stringmap_d2(),
         GameVersion::DestinyTheTakenKing => create_stringmap_d1(),
         GameVersion::DestinyInternalAlpha => create_stringmap_d1_devalpha(),
-        u =>
-            panic!("Unsupported game version {u:?} (create_stringmap)")
 
     }
 }

@@ -1,23 +1,18 @@
-use crate::gui::texture::{LoadedTexture, Texture};
 use crate::package_manager::package_manager;
 use binrw::BinReaderExt;
 use destiny_pkg::TagHash;
 use eframe::egui::mutex::RwLock;
-use eframe::egui::TextureId;
-use eframe::egui_wgpu::RenderState;
-use eframe::wgpu;
 use either::{Either, Left, Right};
 use lazy_static::lazy_static;
 use linked_hash_map::LinkedHashMap;
 use log::{error, warn};
 use poll_promise::Promise;
 use rodio::buffer::SamplesBuffer;
-use rodio::Source;
 use rustc_hash::FxHasher;
 use std::hash::BuildHasherDefault;
 use std::io::{Cursor, Seek, SeekFrom};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use vgmstream::info::VgmstreamInfo;
 
 pub enum AudioPlayerState {
@@ -187,17 +182,17 @@ pub fn get_stream_duration_fast(tag: TagHash) -> f32 {
 
     match &magic {
         b"RIFF" => {
-            cur.seek(SeekFrom::Start(0x4));
+            cur.seek(SeekFrom::Start(0x4)).ok();
             let data_size = cur.read_le::<u32>().unwrap();
-            cur.seek(SeekFrom::Start(0x1c));
+            cur.seek(SeekFrom::Start(0x1c)).ok();
             let byte_rate = cur.read_le::<u32>().unwrap();
 
             (data_size as f64 / byte_rate as f64) as f32
         }
         b"RIFX" => {
-            cur.seek(SeekFrom::Start(0x4));
+            cur.seek(SeekFrom::Start(0x4)).ok();
             let data_size = cur.read_le::<u32>().unwrap();
-            cur.seek(SeekFrom::Start(0x1c));
+            cur.seek(SeekFrom::Start(0x1c)).ok();
             let byte_rate = cur.read_be::<u32>().unwrap();
 
             (data_size as f64 / byte_rate as f64) as f32

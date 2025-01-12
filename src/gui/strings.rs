@@ -13,7 +13,7 @@ use rustc_hash::FxHashMap;
 
 use crate::{
     package_manager::package_manager,
-    scanner::{fnv1, TagCache},
+    scanner::TagCache,
     tagtypes::TagType,
     text::{decode_text, StringCache, StringCacheVec, StringContainer, StringData, StringPart},
 };
@@ -89,7 +89,7 @@ impl View for StringsView {
                 }
 
                 ui.separator();
-                ui.style_mut().wrap = Some(false);
+                ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
                 ui.horizontal(|ui| {
                     ui.label("Search:");
                     let mut update_search =
@@ -233,7 +233,7 @@ impl View for StringsView {
                 egui::ScrollArea::vertical()
                     .max_width(f32::INFINITY)
                     .show(ui, |ui| {
-                        ui.style_mut().wrap = Some(false);
+                        ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
                         if self.selected_string == u32::MAX {
                             ui.label(RichText::new("No string selected").italics());
                         } else {

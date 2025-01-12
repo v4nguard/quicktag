@@ -16,14 +16,13 @@ mod texture;
 mod texturelist;
 
 use std::cell::RefCell;
-use std::io::Write;
 use std::path::Path;
 use std::rc::Rc;
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 use std::time::Instant;
 
-use destiny_pkg::{GameVersion, TagHash};
+use destiny_pkg::TagHash;
 use eframe::egui::{PointerButton, TextEdit, Widget};
 use eframe::egui_wgpu::RenderState;
 use eframe::{

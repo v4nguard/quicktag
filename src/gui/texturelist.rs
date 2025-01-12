@@ -92,7 +92,7 @@ impl View for TexturesView {
             .resizable(true)
             .min_width(256.0)
             .show_inside(ui, |ui| {
-                ui.style_mut().wrap = Some(false);
+                ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
 
                 ui.horizontal(|ui| {
                     ui.label("Search:");
@@ -233,7 +233,7 @@ impl View for TexturesView {
                 .auto_shrink([false, false])
                 .max_width(f32::INFINITY)
                 .show(ui, |ui| {
-                    ui.style_mut().wrap = Some(true);
+                    ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Wrap);
                     ui.spacing_mut().item_spacing = [4. * self.zoom; 2].into();
 
                     if self.selected_package == u16::MAX {
