@@ -556,24 +556,52 @@ impl Texture {
         hash: TagHash,
         desc: TextureDesc,
         // cohae: Take ownership of the data so we don't have to clone it for premultiplication
-        data: Vec<u8>,
+        mut data: Vec<u8>,
         comment: Option<String>,
     ) -> anyhow::Result<Texture> {
         if desc.format.is_compressed() && desc.depth > 1 {
             anyhow::bail!("Compressed 3D textures are not supported by wgpu");
         }
 
-        let mut texture_data = data;
         // Pre-multiply alpha where possible
         if matches!(
             desc.format,
             wgpu::TextureFormat::Rgba8Unorm | wgpu::TextureFormat::Rgba8UnormSrgb
         ) {
-            for c in texture_data.chunks_exact_mut(4) {
+            for c in data.chunks_exact_mut(4) {
                 c[0] = (c[0] as f32 * c[3] as f32 / 255.) as u8;
                 c[1] = (c[1] as f32 * c[3] as f32 / 255.) as u8;
                 c[2] = (c[2] as f32 * c[3] as f32 / 255.) as u8;
             }
+        }
+
+        let image_size = wgpu::Extent3d {
+            width: desc.width,
+            height: desc.height,
+            depth_or_array_layers: desc.depth,
+        };
+
+        {
+            let block_size = desc.format.block_copy_size(None).unwrap_or(4);
+            let (block_width, block_height) = desc.format.block_dimensions();
+            let physical_size = image_size.physical_size(desc.format);
+            let width_blocks = physical_size.width / block_width;
+            let height_blocks = physical_size.height / block_height;
+
+            let bytes_per_row = width_blocks * block_size;
+            let expected_data_size =
+                bytes_per_row * height_blocks * image_size.depth_or_array_layers;
+
+            anyhow::ensure!(
+                data.len() >= expected_data_size as usize,
+                "Not enough data for texture {hash} ({}x{}x{} {:?}): expected 0x{:X}, got 0x{:X}",
+                desc.width,
+                desc.height,
+                desc.depth,
+                desc.format,
+                expected_data_size,
+                data.len()
+            );
         }
 
         let handle = rs.device.create_texture_with_data(
@@ -581,9 +609,8 @@ impl Texture {
             &wgpu::TextureDescriptor {
                 label: Some(&*format!("Texture {hash}")),
                 size: wgpu::Extent3d {
-                    width: desc.width as _,
-                    height: desc.height as _,
                     depth_or_array_layers: 1,
+                    ..image_size
                 },
                 mip_level_count: 1,
                 sample_count: 1,
@@ -593,30 +620,17 @@ impl Texture {
                 view_formats: &[desc.format],
             },
             wgpu::util::TextureDataOrder::default(),
-            &texture_data,
+            &data,
         );
 
-        let view = handle.create_view(&wgpu::TextureViewDescriptor {
-            label: None,
-            format: None,
-            dimension: None,
-            aspect: Default::default(),
-            base_mip_level: 0,
-            mip_level_count: None,
-            base_array_layer: 0,
-            array_layer_count: None,
-        });
+        let view = handle.create_view(&wgpu::TextureViewDescriptor::default());
 
         let tex3d = if desc.depth > 1 {
             let handle = rs.device.create_texture_with_data(
                 &rs.queue,
                 &wgpu::TextureDescriptor {
                     label: Some(&*format!("Texture {hash}")),
-                    size: wgpu::Extent3d {
-                        width: desc.width as _,
-                        height: desc.height as _,
-                        depth_or_array_layers: desc.depth as _,
-                    },
+                    size: image_size,
                     mip_level_count: 1,
                     sample_count: 1,
                     dimension: TextureDimension::D3,
@@ -625,19 +639,10 @@ impl Texture {
                     view_formats: &[desc.format],
                 },
                 wgpu::util::TextureDataOrder::default(),
-                &texture_data,
+                &data,
             );
 
-            let view = handle.create_view(&wgpu::TextureViewDescriptor {
-                label: None,
-                format: None,
-                dimension: None,
-                aspect: Default::default(),
-                base_mip_level: 0,
-                mip_level_count: None,
-                base_array_layer: 0,
-                array_layer_count: None,
-            });
+            let view = handle.create_view(&wgpu::TextureViewDescriptor::default());
 
             Some((handle, view))
         } else {
