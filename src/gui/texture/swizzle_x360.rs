@@ -122,8 +122,13 @@ impl Deswizzler for XenosDetiler {
         _depth: usize,
         format: Self::Format,
     ) -> anyhow::Result<Vec<u8>> {
-        let (block_pixel_size, texel_byte_pitch) = match format {
-            XenosSurfaceFormat::k_DXT1 | XenosSurfaceFormat::k_DXT1_AS_16_16_16_16 => (4, 8),
+        let block_pixel_size;
+        let texel_byte_pitch;
+        match format {
+            XenosSurfaceFormat::k_DXT1 | XenosSurfaceFormat::k_DXT1_AS_16_16_16_16 => {
+                block_pixel_size = 4;
+                texel_byte_pitch = 8;
+            }
             XenosSurfaceFormat::k_DXN
             | XenosSurfaceFormat::k_DXT2_3
             | XenosSurfaceFormat::k_DXT2_3_AS_16_16_16_16
@@ -131,14 +136,24 @@ impl Deswizzler for XenosDetiler {
             | XenosSurfaceFormat::k_DXT3A_AS_1_1_1_1
             | XenosSurfaceFormat::k_DXT4_5
             | XenosSurfaceFormat::k_DXT4_5_AS_16_16_16_16
-            | XenosSurfaceFormat::k_DXT5A => (4, 16),
+            | XenosSurfaceFormat::k_DXT5A => {
+                block_pixel_size = 4;
+                texel_byte_pitch = 16;
+            }
             XenosSurfaceFormat::k_8_8_8_8
             | XenosSurfaceFormat::k_8_8_8_8_A
-            | XenosSurfaceFormat::k_8_8_8_8_AS_16_16_16_16 => (1, 4),
-            XenosSurfaceFormat::k_8 => (1, 1),
+            | XenosSurfaceFormat::k_8_8_8_8_AS_16_16_16_16 => {
+                block_pixel_size = 1;
+                texel_byte_pitch = 4;
+            }
+            XenosSurfaceFormat::k_8 => {
+                block_pixel_size = 1;
+                texel_byte_pitch = 1;
+            }
             _ => {
                 warn!("Unsupported format for untile: {:?}", format);
-                (1, 4)
+                block_pixel_size = 1;
+                texel_byte_pitch = 4;
             }
         };
 
@@ -158,7 +173,7 @@ impl Deswizzler for XenosDetiler {
             height,
             block_pixel_size,
             texel_byte_pitch,
-            false,
+            true,
         )?;
 
         let mut result = Vec::with_capacity(untiled.len());
