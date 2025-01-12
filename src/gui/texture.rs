@@ -26,6 +26,8 @@ use std::sync::Arc;
 
 use super::dxgi::{GcnSurfaceFormat, XenosSurfaceFormat};
 
+mod swizzle_x360;
+
 #[derive(Debug, BinRead)]
 #[br(import(prebl: bool))]
 pub struct TextureHeader {
@@ -290,16 +292,15 @@ impl Texture {
         let comment = format!("{texture:#X?}");
 
         let mut untiled = vec![];
-        let format_info = texture.format.format_info();
-        swizzle::xbox::untile(
+        if let Err(e) = swizzle::xbox::untile(
             &texture_data,
             &mut untiled,
             texture.width as u32,
             texture.height as u32,
-            format_info.block_width,
-            format_info.block_height,
-            format_info.bytes_per_block(),
-        );
+            texture.format,
+        ) {
+            anyhow::bail!("Failed to untile texture: {e:?}");
+        }
         Ok((texture, untiled, comment))
     }
 
@@ -938,6 +939,13 @@ mod swizzle {
     }
 
     pub(crate) mod xbox {
+        use log::warn;
+
+        use crate::gui::{
+            dxgi::XenosSurfaceFormat,
+            texture::swizzle_x360::{swap_byte_order_x360, untile_x360},
+        };
+
         // https://github.com/BinomialLLC/crunch/blob/ea9b8d8c00c8329791256adafa8cf11e4e7942a2/inc/crn_decomp.h#L4108
         fn tiled_offset2d_row(y: u32, width: u32, log2_bpp: u32) -> u32 {
             let umacro = ((y / 32) * (width / 32)) << (log2_bpp + 7);
@@ -965,17 +973,64 @@ mod swizzle {
             destination: &mut Vec<u8>,
             width: u32,
             height: u32,
-            block_width: u32,
-            block_height: u32,
-            bytes_per_block: u32,
-        ) {
-            destination.resize(source.len(), 0);
-            destination.copy_from_slice(source);
-            let width_blocks = (width + block_width - 1) / block_width;
-            let height_blocks = (height + block_height - 1) / block_height;
+            format: XenosSurfaceFormat,
+        ) -> anyhow::Result<()> {
+            let (block_pixel_size, texel_byte_pitch) = match format {
+                XenosSurfaceFormat::k_DXT1 | XenosSurfaceFormat::k_DXT1_AS_16_16_16_16 => (4, 8),
+                XenosSurfaceFormat::k_DXN
+                | XenosSurfaceFormat::k_DXT2_3
+                | XenosSurfaceFormat::k_DXT2_3_AS_16_16_16_16
+                | XenosSurfaceFormat::k_DXT3A
+                | XenosSurfaceFormat::k_DXT3A_AS_1_1_1_1
+                | XenosSurfaceFormat::k_DXT4_5
+                | XenosSurfaceFormat::k_DXT4_5_AS_16_16_16_16
+                | XenosSurfaceFormat::k_DXT5A => (4, 16),
+                XenosSurfaceFormat::k_8_8_8_8
+                | XenosSurfaceFormat::k_8_8_8_8_A
+                | XenosSurfaceFormat::k_8_8_8_8_AS_16_16_16_16 => (1, 4),
+                XenosSurfaceFormat::k_8 => (1, 1),
+                _ => {
+                    warn!("Unsupported format for untile: {:?}", format);
+                    (1, 4)
+                }
+            };
 
-            let pitch = width_blocks * bytes_per_block;
-            let log2_bpp = (bytes_per_block / 4) + ((bytes_per_block / 2) >> (bytes_per_block / 4));
+            let mut source = source.to_vec();
+            if !matches!(
+                format,
+                XenosSurfaceFormat::k_8_8_8_8
+                    | XenosSurfaceFormat::k_8_8_8_8_A
+                    | XenosSurfaceFormat::k_8_8_8_8_AS_16_16_16_16
+            ) {
+                swap_byte_order_x360(&mut source);
+            }
+
+            let untiled = untile_x360(
+                &source,
+                width as usize,
+                height as usize,
+                block_pixel_size,
+                texel_byte_pitch,
+            )?;
+
+            match format {
+                // ARGB => RGBA
+                XenosSurfaceFormat::k_8_8_8_8 | XenosSurfaceFormat::k_8_8_8_8_A => {
+                    for chunk in untiled.chunks_exact(4) {
+                        destination.extend_from_slice(&[chunk[1], chunk[2], chunk[3], chunk[0]]);
+                    }
+                }
+                _ => {
+                    destination.extend_from_slice(&untiled);
+                }
+            }
+            Ok(())
+
+            // let width_blocks = (width + block_width - 1) / block_width;
+            // let height_blocks = (height + block_height - 1) / block_height;
+
+            // let pitch = width_blocks * bytes_per_block;
+            // let log2_bpp = (bytes_per_block / 4) + ((bytes_per_block / 2) >> (bytes_per_block / 4));
         }
     }
 }

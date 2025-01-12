@@ -781,7 +781,7 @@ impl XenosSurfaceFormat {
             // XenosSurfaceFormat::k_1_5_5_5 => wgpu::TextureFormat::UNKNOWN,
             // XenosSurfaceFormat::k_5_6_5 => wgpu::TextureFormat::UNKNOWN,
             // XenosSurfaceFormat::k_6_5_5 => wgpu::TextureFormat::UNKNOWN,
-            XenosSurfaceFormat::k_8_8_8_8 => wgpu::TextureFormat::Rgba8Unorm,
+            XenosSurfaceFormat::k_8_8_8_8 => wgpu::TextureFormat::Rgba8UnormSrgb,
             XenosSurfaceFormat::k_2_10_10_10 => wgpu::TextureFormat::Rgb10a2Unorm,
             XenosSurfaceFormat::k_8_A => wgpu::TextureFormat::R8Unorm,
             XenosSurfaceFormat::k_8_B => wgpu::TextureFormat::R8Unorm,
