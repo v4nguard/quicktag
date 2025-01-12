@@ -82,7 +82,9 @@ impl View for StringsView {
             .resizable(true)
             .min_width(384.0)
             .show_inside(ui, |ui| {
-                if self.variant == StringViewVariant::LocalizedStrings && ui.button("Dump all languages").clicked() {
+                if self.variant == StringViewVariant::LocalizedStrings
+                    && ui.button("Dump all languages").clicked()
+                {
                     dump_all_languages().unwrap();
                 }
 
@@ -267,7 +269,10 @@ fn truncate_string_stripped(s: &str, max_length: usize) -> String {
 }
 
 fn dump_all_languages() -> anyhow::Result<()> {
-    let prebl = package_manager().version == GameVersion::Destiny2Shadowkeep;
+    let prebl = matches!(
+        package_manager().version,
+        GameVersion::Destiny2Beta | GameVersion::Destiny2Forsaken | GameVersion::Destiny2Shadowkeep
+    );
     let bl = package_manager().version == GameVersion::Destiny2BeyondLight;
 
     std::fs::create_dir("strings").ok();
@@ -291,7 +296,7 @@ fn dump_all_languages() -> anyhow::Result<()> {
                 continue;
             };
             let mut cur = Cursor::new(&data);
-            let text_data: StringData = cur.read_le_args((prebl,bl))?;
+            let text_data: StringData = cur.read_le_args((prebl, bl))?;
 
             for (combination, hash) in text_data
                 .string_combinations

@@ -121,6 +121,7 @@ impl Deswizzler for XenosDetiler {
         height: usize,
         _depth: usize,
         format: Self::Format,
+        align_output: bool,
     ) -> anyhow::Result<Vec<u8>> {
         let block_pixel_size;
         let texel_byte_pitch;

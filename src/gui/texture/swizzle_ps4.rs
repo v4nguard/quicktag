@@ -38,16 +38,17 @@ fn do_swizzle(
     height: usize,
     format: GcnSurfaceFormat,
     unswizzle: bool,
+    align_output: bool,
 ) {
     let pixel_block_size = format.pixel_block_size();
     let block_size = format.block_size();
 
-    let width_src = if format.is_compressed() {
+    let width_src = if align_output && format.is_compressed() {
         width.next_power_of_two()
     } else {
         width
     };
-    let height_src = if format.is_compressed() {
+    let height_src = if align_output && format.is_compressed() {
         height.next_power_of_two()
     } else {
         height
@@ -102,9 +103,18 @@ impl Deswizzler for GcnDeswizzler {
         height: usize,
         _depth: usize,
         format: Self::Format,
+        align_output: bool,
     ) -> anyhow::Result<Vec<u8>> {
         let mut converted_data = vec![0; data.len()];
-        do_swizzle(data, &mut converted_data, width, height, format, true);
+        do_swizzle(
+            data,
+            &mut converted_data,
+            width,
+            height,
+            format,
+            true,
+            align_output,
+        );
         Ok(converted_data)
     }
 }

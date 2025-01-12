@@ -1,8 +1,7 @@
-use crate::gui::dxgi::DxgiFormat;
 use crate::gui::texture::texture_capture::capture_texture;
 use crate::package_manager::package_manager;
 use anyhow::Context;
-use binrw::{BinRead, BinReaderExt};
+use binrw::BinReaderExt;
 use destiny_pkg::package::PackagePlatform;
 use destiny_pkg::{GameVersion, TagHash};
 use eframe::egui::load::SizedTexture;
@@ -13,114 +12,42 @@ use eframe::wgpu;
 use eframe::wgpu::util::DeviceExt;
 use eframe::wgpu::TextureDimension;
 use either::Either::{self, Left};
+use headers_pc::TextureHeaderPC;
+use headers_ps::{TextureHeaderD2Ps4, TextureHeaderRoiPs4};
+use headers_xbox::{TextureHeaderDevAlphaX360, TextureHeaderRoiXbox};
 use image::{DynamicImage, GenericImageView};
 
 use linked_hash_map::LinkedHashMap;
 use poll_promise::Promise;
 use rustc_hash::FxHasher;
 use std::hash::BuildHasherDefault;
-use std::io::SeekFrom;
 use swizzle_ps4::GcnDeswizzler;
 use swizzle_x360::XenosDetiler;
 
 use std::rc::Rc;
 use std::sync::Arc;
 
-use super::dxgi::{GcnSurfaceFormat, XenosSurfaceFormat};
+use super::dxgi::GcnSurfaceFormat;
 
 mod swizzle_ps4;
 mod swizzle_x360;
 
-#[derive(Debug, BinRead)]
-#[br(import(prebl: bool))]
-pub struct TextureHeader {
+mod headers_pc;
+mod headers_ps;
+mod headers_xbox;
+
+#[derive(Debug)]
+pub struct TextureHeaderGeneric {
     pub data_size: u32,
-    pub format: DxgiFormat,
-    pub _unk8: u32,
-
-    #[br(if(!prebl))]
-    pub _unkc: [u32; 5],
-
-    #[br(assert(cafe == 0xcafe))]
-    pub cafe: u16, // prebl: 0xc / bl: 0x20
-
-    pub width: u16,      // prebl: 0xe / bl: 0x22
-    pub height: u16,     // prebl: 0x10 / bl: 0x24
-    pub depth: u16,      // prebl: 0x12 / bl: 0x26
-    pub array_size: u16, // prebl: 0x14 / bl: 0x28
-
-    pub _pad0: [u16; 7], // prebl: 0x16 / bl: 0x2a
-
-    #[br(if(!prebl))]
-    pub _pad1: u32,
-
-    // pub _unk2a: [u32; 4]
-    // pub unk2a: u16,
-    // pub unk2c: u8,
-    // pub mip_count: u8,
-    // pub unk2e: [u8; 10],
-    // pub unk38: u32,
-    #[br(map(|v: u32| (v != u32::MAX).then_some(TagHash(v))))]
-    pub large_buffer: Option<TagHash>, // prebl: 0x24 / bl: 0x3c
-}
-
-#[derive(Debug, BinRead)]
-pub struct TextureHeaderRoiPs4 {
-    pub data_size: u32,
-    pub unk4: u8,
-    pub unk5: u8,
-    #[br(try_map(|v: u16| GcnSurfaceFormat::try_from((v >> 4) & 0x3F)))]
-    pub format: GcnSurfaceFormat,
-
-    #[br(seek_before = SeekFrom::Start(0x24), assert(beefcafe == 0xbeefcafe))]
-    pub beefcafe: u32,
-
+    pub format: wgpu::TextureFormat,
     pub width: u16,
     pub height: u16,
     pub depth: u16,
     pub array_size: u16,
+    pub large_buffer: Option<TagHash>,
 
-    pub flags1: u32,
-    pub flags2: u32,
-    pub flags3: u32,
-}
-
-#[derive(Debug, BinRead)]
-pub struct TextureHeaderDevAlphaX360 {
-    #[br(seek_before = SeekFrom::Start(0x20))]
-    _dataformat: u32,
-
-    #[br(calc((_dataformat & 0x80) != 0))]
-    pub unk_flag: bool,
-
-    #[br(try_calc(XenosSurfaceFormat::try_from(_dataformat as u8 & 0x3F)))]
-    pub format: XenosSurfaceFormat,
-
-    #[br(seek_before = SeekFrom::Start(0x36))]
-    pub width: u16,
-    pub height: u16,
-    pub depth: u16,
-    // pub flags1: u32,
-    // pub flags2: u32,
-    // pub flags3: u32,
-    #[br(seek_before = SeekFrom::Start(0x48), assert(beefcafe == 0xbeefcafe))]
-    pub beefcafe: u32,
-}
-
-#[derive(Debug, BinRead)]
-pub struct TextureHeaderRoiXbox {
-    pub format: DxgiFormat,
-
-    #[br(seek_before = SeekFrom::Start(0x2c), assert(beefcafe == 0xbeefcafe))]
-    pub beefcafe: u32,
-
-    pub width: u16,
-    pub height: u16,
-    pub depth: u16,
-    pub array_size: u16,
-    // pub flags1: u32,
-    // pub flags2: u32,
-    // pub flags3: u32,
+    pub deswizzle: Option<bool>,
+    pub psformat: Option<GcnSurfaceFormat>,
 }
 
 pub struct Texture {
@@ -158,7 +85,7 @@ impl Texture {
     pub fn load_data_d2(
         hash: TagHash,
         load_full_mip: bool,
-    ) -> anyhow::Result<(TextureHeader, Vec<u8>, String)> {
+    ) -> anyhow::Result<(TextureHeaderGeneric, Vec<u8>, String)> {
         let texture_header_ref = package_manager()
             .get_entry(hash)
             .context("Texture header entry not found")?
@@ -171,11 +98,45 @@ impl Texture {
         // TODO(cohae): add a method to GameVersion to check for prebl
         let is_prebl = matches!(
             package_manager().version,
-            destiny_pkg::GameVersion::Destiny2Beta | destiny_pkg::GameVersion::Destiny2Shadowkeep
+            GameVersion::Destiny2Beta
+                | GameVersion::Destiny2Forsaken
+                | GameVersion::Destiny2Shadowkeep
         );
 
         let mut cur = std::io::Cursor::new(header_data);
-        let texture: TextureHeader = cur.read_le_args((is_prebl,))?;
+        let texture: TextureHeaderGeneric = match package_manager().platform {
+            PackagePlatform::PS4 => {
+                let texheader: TextureHeaderD2Ps4 = cur.read_le_args((is_prebl,))?;
+                TextureHeaderGeneric {
+                    data_size: texheader.data_size,
+                    format: texheader.format.to_wgpu()?,
+                    width: texheader.width,
+                    height: texheader.height,
+                    depth: texheader.depth,
+                    array_size: texheader.array_size,
+                    large_buffer: texheader.large_buffer,
+
+                    deswizzle: Some((texheader.flags1 & 0xc00) != 0x400),
+                    psformat: Some(texheader.format),
+                }
+            }
+            PackagePlatform::Win64 => {
+                let texheader: TextureHeaderPC = cur.read_le_args((is_prebl,))?;
+                TextureHeaderGeneric {
+                    data_size: texheader.data_size,
+                    format: texheader.format.to_wgpu()?,
+                    width: texheader.width,
+                    height: texheader.height,
+                    depth: texheader.depth,
+                    array_size: texheader.array_size,
+                    large_buffer: texheader.large_buffer,
+
+                    deswizzle: None,
+                    psformat: None,
+                }
+            }
+            _ => unreachable!("Unsupported platform for D2 textures"),
+        };
         let mut texture_data = if let Some(t) = texture.large_buffer {
             package_manager()
                 .read_tag(t)
@@ -197,7 +158,45 @@ impl Texture {
         }
 
         let comment = format!("{texture:#X?}");
-        Ok((texture, texture_data, comment))
+
+        match package_manager().platform {
+            PackagePlatform::PS4 => {
+                if texture.deswizzle.is_none() || texture.psformat.is_none() {
+                    anyhow::bail!(
+                        "Texture data not found: deswizzle: {:?}, psformat: {:?}",
+                        texture.deswizzle,
+                        texture.psformat
+                    );
+                }
+                let psformat = texture.psformat.unwrap();
+                let expected_size =
+                    (texture.width as usize * texture.height as usize * psformat.bpp()) / 8;
+
+                if texture_data.len() < expected_size {
+                    anyhow::bail!(
+                        "Texture data size mismatch for {hash} ({}x{}x{} {:?}): expected {expected_size}, got {}",
+                        texture.width, texture.height, texture.depth, texture.format,
+                        texture_data.len()
+                    );
+                }
+
+                if texture.deswizzle.unwrap() {
+                    let unswizzled = GcnDeswizzler::deswizzle(
+                        &texture_data,
+                        texture.width as usize,
+                        texture.height as usize,
+                        texture.depth as usize,
+                        texture.psformat.unwrap(),
+                        false,
+                    )
+                    .context("Failed to deswizzle texture")?;
+                    Ok((texture, unswizzled, comment))
+                } else {
+                    Ok((texture, texture_data, comment))
+                }
+            }
+            _ => Ok((texture, texture_data, comment)),
+        }
     }
 
     pub fn load_data_roi_ps4(
@@ -246,6 +245,7 @@ impl Texture {
                 texture.height as usize,
                 texture.depth as usize,
                 texture.format,
+                true,
             )
             .context("Failed to deswizzle texture")?;
 
@@ -255,7 +255,7 @@ impl Texture {
         }
     }
 
-    pub fn load_data_roi_x360(
+    pub fn load_data_devalpha_x360(
         hash: TagHash,
         _load_full_mip: bool,
     ) -> anyhow::Result<(TextureHeaderDevAlphaX360, Vec<u8>, String)> {
@@ -301,6 +301,7 @@ impl Texture {
             texture.height as usize,
             texture.depth as usize,
             texture.format,
+            false,
         )
         .context("Failed to deswizzle texture")?;
 
@@ -427,28 +428,55 @@ impl Texture {
             | GameVersion::Destiny2BeyondLight
             | GameVersion::Destiny2WitchQueen
             | GameVersion::Destiny2Lightfall
-            | GameVersion::Destiny2TheFinalShape => {
-                let header_data = package_manager()
-                    .read_tag(hash)
-                    .context("Failed to read texture header")?;
+            | GameVersion::Destiny2TheFinalShape => match package_manager().platform {
+                PackagePlatform::PS4 => {
+                    let header_data = package_manager()
+                        .read_tag(hash)
+                        .context("Failed to read texture header")?;
 
-                let is_prebl = matches!(
-                    package_manager().version,
-                    destiny_pkg::GameVersion::Destiny2Beta
-                        | destiny_pkg::GameVersion::Destiny2Shadowkeep
-                );
+                    let is_prebl = matches!(
+                        package_manager().version,
+                        GameVersion::Destiny2Beta
+                            | GameVersion::Destiny2Forsaken
+                            | GameVersion::Destiny2Shadowkeep
+                    );
 
-                let mut cur = std::io::Cursor::new(header_data);
-                let texture: TextureHeader = cur.read_le_args((is_prebl,))?;
+                    let mut cur = std::io::Cursor::new(header_data);
+                    let texture: TextureHeaderD2Ps4 = cur.read_le_args((is_prebl,))?;
 
-                Ok(TextureDesc {
-                    format: texture.format.to_wgpu()?,
-                    width: texture.width as u32,
-                    height: texture.height as u32,
-                    depth: texture.depth as u32,
-                    premultiply_alpha: false,
-                })
-            }
+                    Ok(TextureDesc {
+                        format: texture.format.to_wgpu()?,
+                        width: texture.width as u32,
+                        height: texture.height as u32,
+                        depth: texture.depth as u32,
+                        premultiply_alpha: false,
+                    })
+                }
+                PackagePlatform::Win64 => {
+                    let header_data = package_manager()
+                        .read_tag(hash)
+                        .context("Failed to read texture header")?;
+
+                    let is_prebl = matches!(
+                        package_manager().version,
+                        GameVersion::Destiny2Beta
+                            | GameVersion::Destiny2Forsaken
+                            | GameVersion::Destiny2Shadowkeep
+                    );
+
+                    let mut cur = std::io::Cursor::new(header_data);
+                    let texture: TextureHeaderPC = cur.read_le_args((is_prebl,))?;
+
+                    Ok(TextureDesc {
+                        format: texture.format.to_wgpu()?,
+                        width: texture.width as u32,
+                        height: texture.height as u32,
+                        depth: texture.depth as u32,
+                        premultiply_alpha: false,
+                    })
+                }
+                _ => unreachable!("Unsupported platform for D2 textures"),
+            },
         }
     }
 
@@ -474,7 +502,7 @@ impl Texture {
                 match package_manager().platform {
                     PackagePlatform::X360 => {
                         let (texture, texture_data, comment) =
-                            Self::load_data_roi_x360(hash, true)?;
+                            Self::load_data_devalpha_x360(hash, true)?;
                         Self::create_texture(
                             rs,
                             hash,
@@ -540,7 +568,7 @@ impl Texture {
                     rs,
                     hash,
                     TextureDesc {
-                        format: texture.format.to_wgpu()?,
+                        format: texture.format,
                         width: texture.width as u32,
                         height: texture.height as u32,
                         depth: texture.depth as u32,
@@ -841,6 +869,9 @@ trait Deswizzler {
         height: usize,
         depth: usize,
         format: Self::Format,
+        // PS4 D2 causes issues if compressed textures are aligned on power of two
+        // however on D1 it'll cause issues if *not* aligned
+        align_output: bool,
     ) -> anyhow::Result<Vec<u8>>;
 }
 
