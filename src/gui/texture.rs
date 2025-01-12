@@ -462,7 +462,7 @@ impl Texture {
                         height: texture.height as u32,
                         depth: texture.depth as u32,
                         array_size: texture.array_size as u32,
-                    premultiply_alpha: false,
+                        premultiply_alpha: false,
                     })
                 }
                 PackagePlatform::Win64 => {
@@ -485,6 +485,7 @@ impl Texture {
                         width: texture.width as u32,
                         height: texture.height as u32,
                         depth: texture.depth as u32,
+                        array_size: texture.array_size as u32,
                         premultiply_alpha: false,
                     })
                 }
