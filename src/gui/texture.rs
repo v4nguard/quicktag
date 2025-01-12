@@ -141,14 +141,20 @@ pub struct TextureDesc {
     pub width: u32,
     pub height: u32,
     pub depth: u32,
+    pub array_size: u32,
     /// Should the alpha channel be pre-multiplied on creation?
     pub premultiply_alpha: bool,
 }
 
 impl TextureDesc {
     pub fn info(&self) -> String {
+        let cubemap = if self.array_size == 6 {
+            " (cubemap)"
+        } else {
+            ""
+        };
         format!(
-            "{}x{}x{} {:?}",
+            "{}x{}x{} {:?}{cubemap}",
             self.width, self.height, self.depth, self.format
         )
     }
@@ -391,6 +397,7 @@ impl Texture {
                             format: texture.format.to_wgpu()?,
                             width: texture.width as u32,
                             height: texture.height as u32,
+                            array_size: 1, // TODO
                             depth: texture.depth as u32,
                             premultiply_alpha: false,
                         })
@@ -405,6 +412,7 @@ impl Texture {
                         format: texture.format.to_wgpu()?,
                         width: texture.width as u32,
                         height: texture.height as u32,
+                        array_size: texture.array_size as u32,
                         depth: texture.depth as u32,
                         premultiply_alpha: false,
                     })
@@ -415,6 +423,7 @@ impl Texture {
                         format: texture.format.to_wgpu()?,
                         width: texture.width as u32,
                         height: texture.height as u32,
+                        array_size: texture.array_size as u32,
                         depth: texture.depth as u32,
                         premultiply_alpha: false,
                     })
@@ -446,6 +455,7 @@ impl Texture {
                     width: texture.width as u32,
                     height: texture.height as u32,
                     depth: texture.depth as u32,
+                    array_size: texture.array_size as u32,
                     premultiply_alpha: false,
                 })
             }
@@ -483,6 +493,7 @@ impl Texture {
                                 width: texture.width as u32,
                                 height: texture.height as u32,
                                 depth: texture.depth as u32,
+                                array_size: 1, // TODO
                                 premultiply_alpha,
                             },
                             texture_data,
@@ -503,6 +514,7 @@ impl Texture {
                             width: texture.width as u32,
                             height: texture.height as u32,
                             depth: texture.depth as u32,
+                            array_size: texture.array_size as u32,
                             premultiply_alpha,
                         },
                         texture_data,
@@ -520,6 +532,7 @@ impl Texture {
                             width: texture.width as u32,
                             height: texture.height as u32,
                             depth: texture.depth as u32,
+                            array_size: texture.array_size as u32,
                             premultiply_alpha,
                         },
                         texture_data,
@@ -544,6 +557,7 @@ impl Texture {
                         width: texture.width as u32,
                         height: texture.height as u32,
                         depth: texture.depth as u32,
+                        array_size: texture.array_size as u32,
                         premultiply_alpha,
                     },
                     texture_data,
@@ -676,6 +690,7 @@ impl Texture {
                 format: wgpu::TextureFormat::Rgba8Unorm,
                 width,
                 height,
+                array_size: 1,
                 depth: 1,
                 premultiply_alpha: true,
             },
