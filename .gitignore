@@ -1,12 +1,20 @@
 .idea
 .vscode
 /target
+*.dll
+*.exe
+*.log
 
 # QuickTag
-cache.bin
+tags_*.cache
 oo2core_3_win64.dll
 oo2core_9_win64.dll
 package_cache.json
 raw_strings_filtered.txt
 keys.txt
 wwise_info_*.txt
+dump/
+strings/
+# Wordlist source filest
+wordlist_*.txt
+wordlist_src/

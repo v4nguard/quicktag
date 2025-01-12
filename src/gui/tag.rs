@@ -19,17 +19,17 @@ use super::{
     texture::TextureCache,
     View, ViewAction,
 };
+use crate::classes::get_class_by_id;
 use crate::gui::hexview::TagHexView;
 use crate::package_manager::get_hash64;
 use crate::scanner::ScannedHash;
+use crate::{gui::texture::Texture, scanner::read_raw_string_blob, text::RawStringHashCache};
 use crate::{
-    classes::CLASS_MAP,
     package_manager::package_manager,
     scanner::{ScanResult, TagCache},
     tagtypes::TagType,
     text::StringCache,
 };
-use crate::{gui::texture::Texture, scanner::read_raw_string_blob, text::RawStringHashCache};
 use binrw::{binread, BinReaderExt, Endian};
 use destiny_pkg::{package::UEntryHeader, GameVersion, TagHash, TagHash64};
 use eframe::egui::load::SizedTexture;
@@ -509,8 +509,12 @@ impl TagView {
 
                 if let Some(traversal) = self.tag_traversal.as_ref() {
                     if let Some((trav_interactive, _)) = traversal.ready() {
+                        let ctrl = ui.input(|i| i.modifiers.ctrl);
                         if ui
-                            .button("Dump all tag data")
+                            .button(format!(
+                                "Dump all tag data{}",
+                                if ctrl { "+non-structure tag data" } else { "" }
+                            ))
                             .on_hover_text("Dumps the tag data for all tags in the traversal tree")
                             .clicked()
                         {
@@ -520,6 +524,7 @@ impl TagView {
                             if let Err(e) = Self::dump_traversed_tag_data_recursive(
                                 trav_interactive,
                                 &directory,
+                                ctrl,
                             ) {
                                 error!("Failed to dump tag data: {e:?}");
                             }
@@ -719,10 +724,15 @@ impl TagView {
     pub fn dump_traversed_tag_data_recursive(
         tag: &TraversedTag,
         directory: &Path,
+        dump_non_structure: bool,
     ) -> anyhow::Result<()> {
         let tag_postfix = if let Some(entry) = &tag.entry {
+            let ref_postfix = get_class_by_id(entry.reference)
+                .map(|c| format!("_{}", c.name))
+                .unwrap_or_default();
             format!(
-                "_{}",
+                "_{:08X}{ref_postfix}_{}",
+                entry.reference,
                 TagType::from_type_subtype(entry.file_type, entry.file_subtype)
             )
         } else {
@@ -738,8 +748,25 @@ impl TagView {
             Err(e) => error!("Failed to dump data for tag {}: {e:?}", tag.tag),
         }
 
+        if let Some(entry) = &tag.entry {
+            let tagtype = TagType::from_type_subtype(entry.file_type, entry.file_subtype);
+            if !tagtype.is_tag() && dump_non_structure {
+                return Ok(());
+            }
+        }
+
         for subtag in &tag.subtags {
-            Self::dump_traversed_tag_data_recursive(subtag, directory)?;
+            if let Some(entry) = &subtag.entry {
+                let tagtype = TagType::from_type_subtype(entry.file_type, entry.file_subtype);
+                if !tagtype.is_tag() && !dump_non_structure {
+                    continue;
+                }
+            }
+            if let Err(e) =
+                Self::dump_traversed_tag_data_recursive(subtag, directory, dump_non_structure)
+            {
+                error!("Failed to traverse tag {}: {e:?}", subtag.tag);
+            }
         }
 
         Ok(())
@@ -1013,9 +1040,7 @@ impl View for TagView {
                                         ui.label(RichText::new("No arrays found").italics());
                                     } else {
                                         for (offset, array) in &self.arrays {
-                                            let ref_label = CLASS_MAP
-                                                .load()
-                                                .get(&array.tagtype)
+                                            let ref_label = get_class_by_id(array.tagtype)
                                                 .map(|c| {
                                                     format!("{} ({:08X})", c.name, array.tagtype)
                                                 })
@@ -1599,9 +1624,7 @@ pub fn format_tag_entry(tag: TagHash, entry: Option<&UEntryHeader>) -> String {
             .map(|v| format!("{} ", v.name))
             .unwrap_or_default();
 
-        let ref_label = CLASS_MAP
-            .load()
-            .get(&entry.reference)
+        let ref_label = get_class_by_id(entry.reference)
             .map(|c| format!(" ({})", c.name))
             .unwrap_or_default();
 

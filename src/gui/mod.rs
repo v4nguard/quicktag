@@ -17,7 +17,9 @@ mod texturelist;
 
 use std::cell::RefCell;
 use std::io::Write;
+use std::path::Path;
 use std::rc::Rc;
+use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -31,6 +33,7 @@ use eframe::{
 };
 use egui_notify::Toasts;
 use log::info;
+use notify::Watcher;
 use poll_promise::Promise;
 use rustc_hash::FxHashSet;
 use strings::StringViewVariant;
@@ -42,6 +45,7 @@ use self::strings::StringsView;
 use self::tag::TagView;
 use self::texture::TextureCache;
 use self::texturelist::TexturesView;
+use crate::classes;
 use crate::gui::external_file::ExternalFileScanView;
 use crate::gui::tag::TagHistory;
 use crate::scanner::{fnv1, ScannerContext};
@@ -98,6 +102,9 @@ pub struct QuickTagApp {
     raw_strings_view: RawStringsView,
     raw_string_hashes_view: StringsView,
 
+    schemafile_watcher: notify::RecommendedWatcher,
+    schemafile_update_rx: Receiver<Result<notify::Event, notify::Error>>,
+
     pub wgpu_state: RenderState,
 }
 
@@ -120,6 +127,17 @@ impl QuickTagApp {
 
         let strings = Arc::new(create_stringmap().unwrap());
         let texture_cache = TextureCache::new(cc.wgpu_render_state.clone().unwrap());
+
+        let (tx, rx) = std::sync::mpsc::channel();
+        let mut schemafile_watcher = notify::recommended_watcher(tx).unwrap();
+        if !Path::new("schema.txt").exists() {
+            std::fs::File::create("schema.txt").expect("Failed to create schema file");
+        }
+        schemafile_watcher
+            .watch(Path::new("schema.txt"), notify::RecursiveMode::NonRecursive)
+            .unwrap();
+
+        classes::load_schemafile();
 
         QuickTagApp {
             scanner_context: scanner::create_scanner_context(&package_manager())
@@ -158,6 +176,10 @@ impl QuickTagApp {
 
             strings,
             raw_strings: Default::default(),
+
+            schemafile_watcher,
+            schemafile_update_rx: rx,
+
             wgpu_state: cc.wgpu_render_state.clone().unwrap(),
         }
     }
@@ -165,6 +187,11 @@ impl QuickTagApp {
 
 impl eframe::App for QuickTagApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        if self.schemafile_update_rx.try_recv().is_ok() {
+            classes::load_schemafile();
+            info!("Reloaded schema file");
+        }
+
         ctx.set_style(style::style());
         let mut is_loading_cache = false;
         if let Some(cache_promise) = self.cache_load.as_ref() {

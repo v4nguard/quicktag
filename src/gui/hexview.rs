@@ -1,4 +1,4 @@
-use crate::classes::CLASS_MAP;
+use crate::classes::{self, get_class_by_id};
 use crate::gui::common::ResponseExt;
 use crate::gui::tag::{format_tag_entry, ExtendedScanResult};
 use crate::package_manager::package_manager;
@@ -55,6 +55,10 @@ impl TagHexView {
             return None;
         }
 
+        if classes::was_schemafile_refreshed() {
+            self.array_ranges = find_all_array_ranges(&self.data);
+        }
+
         ui.checkbox(&mut self.raw_array_data, "Show raw array data");
         ui.separator();
 
@@ -84,9 +88,7 @@ impl TagHexView {
                                 let heading = if let Some(label) = &array.label {
                                     label.clone()
                                 } else {
-                                    let ref_label = CLASS_MAP
-                                        .load()
-                                        .get(&array.class)
+                                    let ref_label = get_class_by_id(array.class)
                                         .map(|c| format!("{} ({:08X})", c.name, array.class))
                                         .unwrap_or_else(|| format!("{:08X}", array.class));
                                     format!("Array {ref_label} ({} elements)", array.length)
@@ -97,8 +99,7 @@ impl TagHexView {
                         })
                         .body_unindented(|ui| {
                             if !self.raw_array_data && !array.pretty_rows.is_empty() {
-                                let class_size =
-                                    CLASS_MAP.load().get(&array.class).and_then(|c| c.size);
+                                let class_size = get_class_by_id(array.class).and_then(|c| c.size);
                                 for (i, row) in array.pretty_rows.iter().enumerate() {
                                     ui.horizontal(|ui| {
                                         if let Some(class_size) = class_size {
@@ -399,7 +400,7 @@ fn find_all_array_ranges(data: &[u8]) -> Vec<ArrayRange> {
         let start = offset;
         let data_start = offset + 16;
         let mut pretty_rows = vec![];
-        if let Some(class) = CLASS_MAP.load().get(&header.tagtype) {
+        if let Some(class) = get_class_by_id(header.tagtype) {
             if class.has_pretty_formatter() {
                 let class_size = class
                     .size
