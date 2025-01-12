@@ -1,8 +1,10 @@
 use destiny_pkg::{manager::PackagePath, TagHash};
-use eframe::egui::{self, pos2, vec2, Color32, RichText, Stroke, Widget};
+use eframe::egui::{self, pos2, vec2, Color32, Pos2, RichText, Stroke, Ui, Vec2, Widget};
+use eframe::emath::Rot2;
 use std::fmt::{Display, Formatter};
 
 use crate::gui::texture::{Texture, TextureDesc};
+use crate::util::ui_image_rotated;
 use crate::{package_manager::package_manager, tagtypes::TagType};
 
 use super::{common::ResponseExt, texture::TextureCache, View, ViewAction};
@@ -292,11 +294,20 @@ impl View for TexturesView {
                                     let painter = ui.painter_at(img_container_rect);
 
                                     painter.rect_filled(img_container_rect, 4.0, Color32::BLACK);
-                                    painter.image(
+                                    // painter.image(
+                                    //     tid,
+                                    //     img_rect,
+                                    //     // egui::Rect::from_min_size(pos2(0.0, 0.0), vec2(1.0, 1.0)),
+                                    //     egui::Rect::from_min_max(pos2(0.0, 1.0), pos2(1.0, 0.0)),
+                                    //     Color32::WHITE,
+                                    // );
+                                    ui_image_rotated(
+                                        &painter,
                                         tid,
                                         img_rect,
-                                        egui::Rect::from_min_size(pos2(0.0, 0.0), vec2(1.0, 1.0)),
-                                        Color32::WHITE,
+                                        // Rotate the image if it's a cubemap
+                                        if tex.array_size == 6 { 90. } else { 0. },
+                                        tex.array_size == 6,
                                     );
 
                                     if img_container.hovered() {

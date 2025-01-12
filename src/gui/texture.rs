@@ -1,10 +1,12 @@
 use crate::gui::texture::texture_capture::capture_texture;
 use crate::package_manager::package_manager;
+use crate::util::ui_image_rotated;
 use anyhow::Context;
 use binrw::BinReaderExt;
 use destiny_pkg::package::PackagePlatform;
 use destiny_pkg::{GameVersion, TagHash};
 use eframe::egui::load::SizedTexture;
+use eframe::egui::Sense;
 use eframe::egui_wgpu::RenderState;
 use eframe::epaint::mutex::RwLock;
 use eframe::epaint::{vec2, TextureId};
@@ -59,6 +61,7 @@ pub struct Texture {
     pub width: u32,
     pub height: u32,
     pub depth: u32,
+    pub array_size: u32,
 
     pub comment: Option<String>,
 }
@@ -68,14 +71,20 @@ pub struct TextureDesc {
     pub width: u32,
     pub height: u32,
     pub depth: u32,
+    pub array_size: u32,
     /// Should the alpha channel be pre-multiplied on creation?
     pub premultiply_alpha: bool,
 }
 
 impl TextureDesc {
     pub fn info(&self) -> String {
+        let cubemap = if self.array_size == 6 {
+            " (cubemap)"
+        } else {
+            ""
+        };
         format!(
-            "{}x{}x{} {:?}",
+            "{}x{}x{} {:?}{cubemap}",
             self.width, self.height, self.depth, self.format
         )
     }
@@ -392,6 +401,7 @@ impl Texture {
                             format: texture.format.to_wgpu()?,
                             width: texture.width as u32,
                             height: texture.height as u32,
+                            array_size: 1, // TODO
                             depth: texture.depth as u32,
                             premultiply_alpha: false,
                         })
@@ -406,6 +416,7 @@ impl Texture {
                         format: texture.format.to_wgpu()?,
                         width: texture.width as u32,
                         height: texture.height as u32,
+                        array_size: texture.array_size as u32,
                         depth: texture.depth as u32,
                         premultiply_alpha: false,
                     })
@@ -416,6 +427,7 @@ impl Texture {
                         format: texture.format.to_wgpu()?,
                         width: texture.width as u32,
                         height: texture.height as u32,
+                        array_size: texture.array_size as u32,
                         depth: texture.depth as u32,
                         premultiply_alpha: false,
                     })
@@ -449,7 +461,8 @@ impl Texture {
                         width: texture.width as u32,
                         height: texture.height as u32,
                         depth: texture.depth as u32,
-                        premultiply_alpha: false,
+                        array_size: texture.array_size as u32,
+                    premultiply_alpha: false,
                     })
                 }
                 PackagePlatform::Win64 => {
@@ -511,6 +524,7 @@ impl Texture {
                                 width: texture.width as u32,
                                 height: texture.height as u32,
                                 depth: texture.depth as u32,
+                                array_size: 1, // TODO
                                 premultiply_alpha,
                             },
                             texture_data,
@@ -531,6 +545,7 @@ impl Texture {
                             width: texture.width as u32,
                             height: texture.height as u32,
                             depth: texture.depth as u32,
+                            array_size: texture.array_size as u32,
                             premultiply_alpha,
                         },
                         texture_data,
@@ -548,6 +563,7 @@ impl Texture {
                             width: texture.width as u32,
                             height: texture.height as u32,
                             depth: texture.depth as u32,
+                            array_size: texture.array_size as u32,
                             premultiply_alpha,
                         },
                         texture_data,
@@ -572,6 +588,7 @@ impl Texture {
                         width: texture.width as u32,
                         height: texture.height as u32,
                         depth: texture.depth as u32,
+                        array_size: texture.array_size as u32,
                         premultiply_alpha,
                     },
                     texture_data,
@@ -689,6 +706,7 @@ impl Texture {
             width: desc.width,
             height: desc.height,
             depth: desc.depth,
+            array_size: desc.array_size,
             comment,
         })
     }
@@ -704,6 +722,7 @@ impl Texture {
                 format: wgpu::TextureFormat::Rgba8Unorm,
                 width,
                 height,
+                array_size: 1,
                 depth: 1,
                 premultiply_alpha: true,
             },
@@ -838,7 +857,15 @@ impl TextureCache {
                 vec2(max_size.y * texture_aspect_ratio, max_size.y)
             };
 
-            ui.image(SizedTexture::new(egui_tex, tex_size));
+            let (response, painter) = ui.allocate_painter(tex_size, Sense::hover());
+            ui_image_rotated(
+                &painter,
+                egui_tex,
+                response.rect,
+                // Rotate the image if it's a cubemap
+                if tex.array_size == 6 { 90. } else { 0. },
+                tex.array_size == 6,
+            );
 
             ui.label(format!(
                 "{}x{}x{} {:?}",
