@@ -545,7 +545,7 @@ impl TagView {
                                     0,
                                 ));
                             } else {
-                                ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
+                                ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
                                 ui.label(RichText::new(trav_static).monospace());
                             }
                         });

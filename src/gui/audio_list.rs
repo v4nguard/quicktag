@@ -39,7 +39,7 @@ impl AudioSorting {
 fn wwise_stream_type() -> (u8, u8) {
     match package_manager().version {
         GameVersion::DestinyInternalAlpha => (2, 16),
-        GameVersion::DestinyTheTakenKing => (2, 21),
+        GameVersion::DestinyTheTakenKing => (8, 21),
         GameVersion::DestinyRiseOfIron => (8, 21),
         GameVersion::Destiny2Beta
         | GameVersion::Destiny2Forsaken
