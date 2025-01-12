@@ -158,8 +158,7 @@ pub fn scan_file(context: &ScannerContext, data: &[u8], tags_only: bool) -> Scan
 
         if blocked_ranges
             .iter()
-            .find(|range| range.contains(&(offset as u64)))
-            .is_some()
+            .any(|range| range.contains(&(offset as u64)))
         {
             continue;
         }
@@ -281,7 +280,7 @@ pub fn create_scanner_context(package_manager: &PackageManager) -> anyhow::Resul
 
     let mut wordlist = StringCache::default();
     {
-        const WORDLIST: &'static str = include_str!("../wordlist.txt");
+        const WORDLIST: &str = include_str!("../wordlist.txt");
         for s in WORDLIST.lines() {
             let s = s.to_string();
             let h = fnv1(s.as_bytes());

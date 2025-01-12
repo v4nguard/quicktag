@@ -82,10 +82,8 @@ impl View for StringsView {
             .resizable(true)
             .min_width(384.0)
             .show_inside(ui, |ui| {
-                if self.variant == StringViewVariant::LocalizedStrings {
-                    if ui.button("Dump all languages").clicked() {
-                        dump_all_languages().unwrap();
-                    }
+                if self.variant == StringViewVariant::LocalizedStrings && ui.button("Dump all languages").clicked() {
+                    dump_all_languages().unwrap();
                 }
 
                 ui.separator();

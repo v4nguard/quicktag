@@ -265,7 +265,7 @@ impl TagView {
             package_manager()
                 .read_tag(tag_entry.reference)
                 .ok()
-                .map(|d| TagHexView::new(d))
+                .map(TagHexView::new)
         } else {
             None
         };

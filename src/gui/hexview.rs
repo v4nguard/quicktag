@@ -206,7 +206,7 @@ impl TagHexView {
                         if data.iter().all(|&v| v >= 0.0) {
                             let needs_normalization = data.iter().any(|&v| v > 1.0);
                             let floats = if needs_normalization {
-                                let factor = data.clone().into_iter().reduce(f32::max).unwrap();
+                                let factor = (*data).into_iter().reduce(f32::max).unwrap();
                                 [
                                     data[0] / factor,
                                     data[1] / factor,
@@ -214,7 +214,7 @@ impl TagHexView {
                                     data[3] / factor,
                                 ]
                             } else {
-                                data.clone()
+                                *data
                             };
 
                             let color =
@@ -413,7 +413,7 @@ fn find_all_array_ranges(data: &[u8]) -> Vec<ArrayRange> {
                         pretty_rows.push(
                             class
                                 .parse_and_format(data, endian)
-                                .unwrap_or_else(|| format!("Failed to parse row")),
+                                .unwrap_or_else(|| "Failed to parse row".to_string()),
                         );
                     }
                 } else {

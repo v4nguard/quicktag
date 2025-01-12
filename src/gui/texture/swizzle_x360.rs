@@ -49,7 +49,7 @@ fn xg_address_2d_tiled_y(
     let macro_y = (offset_macro / (aligned_width >> 5)) << 2;
     let tile = ((offset_tile >> (6 + log_bpp)) & 1) + ((offset_byte & 0x800) >> 10);
     let macro_ = (macro_y + tile) << 3;
-    let micro = (((offset_tile & ((texel_byte_pitch << 6) - 1 & !0x1F))
+    let micro = (((offset_tile & (((texel_byte_pitch << 6) - 1) & !0x1F))
         + ((offset_tile & 0xF) << 1))
         >> (3 + log_bpp))
         & !1;
@@ -154,8 +154,8 @@ impl Deswizzler for XenosDetiler {
 
         let untiled = untile_x360_image_data(
             &source,
-            width as usize,
-            height as usize,
+            width,
+            height,
             block_pixel_size,
             texel_byte_pitch,
             false,

@@ -267,7 +267,7 @@ impl eframe::App for QuickTagApp {
 
             #[cfg(feature = "wordlist")]
             {
-                const WORDLIST: &'static str = include_str!("../../wordlist.txt");
+                const WORDLIST: &str = include_str!("../../wordlist.txt");
                 let load_start = Instant::now();
                 for s in WORDLIST.lines() {
                     let s = s.to_string();
