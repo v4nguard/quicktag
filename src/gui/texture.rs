@@ -20,12 +20,15 @@ use poll_promise::Promise;
 use rustc_hash::FxHasher;
 use std::hash::BuildHasherDefault;
 use std::io::SeekFrom;
+use swizzle_ps4::GcnDeswizzler;
+use swizzle_x360::XenosDetiler;
 
 use std::rc::Rc;
 use std::sync::Arc;
 
 use super::dxgi::{GcnSurfaceFormat, XenosSurfaceFormat};
 
+mod swizzle_ps4;
 mod swizzle_x360;
 
 #[derive(Debug, BinRead)]
@@ -237,14 +240,15 @@ impl Texture {
 
         let comment = format!("{texture:#X?}");
         if (texture.flags1 & 0xc00) != 0x400 {
-            let mut unswizzled = vec![];
-            swizzle::ps4::unswizzle(
+            let unswizzled = GcnDeswizzler::deswizzle(
                 &texture_data,
-                &mut unswizzled,
                 texture.width as usize,
                 texture.height as usize,
+                texture.depth as usize,
                 texture.format,
-            );
+            )
+            .context("Failed to deswizzle texture")?;
+
             Ok((texture, unswizzled, comment))
         } else {
             Ok((texture, texture_data, comment))
@@ -291,16 +295,15 @@ impl Texture {
 
         let comment = format!("{texture:#X?}");
 
-        let mut untiled = vec![];
-        if let Err(e) = swizzle::xbox::untile(
+        let untiled = XenosDetiler::deswizzle(
             &texture_data,
-            &mut untiled,
-            texture.width as u32,
-            texture.height as u32,
+            texture.width as usize,
+            texture.height as usize,
+            texture.depth as usize,
             texture.format,
-        ) {
-            anyhow::bail!("Failed to untile texture: {e:?}");
-        }
+        )
+        .context("Failed to deswizzle texture")?;
+
         Ok((texture, untiled, comment))
     }
 
@@ -681,12 +684,6 @@ impl Texture {
         )
     }
 
-    // fn to_rgba(&self, rs: &RenderState) -> anyhow::Result<Vec<u8>> {
-    //     capture_texture(rs, self)
-    //         .map(|(data, _, _)| data)
-    //         .context("Failed to capture texture")
-    // }
-
     pub fn to_image(&self, rs: &RenderState) -> anyhow::Result<DynamicImage> {
         let (rgba_data, padded_width, padded_height) = capture_texture(rs, self)?;
         let image = image::RgbaImage::from_raw(padded_width, padded_height, rgba_data)
@@ -835,219 +832,19 @@ impl TextureCache {
     }
 }
 
-mod swizzle {
-    // https://github.com/tge-was-taken/GFD-Studio/blob/dad6c2183a6ec0716c3943b71991733bfbd4649d/GFDLibrary/Textures/Swizzle/SwizzleUtilities.cs#L9
-    fn morton(t: usize, sx: usize, sy: usize) -> usize {
-        let mut num1 = 1;
-        let mut num2 = 1;
-        let mut num3 = t;
-        let mut num4 = sx;
-        let mut num5 = sy;
-        let mut num6 = 0;
-        let mut num7 = 0;
+trait Deswizzler {
+    type Format;
 
-        while num4 > 1 || num5 > 1 {
-            if num4 > 1 {
-                num6 += num2 * (num3 & 1);
-                num3 >>= 1;
-                num2 *= 2;
-                num4 >>= 1;
-            }
-            if num5 > 1 {
-                num7 += num1 * (num3 & 1);
-                num3 >>= 1;
-                num1 *= 2;
-                num5 >>= 1;
-            }
-        }
-
-        num7 * sx + num6
-    }
-
-    pub(crate) mod ps4 {
-        use crate::gui::dxgi::GcnSurfaceFormat;
-
-        // https://github.com/tge-was-taken/GFD-Studio/blob/dad6c2183a6ec0716c3943b71991733bfbd4649d/GFDLibrary/Textures/Swizzle/PS4SwizzleAlgorithm.cs#L20
-        fn do_swizzle(
-            source: &[u8],
-            destination: &mut [u8],
-            width: usize,
-            height: usize,
-            format: GcnSurfaceFormat,
-            unswizzle: bool,
-        ) {
-            let pixel_block_size = format.pixel_block_size();
-            let block_size = format.block_size();
-
-            let width_src = if format.is_compressed() {
-                width.next_power_of_two()
-            } else {
-                width
-            };
-            let height_src = if format.is_compressed() {
-                height.next_power_of_two()
-            } else {
-                height
-            };
-
-            let width_texels_dest = width / pixel_block_size;
-            let height_texels_dest = height / pixel_block_size;
-
-            let width_texels = width_src / pixel_block_size;
-            let width_texels_aligned = (width_texels + 7) / 8;
-            let height_texels = height_src / pixel_block_size;
-            let height_texels_aligned = (height_texels + 7) / 8;
-            let mut data_index = 0;
-
-            for y in 0..height_texels_aligned {
-                for x in 0..width_texels_aligned {
-                    for t in 0..64 {
-                        let pixel_index = super::morton(t, 8, 8);
-                        let div = pixel_index / 8;
-                        let rem = pixel_index % 8;
-                        let x_offset = (x * 8) + rem;
-                        let y_offset = (y * 8) + div;
-
-                        if x_offset < width_texels_dest && y_offset < height_texels_dest {
-                            let dest_pixel_index = y_offset * width_texels_dest + x_offset;
-                            let dest_index = block_size * dest_pixel_index;
-                            let (src, dst) = if unswizzle {
-                                (data_index, dest_index)
-                            } else {
-                                (dest_index, data_index)
-                            };
-
-                            if (src + block_size) < source.len()
-                                && (dst + block_size) < destination.len()
-                            {
-                                destination[dst..dst + block_size]
-                                    .copy_from_slice(&source[src..src + block_size]);
-                            }
-                        }
-
-                        data_index += block_size;
-                    }
-                }
-            }
-        }
-
-        pub(crate) fn unswizzle(
-            source: &[u8],
-            destination: &mut Vec<u8>,
-            width: usize,
-            height: usize,
-            format: GcnSurfaceFormat,
-        ) {
-            destination.resize(source.len(), 0);
-            do_swizzle(source, destination, width, height, format, true);
-        }
-    }
-
-    pub(crate) mod xbox {
-        use log::warn;
-
-        use crate::gui::{
-            dxgi::XenosSurfaceFormat,
-            texture::swizzle_x360::{swap_byte_order_x360, untile_x360},
-        };
-
-        // https://github.com/BinomialLLC/crunch/blob/ea9b8d8c00c8329791256adafa8cf11e4e7942a2/inc/crn_decomp.h#L4108
-        fn tiled_offset2d_row(y: u32, width: u32, log2_bpp: u32) -> u32 {
-            let umacro = ((y / 32) * (width / 32)) << (log2_bpp + 7);
-            let micro = ((y & 6) << 2) << log2_bpp;
-            return umacro
-                + ((micro & !0xF) << 1)
-                + (micro & 0xF)
-                + ((y & 8) << (3 + log2_bpp))
-                + ((y & 1) << 4);
-        }
-
-        fn tiled_offset2d_column(x: u32, y: u32, log2_bpp: u32, base_offset: u32) -> u32 {
-            let umacro = (x / 32) << (log2_bpp + 7);
-            let micro = (x & 7) << log2_bpp;
-            let offset = base_offset + (umacro + ((micro & !0xF) << 1) + (micro & 0xF));
-            return ((offset & !0x1FF) << 3)
-                + ((offset & 0x1C0) << 2)
-                + (offset & 0x3F)
-                + ((y & 16) << 7)
-                + (((((y & 8) >> 2) + (x >> 3)) & 3) << 6);
-        }
-
-        pub(crate) fn untile(
-            source: &[u8],
-            destination: &mut Vec<u8>,
-            width: u32,
-            height: u32,
-            format: XenosSurfaceFormat,
-        ) -> anyhow::Result<()> {
-            let (block_pixel_size, texel_byte_pitch) = match format {
-                XenosSurfaceFormat::k_DXT1 | XenosSurfaceFormat::k_DXT1_AS_16_16_16_16 => (4, 8),
-                XenosSurfaceFormat::k_DXN
-                | XenosSurfaceFormat::k_DXT2_3
-                | XenosSurfaceFormat::k_DXT2_3_AS_16_16_16_16
-                | XenosSurfaceFormat::k_DXT3A
-                | XenosSurfaceFormat::k_DXT3A_AS_1_1_1_1
-                | XenosSurfaceFormat::k_DXT4_5
-                | XenosSurfaceFormat::k_DXT4_5_AS_16_16_16_16
-                | XenosSurfaceFormat::k_DXT5A => (4, 16),
-                XenosSurfaceFormat::k_8_8_8_8
-                | XenosSurfaceFormat::k_8_8_8_8_A
-                | XenosSurfaceFormat::k_8_8_8_8_AS_16_16_16_16 => (1, 4),
-                XenosSurfaceFormat::k_8 => (1, 1),
-                _ => {
-                    warn!("Unsupported format for untile: {:?}", format);
-                    (1, 4)
-                }
-            };
-
-            let mut source = source.to_vec();
-            if !matches!(
-                format,
-                XenosSurfaceFormat::k_8_8_8_8
-                    | XenosSurfaceFormat::k_8_8_8_8_A
-                    | XenosSurfaceFormat::k_8_8_8_8_AS_16_16_16_16
-            ) {
-                swap_byte_order_x360(&mut source);
-            }
-
-            let untiled = untile_x360(
-                &source,
-                width as usize,
-                height as usize,
-                block_pixel_size,
-                texel_byte_pitch,
-            )?;
-
-            match format {
-                // ARGB => RGBA
-                XenosSurfaceFormat::k_8_8_8_8 | XenosSurfaceFormat::k_8_8_8_8_A => {
-                    for chunk in untiled.chunks_exact(4) {
-                        destination.extend_from_slice(&[chunk[1], chunk[2], chunk[3], chunk[0]]);
-                    }
-                }
-                _ => {
-                    destination.extend_from_slice(&untiled);
-                }
-            }
-            Ok(())
-
-            // let width_blocks = (width + block_width - 1) / block_width;
-            // let height_blocks = (height + block_height - 1) / block_height;
-
-            // let pitch = width_blocks * bytes_per_block;
-            // let log2_bpp = (bytes_per_block / 4) + ((bytes_per_block / 2) >> (bytes_per_block / 4));
-        }
-    }
+    fn deswizzle(
+        data: &[u8],
+        width: usize,
+        height: usize,
+        depth: usize,
+        format: Self::Format,
+    ) -> anyhow::Result<Vec<u8>>;
 }
 
 mod texture_capture {
-    // fn capture_texture(
-    //     rs: &super::RenderState,
-    //     texture: &super::Texture,
-    // ) -> anyhow::Result<Vec<u8>> {
-    //     todo!()
-    // }
-
     /// Capture a texture to a raw RGBA buffer
     pub fn capture_texture(
         rs: &super::RenderState,

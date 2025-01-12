@@ -1,7 +1,10 @@
 // Adapted from https://github.com/bartlomiejduda/ReverseBox/blob/main/reversebox/image/swizzling/swizzle_x360.py
 
-use anyhow::Context;
 use log::warn;
+
+use crate::gui::dxgi::XenosSurfaceFormat;
+
+use super::Deswizzler;
 
 pub fn swap_byte_order_x360(image_data: &mut [u8]) {
     for chunk in image_data.chunks_mut(2) {
@@ -18,7 +21,7 @@ fn xg_address_2d_tiled_x(
     let log_bpp = (texel_byte_pitch >> 2) + ((texel_byte_pitch >> 1) >> (texel_byte_pitch >> 2));
     let offset_byte = block_offset << log_bpp;
     let offset_tile =
-        (((offset_byte & !0xFFF) >> 3) + ((offset_byte & 0x700) >> 2) + (offset_byte & 0x3F));
+        ((offset_byte & !0xFFF) >> 3) + ((offset_byte & 0x700) >> 2) + (offset_byte & 0x3F);
     let offset_macro = offset_tile >> (7 + log_bpp);
 
     let macro_x = (offset_macro % (aligned_width >> 5)) << 2;
@@ -40,7 +43,7 @@ fn xg_address_2d_tiled_y(
     let log_bpp = (texel_byte_pitch >> 2) + ((texel_byte_pitch >> 1) >> (texel_byte_pitch >> 2));
     let offset_byte = block_offset << log_bpp;
     let offset_tile =
-        (((offset_byte & !0xFFF) >> 3) + ((offset_byte & 0x700) >> 2) + (offset_byte & 0x3F));
+        ((offset_byte & !0xFFF) >> 3) + ((offset_byte & 0x700) >> 2) + (offset_byte & 0x3F);
     let offset_macro = offset_tile >> (7 + log_bpp);
 
     let macro_y = (offset_macro / (aligned_width >> 5)) << 2;
@@ -54,13 +57,13 @@ fn xg_address_2d_tiled_y(
     macro_ + micro + ((offset_tile & 0x10) >> 4)
 }
 
-fn convert_x360_image_data(
+fn untile_x360_image_data(
     image_data: &[u8],
     image_width: usize,
     image_height: usize,
     block_pixel_size: usize,
     texel_byte_pitch: usize,
-    swizzle_flag: bool,
+    deswizzle: bool,
 ) -> anyhow::Result<Vec<u8>> {
     let mut converted_data = vec![0; image_data.len()];
 
@@ -75,10 +78,13 @@ fn convert_x360_image_data(
             let src_byte_offset = j * width_in_blocks * texel_byte_pitch + i * texel_byte_pitch;
             let dest_byte_offset = y * width_in_blocks * texel_byte_pitch + x * texel_byte_pitch;
 
-            if dest_byte_offset + texel_byte_pitch > converted_data.len() {
+            if dest_byte_offset + texel_byte_pitch > converted_data.len()
+                || src_byte_offset + texel_byte_pitch > image_data.len()
+            {
                 continue;
             }
-            if !swizzle_flag {
+
+            if deswizzle {
                 match image_data.get(src_byte_offset..src_byte_offset + texel_byte_pitch) {
                     Some(source) => {
                         converted_data[dest_byte_offset..dest_byte_offset + texel_byte_pitch]
@@ -105,20 +111,69 @@ fn convert_x360_image_data(
     Ok(converted_data)
 }
 
-pub fn untile_x360(
-    image_data: &[u8],
-    img_width: usize,
-    img_height: usize,
-    block_pixel_size: usize,
-    texel_byte_pitch: usize,
-) -> anyhow::Result<Vec<u8>> {
-    // let swapped_data = swap_byte_order(image_data);
-    convert_x360_image_data(
-        image_data,
-        img_width,
-        img_height,
-        block_pixel_size,
-        texel_byte_pitch,
-        false,
-    )
+pub struct XenosDetiler;
+
+impl Deswizzler for XenosDetiler {
+    type Format = XenosSurfaceFormat;
+    fn deswizzle(
+        data: &[u8],
+        width: usize,
+        height: usize,
+        _depth: usize,
+        format: Self::Format,
+    ) -> anyhow::Result<Vec<u8>> {
+        let (block_pixel_size, texel_byte_pitch) = match format {
+            XenosSurfaceFormat::k_DXT1 | XenosSurfaceFormat::k_DXT1_AS_16_16_16_16 => (4, 8),
+            XenosSurfaceFormat::k_DXN
+            | XenosSurfaceFormat::k_DXT2_3
+            | XenosSurfaceFormat::k_DXT2_3_AS_16_16_16_16
+            | XenosSurfaceFormat::k_DXT3A
+            | XenosSurfaceFormat::k_DXT3A_AS_1_1_1_1
+            | XenosSurfaceFormat::k_DXT4_5
+            | XenosSurfaceFormat::k_DXT4_5_AS_16_16_16_16
+            | XenosSurfaceFormat::k_DXT5A => (4, 16),
+            XenosSurfaceFormat::k_8_8_8_8
+            | XenosSurfaceFormat::k_8_8_8_8_A
+            | XenosSurfaceFormat::k_8_8_8_8_AS_16_16_16_16 => (1, 4),
+            XenosSurfaceFormat::k_8 => (1, 1),
+            _ => {
+                warn!("Unsupported format for untile: {:?}", format);
+                (1, 4)
+            }
+        };
+
+        let mut source = data.to_vec();
+        if !matches!(
+            format,
+            XenosSurfaceFormat::k_8_8_8_8
+                | XenosSurfaceFormat::k_8_8_8_8_A
+                | XenosSurfaceFormat::k_8_8_8_8_AS_16_16_16_16
+        ) {
+            swap_byte_order_x360(&mut source);
+        }
+
+        let untiled = untile_x360_image_data(
+            &source,
+            width as usize,
+            height as usize,
+            block_pixel_size,
+            texel_byte_pitch,
+            false,
+        )?;
+
+        let mut result = Vec::with_capacity(untiled.len());
+        match format {
+            // ARGB => RGBA
+            XenosSurfaceFormat::k_8_8_8_8 | XenosSurfaceFormat::k_8_8_8_8_A => {
+                for chunk in untiled.chunks_exact(4) {
+                    result.extend_from_slice(&[chunk[1], chunk[2], chunk[3], chunk[0]]);
+                }
+            }
+            _ => {
+                result.extend_from_slice(&untiled);
+            }
+        }
+
+        Ok(result)
+    }
 }
