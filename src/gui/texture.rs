@@ -1,11 +1,13 @@
 use crate::gui::dxgi::DxgiFormat;
 use crate::gui::texture::texture_capture::capture_texture;
 use crate::package_manager::package_manager;
+use crate::util::ui_image_rotated;
 use anyhow::Context;
 use binrw::{BinRead, BinReaderExt};
 use destiny_pkg::package::PackagePlatform;
 use destiny_pkg::{GameVersion, TagHash};
 use eframe::egui::load::SizedTexture;
+use eframe::egui::Sense;
 use eframe::egui_wgpu::RenderState;
 use eframe::epaint::mutex::RwLock;
 use eframe::epaint::{vec2, TextureId};
@@ -132,6 +134,7 @@ pub struct Texture {
     pub width: u32,
     pub height: u32,
     pub depth: u32,
+    pub array_size: u32,
 
     pub comment: Option<String>,
 }
@@ -675,6 +678,7 @@ impl Texture {
             width: desc.width,
             height: desc.height,
             depth: desc.depth,
+            array_size: desc.array_size,
             comment,
         })
     }
@@ -825,7 +829,15 @@ impl TextureCache {
                 vec2(max_size.y * texture_aspect_ratio, max_size.y)
             };
 
-            ui.image(SizedTexture::new(egui_tex, tex_size));
+            let (response, painter) = ui.allocate_painter(tex_size, Sense::hover());
+            ui_image_rotated(
+                &painter,
+                egui_tex,
+                response.rect,
+                // Rotate the image if it's a cubemap
+                if tex.array_size == 6 { 90. } else { 0. },
+                tex.array_size == 6,
+            );
 
             ui.label(format!(
                 "{}x{}x{} {:?}",

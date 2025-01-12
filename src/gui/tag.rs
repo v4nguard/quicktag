@@ -23,6 +23,7 @@ use crate::classes::get_class_by_id;
 use crate::gui::hexview::TagHexView;
 use crate::package_manager::get_hash64;
 use crate::scanner::ScannedHash;
+use crate::util::ui_image_rotated;
 use crate::{gui::texture::Texture, scanner::read_raw_string_blob, text::RawStringHashCache};
 use crate::{
     package_manager::package_manager,
@@ -33,6 +34,7 @@ use crate::{
 use binrw::{binread, BinReaderExt, Endian};
 use destiny_pkg::{package::UEntryHeader, GameVersion, TagHash, TagHash64};
 use eframe::egui::load::SizedTexture;
+use eframe::egui::Sense;
 use eframe::egui::{collapsing_header::CollapsingState, vec2, RichText, TextureId};
 use eframe::egui_wgpu::RenderState;
 use eframe::wgpu::naga::{FastHashSet, FastIndexMap};
@@ -556,30 +558,35 @@ impl TagView {
             }
         } else if self.tag_type.is_texture() && self.tag_type.is_header() {
             match &self.texture {
-                Ok((t, egui_texture)) => {
+                Ok((tex, egui_texture)) => {
                     let min_dimension = ui.available_size().min_elem();
-                    let size = if t.width > t.height {
+                    let size = if tex.width > tex.height {
                         vec2(
                             min_dimension,
-                            min_dimension * t.height as f32 / t.width as f32,
+                            min_dimension * tex.height as f32 / tex.width as f32,
                         )
                     } else {
                         vec2(
-                            min_dimension * t.width as f32 / t.height as f32,
+                            min_dimension * tex.width as f32 / tex.height as f32,
                             min_dimension,
                         )
                     } * 0.8;
-                    ui.image(SizedTexture {
-                        id: *egui_texture,
-                        size,
-                    });
+                    let (response, painter) = ui.allocate_painter(size, Sense::hover());
+                    ui_image_rotated(
+                        &painter,
+                        *egui_texture,
+                        response.rect,
+                        // Rotate the image if it's a cubemap
+                        if tex.array_size == 6 { 90. } else { 0. },
+                        tex.array_size == 6,
+                    );
 
                     ui.label(format!(
                         "{}x{}x{} {:?}",
-                        t.width, t.height, t.depth, t.format
+                        tex.width, tex.height, tex.depth, tex.format
                     ));
 
-                    if let Some(ref comment) = t.comment {
+                    if let Some(ref comment) = tex.comment {
                         ui.collapsing("Texture Header", |ui| {
                             ui.weak(comment);
                         });
@@ -862,9 +869,10 @@ impl View for TagView {
                 open_tag_in_default_application(self.tag_entry.reference.into());
             }
 
-            
             if ui.button("Copy all hashes referencing this tag").clicked() {
-                let tag_hashes_str = self.scan.references
+                let tag_hashes_str = self
+                    .scan
+                    .references
                     .iter()
                     .map(|(hash, _entry)| format!("{}", hash))
                     .collect::<Vec<String>>()
