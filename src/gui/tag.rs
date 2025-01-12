@@ -434,7 +434,7 @@ impl TagView {
         }
 
         if self.tag_type.is_tag() {
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 if ui
                     .add_enabled(
                         self.tag_traversal
@@ -981,46 +981,6 @@ impl View for TagView {
                 });
             });
 
-        egui::CentralPanel::default().show_inside(ui, |ui| {
-            ui.horizontal(|ui| {
-                ui.selectable_value(&mut self.mode, TagViewMode::Traversal, "Traversal");
-                ui.selectable_value(&mut self.mode, TagViewMode::Hex, "Hex");
-                ui.selectable_value(&mut self.mode, TagViewMode::Float, "Floating point");
-                if self.hexview_referenced.is_some() {
-                    ui.selectable_value(
-                        &mut self.mode,
-                        TagViewMode::HexReferenced,
-                        "Hex (referenced data)",
-                    );
-                }
-                ui.selectable_value(&mut self.mode, TagViewMode::Search, "Search");
-            });
-
-            ui.separator();
-
-            match self.mode {
-                TagViewMode::Traversal => {
-                    open_new_tag = open_new_tag.or(self.traverse_ui(ui));
-                }
-                TagViewMode::Hex => {
-                    open_new_tag = open_new_tag.or(self.hexview.show(ui, &self.scan));
-                }
-                TagViewMode::HexReferenced => {
-                    if let Some(h) = self.hexview_referenced.as_mut() {
-                        open_new_tag = open_new_tag.or(h.show(ui, &self.scan));
-                    } else {
-                        self.mode = TagViewMode::Hex;
-                    }
-                }
-                TagViewMode::Float => {
-                    self.floatview_ui(ui);
-                }
-                TagViewMode::Search => {
-                    open_new_tag = open_new_tag.or(self.search_ui(ui));
-                }
-            }
-        });
-
         if !self.string_hashes.is_empty()
             || !self.raw_strings.is_empty()
             || !self.raw_string_hashes.is_empty()
@@ -1238,6 +1198,46 @@ impl View for TagView {
                     });
                 });
         }
+
+        egui::CentralPanel::default().show_inside(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.selectable_value(&mut self.mode, TagViewMode::Traversal, "Traversal");
+                ui.selectable_value(&mut self.mode, TagViewMode::Hex, "Hex");
+                ui.selectable_value(&mut self.mode, TagViewMode::Float, "Floating point");
+                if self.hexview_referenced.is_some() {
+                    ui.selectable_value(
+                        &mut self.mode,
+                        TagViewMode::HexReferenced,
+                        "Hex (referenced data)",
+                    );
+                }
+                ui.selectable_value(&mut self.mode, TagViewMode::Search, "Search");
+            });
+
+            ui.separator();
+
+            match self.mode {
+                TagViewMode::Traversal => {
+                    open_new_tag = open_new_tag.or(self.traverse_ui(ui));
+                }
+                TagViewMode::Hex => {
+                    open_new_tag = open_new_tag.or(self.hexview.show(ui, &self.scan));
+                }
+                TagViewMode::HexReferenced => {
+                    if let Some(h) = self.hexview_referenced.as_mut() {
+                        open_new_tag = open_new_tag.or(h.show(ui, &self.scan));
+                    } else {
+                        self.mode = TagViewMode::Hex;
+                    }
+                }
+                TagViewMode::Float => {
+                    self.floatview_ui(ui);
+                }
+                TagViewMode::Search => {
+                    open_new_tag = open_new_tag.or(self.search_ui(ui));
+                }
+            }
+        });
 
         ctx.request_repaint_after(Duration::from_secs(1));
 
