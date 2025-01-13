@@ -373,6 +373,7 @@ pub fn dump_wwise_info(package_id: u16) {
     });
 }
 
+#[allow(clippy::erasing_op)]
 fn assemble_cubemap(images: Vec<DynamicImage>) -> DynamicImage {
     let tile_w = images[0].width();
     let tile_h = images[0].height();
