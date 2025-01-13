@@ -13,6 +13,7 @@ use crate::package_manager::get_hash64;
 use crate::{package_manager::package_manager, tagtypes::TagType};
 
 use super::texture::{Texture, TextureCache};
+use super::TOASTS;
 
 lazy_static! {
     static ref CF_PNG: NonZeroU32 = clipboard_win::register_format("PNG").unwrap();
@@ -72,6 +73,8 @@ impl ResponseExt for egui::Response {
                                 bytemuck::cast_slice(&path_utf16),
                             ) {
                                 error!("Failed to copy texture path to clipboard: {e}");
+                            } else {
+                                TOASTS.lock().success("Texture copied to clipboard");
                             }
                         }
                         Err(e) => {
@@ -102,6 +105,7 @@ impl ResponseExt for egui::Response {
                                     .save(format!("textures/{tag}_cubemap.png"))
                                     .unwrap();
                             }
+                            TOASTS.lock().success("Texture saved");
                         }
                         Err(e) => {
                             error!("Failed to load texture: {e}");

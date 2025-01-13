@@ -31,8 +31,10 @@ use eframe::{
     epaint::{Color32, Rounding, Vec2},
 };
 use egui_notify::Toasts;
+use lazy_static::lazy_static;
 use log::info;
 use notify::Watcher;
+use parking_lot::Mutex;
 use poll_promise::Promise;
 use rustc_hash::FxHashSet;
 use strings::StringViewVariant;
@@ -70,6 +72,10 @@ pub enum Panel {
     ExternalFile,
 }
 
+lazy_static! {
+    pub static ref TOASTS: Arc<Mutex<Toasts>> = Arc::new(Mutex::new(Toasts::new()));
+}
+
 pub struct QuickTagApp {
     scanner_context: ScannerContext,
     cache_load: Option<Promise<TagCache>>,
@@ -84,8 +90,6 @@ pub struct QuickTagApp {
     tag_split: bool,
     /// (pkg id, entry index)
     tag_split_input: (String, String),
-
-    toasts: Toasts,
 
     open_panel: Panel,
 
@@ -152,7 +156,6 @@ impl QuickTagApp {
             tag_split: false,
             tag_split_input: (String::new(), String::new()),
 
-            toasts: Toasts::default(),
             texture_cache: texture_cache.clone(),
 
             open_panel: Panel::Tag,
@@ -508,7 +511,7 @@ impl eframe::App for QuickTagApp {
             });
         });
 
-        self.toasts.show(ctx);
+        TOASTS.lock().show(ctx);
 
         // Redraw the window while we're loading textures. This prevents loading textures from seeming "stuck"
         if self.texture_cache.is_loading_textures() {
@@ -532,12 +535,13 @@ impl QuickTagApp {
             self.tag_view = new_view;
             self.open_panel = Panel::Tag;
         } else if package_manager().get_entry(tag).is_some() {
-            self.toasts.warning(format!(
+            TOASTS.lock().warning(format!(
                 "Could not find tag '{}' ({tag}) in cache\nThis usually means it has no references",
                 self.tag_input
             ));
         } else {
-            self.toasts
+            TOASTS
+                .lock()
                 .error(format!("Could not find tag '{}' ({tag})", self.tag_input));
         }
 
