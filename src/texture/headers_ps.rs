@@ -60,8 +60,6 @@ pub struct TextureHeaderRoiPs4 {
 #[derive(Debug, BinRead)]
 #[br(big)]
 pub struct TextureHeaderPs3 {
-    // _format: u8,
-    // #[br(try_calc(GcmSurfaceFormat::try_from(_format & 0x9F)))] // 0x20: swizzle
     #[br(try_map(|v: u8| GcmSurfaceFormat::try_from(v & 0x9F)))]
     pub format: GcmSurfaceFormat,
 
@@ -75,7 +73,4 @@ pub struct TextureHeaderPs3 {
     pub height: u16,
     pub depth: u16,
     pub array_size: u16,
-    // pub flags1: u32,
-    // pub flags2: u32,
-    // pub flags3: u32,
 }

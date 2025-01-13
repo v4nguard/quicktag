@@ -918,8 +918,8 @@ pub enum GcmSurfaceFormat {
     COMPRESSED_DXT23 = 0x87,
     COMPRESSED_DXT45 = 0x88,
     G8B8 = 0x8B,
-    COMPRESSED_B8R8_G8R8 = 0x8D, // NOTE: 0xAD in firmware
-    COMPRESSED_R8B8_R8G8 = 0x8E, // NOTE: 0xAE in firmware
+    COMPRESSED_B8R8_G8R8 = 0x8D,
+    COMPRESSED_R8B8_R8G8 = 0x8E,
     R6G5B5 = 0x8F,
     DEPTH24_D8 = 0x90,
     DEPTH24_D8_FLOAT = 0x91,
@@ -942,30 +942,20 @@ impl GcmSurfaceFormat {
     pub fn to_wgpu(self) -> anyhow::Result<wgpu::TextureFormat> {
         Ok(match self {
             GcmSurfaceFormat::B8 => wgpu::TextureFormat::R8Unorm,
-            GcmSurfaceFormat::A1R5G5B5 => todo!(),
-            // GcmSurfaceFormat::A4R4G4B4 => todo!(),
-            // GcmSurfaceFormat::R5G6B5 => todo!(),
             GcmSurfaceFormat::A8R8G8B8 => wgpu::TextureFormat::Rgba8UnormSrgb,
             GcmSurfaceFormat::COMPRESSED_DXT1 => wgpu::TextureFormat::Bc1RgbaUnormSrgb,
             GcmSurfaceFormat::COMPRESSED_DXT23 => wgpu::TextureFormat::Bc2RgbaUnormSrgb,
             GcmSurfaceFormat::COMPRESSED_DXT45 => wgpu::TextureFormat::Bc3RgbaUnormSrgb,
             GcmSurfaceFormat::G8B8 => wgpu::TextureFormat::Rg8Unorm,
-            // GcmSurfaceFormat::COMPRESSED_B8R8_G8R8 => todo!(),
-            // GcmSurfaceFormat::COMPRESSED_R8B8_R8G8 => todo!(),
-            // GcmSurfaceFormat::R6G5B5 => todo!(),
             GcmSurfaceFormat::DEPTH24_D8 => wgpu::TextureFormat::Depth24PlusStencil8,
             GcmSurfaceFormat::DEPTH24_D8_FLOAT => wgpu::TextureFormat::Depth24PlusStencil8,
             GcmSurfaceFormat::DEPTH16 => wgpu::TextureFormat::Depth16Unorm,
             GcmSurfaceFormat::DEPTH16_FLOAT => wgpu::TextureFormat::Depth16Unorm,
             GcmSurfaceFormat::X16 => wgpu::TextureFormat::R16Unorm,
             GcmSurfaceFormat::Y16_X16 => wgpu::TextureFormat::Rg16Unorm,
-            // GcmSurfaceFormat::R5G5B5A1 => todo!(),
-            // GcmSurfaceFormat::COMPRESSED_HILO8 => todo!(),
-            // GcmSurfaceFormat::COMPRESSED_HILO_S8 => todo!(),
             GcmSurfaceFormat::W16_Z16_Y16_X16_FLOAT => wgpu::TextureFormat::Rgba16Float,
             GcmSurfaceFormat::W32_Z32_Y32_X32_FLOAT => wgpu::TextureFormat::Rgba32Float,
             GcmSurfaceFormat::X32_FLOAT => wgpu::TextureFormat::R32Float,
-            // GcmSurfaceFormat::D1R5G5B5 => todo!(),
             GcmSurfaceFormat::D8R8G8B8 => wgpu::TextureFormat::Rgba8UnormSrgb,
             GcmSurfaceFormat::Y16_X16_FLOAT => wgpu::TextureFormat::Rg16Float,
             u => anyhow::bail!("Unsupported GCM surface format conversion ({u:?} => ??)"),
@@ -990,7 +980,7 @@ impl GcmSurfaceFormat {
             GcmSurfaceFormat::Y16_X16 => 32,
             GcmSurfaceFormat::R5G5B5A1 => 16,
             GcmSurfaceFormat::Y16_X16_FLOAT => 32,
-            _ => todo!(),
+            u => unimplemented!("Unsupported GCM surface format bpp ({u:?} => ??)"),
         }
     }
 
