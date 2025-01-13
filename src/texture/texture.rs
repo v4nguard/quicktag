@@ -437,12 +437,14 @@ impl Texture {
             );
         }
 
+        let mut data = texture_data.clone();
         let comment = format!("{texture:#X?}");
+
         if (texture.format as u8 & 0x20) != 0
             || (texture.format == GcmSurfaceFormat::A8R8G8B8 && texture.flags1 == 0)
             || texture.format == GcmSurfaceFormat::B8
         {
-            let unswizzled = GcmDeswizzler
+            data = GcmDeswizzler
                 .deswizzle(
                     &texture_data,
                     texture.width as usize,
@@ -456,12 +458,10 @@ impl Texture {
                     false,
                 )
                 .context("Failed to deswizzle texture")?;
-
-            Ok((texture, unswizzled, comment))
-        } else {
-            let unswizzled = GcmDeswizzler::color_deswizzle(&texture_data, texture.format);
-            Ok((texture, unswizzled, comment))
         }
+
+        let unswizzled = GcmDeswizzler::color_deswizzle(&data, texture.format);
+        Ok((texture, unswizzled, comment))
     }
 
     pub fn load_desc(hash: TagHash) -> anyhow::Result<TextureDesc> {

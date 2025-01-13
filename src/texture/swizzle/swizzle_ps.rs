@@ -92,21 +92,7 @@ mod ps3 {
                 data_index += block_size;
             }
         }
-
-        let mut result = Vec::with_capacity(untiled.len());
-        match format {
-            // ARGB => RGBA
-            GcmSurfaceFormat::A8R8G8B8 => {
-                for chunk in untiled.chunks_exact(4) {
-                    result.extend_from_slice(&[chunk[1], chunk[2], chunk[3], chunk[0]]);
-                }
-            }
-            _ => {
-                result.extend_from_slice(&untiled);
-            }
-        }
-
-        result
+        untiled
     }
 }
 
