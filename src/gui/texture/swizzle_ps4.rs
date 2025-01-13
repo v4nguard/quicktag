@@ -43,15 +43,10 @@ fn do_swizzle(
     let pixel_block_size = format.pixel_block_size();
     let block_size = format.block_size();
 
-    let width_src = if align_output && format.is_compressed() {
-        width.next_power_of_two()
+    let (width_src, height_src) = if align_output && format.is_compressed() {
+        (width.next_power_of_two(), height.next_power_of_two())
     } else {
-        width
-    };
-    let height_src = if align_output && format.is_compressed() {
-        height.next_power_of_two()
-    } else {
-        height
+        (width, height)
     };
 
     let width_texels_dest = width / pixel_block_size;

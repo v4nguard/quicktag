@@ -48,8 +48,46 @@ pub struct TextureHeaderGeneric {
     pub array_size: u16,
     pub large_buffer: Option<TagHash>,
 
-    pub deswizzle: Option<bool>,
+    pub deswizzle: bool,
     pub psformat: Option<GcnSurfaceFormat>,
+}
+
+impl TryFrom<TextureHeaderD2Ps4> for TextureHeaderGeneric {
+    type Error = anyhow::Error;
+
+    fn try_from(v: TextureHeaderD2Ps4) -> Result<Self, Self::Error> {
+        Ok(TextureHeaderGeneric {
+            data_size: v.data_size,
+            format: v.format.to_wgpu()?,
+            width: v.width,
+            height: v.height,
+            depth: v.depth,
+            array_size: v.array_size,
+            large_buffer: v.large_buffer,
+
+            deswizzle: (v.flags1 & 0xc00) != 0x400,
+            psformat: Some(v.format),
+        })
+    }
+}
+
+impl TryFrom<TextureHeaderPC> for TextureHeaderGeneric {
+    type Error = anyhow::Error;
+
+    fn try_from(v: TextureHeaderPC) -> Result<Self, Self::Error> {
+        Ok(TextureHeaderGeneric {
+            data_size: v.data_size,
+            format: v.format.to_wgpu()?,
+            width: v.width,
+            height: v.height,
+            depth: v.depth,
+            array_size: v.array_size,
+            large_buffer: v.large_buffer,
+
+            deswizzle: false,
+            psformat: None,
+        })
+    }
 }
 
 pub struct Texture {
@@ -116,33 +154,11 @@ impl Texture {
         let texture: TextureHeaderGeneric = match package_manager().platform {
             PackagePlatform::PS4 => {
                 let texheader: TextureHeaderD2Ps4 = cur.read_le_args((is_prebl,))?;
-                TextureHeaderGeneric {
-                    data_size: texheader.data_size,
-                    format: texheader.format.to_wgpu()?,
-                    width: texheader.width,
-                    height: texheader.height,
-                    depth: texheader.depth,
-                    array_size: texheader.array_size,
-                    large_buffer: texheader.large_buffer,
-
-                    deswizzle: Some((texheader.flags1 & 0xc00) != 0x400),
-                    psformat: Some(texheader.format),
-                }
+                TextureHeaderGeneric::try_from(texheader)?
             }
             PackagePlatform::Win64 => {
                 let texheader: TextureHeaderPC = cur.read_le_args((is_prebl,))?;
-                TextureHeaderGeneric {
-                    data_size: texheader.data_size,
-                    format: texheader.format.to_wgpu()?,
-                    width: texheader.width,
-                    height: texheader.height,
-                    depth: texheader.depth,
-                    array_size: texheader.array_size,
-                    large_buffer: texheader.large_buffer,
-
-                    deswizzle: None,
-                    psformat: None,
-                }
+                TextureHeaderGeneric::try_from(texheader)?
             }
             _ => unreachable!("Unsupported platform for D2 textures"),
         };
@@ -170,12 +186,8 @@ impl Texture {
 
         match package_manager().platform {
             PackagePlatform::PS4 => {
-                if texture.deswizzle.is_none() || texture.psformat.is_none() {
-                    anyhow::bail!(
-                        "Texture data not found: deswizzle: {:?}, psformat: {:?}",
-                        texture.deswizzle,
-                        texture.psformat
-                    );
+                if texture.psformat.is_none() {
+                    anyhow::bail!("Texture data not found: psformat: {:?}", texture.psformat);
                 }
                 let psformat = texture.psformat.unwrap();
                 let expected_size =
@@ -189,7 +201,7 @@ impl Texture {
                     );
                 }
 
-                if texture.deswizzle.unwrap() {
+                if texture.deswizzle {
                     let unswizzled = GcnDeswizzler::deswizzle(
                         &texture_data,
                         texture.width as usize,
