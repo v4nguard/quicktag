@@ -12,8 +12,8 @@ use std::num::NonZeroU32;
 use crate::package_manager::get_hash64;
 use crate::{package_manager::package_manager, tagtypes::TagType};
 
-use super::texture::{Texture, TextureCache};
 use super::TOASTS;
+use crate::texture::texture::{Texture, TextureCache};
 
 lazy_static! {
     static ref CF_PNG: NonZeroU32 = clipboard_win::register_format("PNG").unwrap();

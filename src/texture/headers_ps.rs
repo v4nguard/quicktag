@@ -3,7 +3,7 @@ use std::io::SeekFrom;
 use binrw::BinRead;
 use destiny_pkg::TagHash;
 
-use crate::gui::dxgi::GcnSurfaceFormat;
+use crate::gui::dxgi::{GcmSurfaceFormat, GcnSurfaceFormat};
 
 #[derive(Debug, BinRead)]
 #[br(import(prebl: bool))]
@@ -55,4 +55,27 @@ pub struct TextureHeaderRoiPs4 {
     pub flags1: u32,
     pub flags2: u32,
     pub flags3: u32,
+}
+
+#[derive(Debug, BinRead)]
+#[br(big)]
+pub struct TextureHeaderPs3 {
+    // _format: u8,
+    // #[br(try_calc(GcmSurfaceFormat::try_from(_format & 0x9F)))] // 0x20: swizzle
+    #[br(try_map(|v: u8| GcmSurfaceFormat::try_from(v & 0x9F)))]
+    pub format: GcmSurfaceFormat,
+
+    #[br(seek_before = SeekFrom::Start(0x10))]
+    pub flags1: u32,
+
+    #[br(seek_before = SeekFrom::Start(0x1C), assert(beefcafe == 0xbeefcafe))]
+    pub beefcafe: u32,
+
+    pub width: u16,
+    pub height: u16,
+    pub depth: u16,
+    pub array_size: u16,
+    // pub flags1: u32,
+    // pub flags2: u32,
+    // pub flags3: u32,
 }

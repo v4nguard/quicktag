@@ -124,6 +124,7 @@ pub struct XenosDetiler;
 impl Deswizzler for XenosDetiler {
     type Format = XenosSurfaceFormat;
     fn deswizzle(
+        &self,
         data: &[u8],
         width: usize,
         height: usize,

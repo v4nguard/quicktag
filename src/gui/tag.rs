@@ -16,7 +16,6 @@ use super::{
         open_audio_file_in_default_application, open_tag_in_default_application, tag_context,
         ResponseExt,
     },
-    texture::TextureCache,
     View, ViewAction,
 };
 use crate::classes::get_class_by_id;
@@ -24,12 +23,15 @@ use crate::gui::hexview::TagHexView;
 use crate::package_manager::get_hash64;
 use crate::scanner::ScannedHash;
 use crate::util::ui_image_rotated;
-use crate::{gui::texture::Texture, scanner::read_raw_string_blob, text::RawStringHashCache};
 use crate::{
     package_manager::package_manager,
     scanner::{ScanResult, TagCache},
     tagtypes::TagType,
     text::StringCache,
+};
+use crate::{
+    scanner::read_raw_string_blob, text::RawStringHashCache, texture::texture::Texture,
+    texture::texture::TextureCache,
 };
 use binrw::{binread, BinReaderExt, Endian};
 use destiny_pkg::{package::UEntryHeader, GameVersion, TagHash, TagHash64};

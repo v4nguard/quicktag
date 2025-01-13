@@ -1,11 +1,16 @@
-use crate::gui::texture::texture_capture::capture_texture;
+use super::headers_pc::TextureHeaderPC;
+use super::headers_ps::{TextureHeaderD2Ps4, TextureHeaderPs3, TextureHeaderRoiPs4};
+use super::headers_xbox::{TextureHeaderDevAlphaX360, TextureHeaderRoiXbox};
+use super::swizzle::swizzle_ps::{GcmDeswizzler, GcnDeswizzler};
+use super::swizzle::swizzle_xbox::XenosDetiler;
+use super::swizzle::Deswizzler;
 use crate::package_manager::package_manager;
+use crate::texture::texture::texture_capture::capture_texture;
 use crate::util::ui_image_rotated;
 use anyhow::Context;
 use binrw::BinReaderExt;
 use destiny_pkg::package::PackagePlatform;
 use destiny_pkg::{GameVersion, TagHash};
-use eframe::egui::load::SizedTexture;
 use eframe::egui::Sense;
 use eframe::egui_wgpu::RenderState;
 use eframe::epaint::mutex::RwLock;
@@ -14,30 +19,19 @@ use eframe::wgpu;
 use eframe::wgpu::util::DeviceExt;
 use eframe::wgpu::TextureDimension;
 use either::Either::{self, Left};
-use headers_pc::TextureHeaderPC;
-use headers_ps::{TextureHeaderD2Ps4, TextureHeaderRoiPs4};
-use headers_xbox::{TextureHeaderDevAlphaX360, TextureHeaderRoiXbox};
 use image::{DynamicImage, GenericImageView};
 
 use linked_hash_map::LinkedHashMap;
 use poll_promise::Promise;
 use rustc_hash::FxHasher;
-use std::fmt::format;
 use std::hash::BuildHasherDefault;
-use swizzle_ps4::GcnDeswizzler;
-use swizzle_x360::XenosDetiler;
+// use super::swizzle::GcnDeswizzler;
+// use swizzle_x360::XenosDetiler;
 
 use std::rc::Rc;
 use std::sync::Arc;
 
-use super::dxgi::GcnSurfaceFormat;
-
-mod swizzle_ps4;
-mod swizzle_x360;
-
-mod headers_pc;
-mod headers_ps;
-mod headers_xbox;
+use crate::gui::dxgi::{GcmSurfaceFormat, GcnSurfaceFormat};
 
 #[derive(Debug)]
 pub struct TextureHeaderGeneric {
@@ -199,19 +193,20 @@ impl Texture {
                 }
 
                 if texture.deswizzle {
-                    let unswizzled = GcnDeswizzler::deswizzle(
-                        &texture_data,
-                        texture.width as usize,
-                        texture.height as usize,
-                        if texture.array_size > 1 {
-                            texture.array_size as usize
-                        } else {
-                            texture.depth as usize
-                        },
-                        texture.psformat.unwrap(),
-                        false,
-                    )
-                    .context("Failed to deswizzle texture")?;
+                    let unswizzled = GcnDeswizzler
+                        .deswizzle(
+                            &texture_data,
+                            texture.width as usize,
+                            texture.height as usize,
+                            if texture.array_size > 1 {
+                                texture.array_size as usize
+                            } else {
+                                texture.depth as usize
+                            },
+                            texture.psformat.unwrap(),
+                            false,
+                        )
+                        .context("Failed to deswizzle texture")?;
                     Ok((texture, unswizzled, comment))
                 } else {
                     Ok((texture, texture_data, comment))
@@ -261,19 +256,20 @@ impl Texture {
 
         let comment = format!("{texture:#X?}");
         if (texture.flags1 & 0xc00) != 0x400 {
-            let unswizzled = GcnDeswizzler::deswizzle(
-                &texture_data,
-                texture.width as usize,
-                texture.height as usize,
-                if texture.array_size > 1 {
-                    texture.array_size as usize
-                } else {
-                    texture.depth as usize
-                },
-                texture.format,
-                true,
-            )
-            .context("Failed to deswizzle texture")?;
+            let unswizzled = GcnDeswizzler
+                .deswizzle(
+                    &texture_data,
+                    texture.width as usize,
+                    texture.height as usize,
+                    if texture.array_size > 1 {
+                        texture.array_size as usize
+                    } else {
+                        texture.depth as usize
+                    },
+                    texture.format,
+                    true,
+                )
+                .context("Failed to deswizzle texture")?;
 
             Ok((texture, unswizzled, comment))
         } else {
@@ -321,19 +317,20 @@ impl Texture {
 
         let comment = format!("{texture:#X?}");
 
-        let untiled = XenosDetiler::deswizzle(
-            &texture_data,
-            texture.width as usize,
-            texture.height as usize,
-            if texture.array_size > 1 {
-                texture.array_size as usize
-            } else {
-                texture.depth as usize
-            },
-            texture.format,
-            false,
-        )
-        .context("Failed to deswizzle texture")?;
+        let untiled = XenosDetiler
+            .deswizzle(
+                &texture_data,
+                texture.width as usize,
+                texture.height as usize,
+                if texture.array_size > 1 {
+                    texture.array_size as usize
+                } else {
+                    texture.depth as usize
+                },
+                texture.format,
+                false,
+            )
+            .context("Failed to deswizzle texture")?;
 
         Ok((texture, untiled, comment))
     }
@@ -402,22 +399,89 @@ impl Texture {
         Ok((texture, texture_data, comment))
     }
 
-    pub fn load_desc(hash: TagHash) -> anyhow::Result<TextureDesc> {
-        if package_manager().version.is_d1()
-            && !matches!(
-                package_manager().platform,
-                PackagePlatform::PS4 | PackagePlatform::XboxOne | PackagePlatform::X360
-            )
-        {
-            anyhow::bail!("Textures are not supported for D1");
+    pub fn load_data_ps3_ttk(
+        hash: TagHash,
+        _load_full_mip: bool,
+    ) -> anyhow::Result<(TextureHeaderPs3, Vec<u8>, String)> {
+        let texture_header_ref = package_manager()
+            .get_entry(hash)
+            .context("Texture header entry not found")?
+            .reference;
+
+        let texture: TextureHeaderPs3 = package_manager().read_tag_binrw(hash)?;
+
+        let large_buffer = package_manager()
+            .get_entry(texture_header_ref)
+            .map(|v| TagHash(v.reference))
+            .unwrap_or_default();
+
+        let texture_data = if large_buffer.is_some() {
+            package_manager()
+                .read_tag(large_buffer)
+                .context("Failed to read texture data")?
+        } else {
+            package_manager()
+                .read_tag(texture_header_ref)
+                .context("Failed to read texture data")?
+                .to_vec()
+        };
+
+        let expected_size =
+            (texture.width as usize * texture.height as usize * texture.format.bpp()) / 8;
+
+        if texture_data.len() < expected_size {
+            anyhow::bail!(
+                "Texture data size mismatch for {hash} ({}x{}x{} {:?}): expected {expected_size}, got {}",
+                texture.width, texture.height, texture.depth, texture.format,
+                texture_data.len()
+            );
         }
 
+        let comment = format!("{texture:#X?}");
+        if (texture.format as u8 & 0x20) != 0
+            || (texture.format == GcmSurfaceFormat::A8R8G8B8 && texture.flags1 == 0)
+            || texture.format == GcmSurfaceFormat::B8
+        {
+            let unswizzled = GcmDeswizzler
+                .deswizzle(
+                    &texture_data,
+                    texture.width as usize,
+                    texture.height as usize,
+                    if texture.array_size > 1 {
+                        texture.array_size as usize
+                    } else {
+                        texture.depth as usize
+                    },
+                    texture.format,
+                    false,
+                )
+                .context("Failed to deswizzle texture")?;
+
+            Ok((texture, unswizzled, comment))
+        } else {
+            let unswizzled = GcmDeswizzler::color_deswizzle(&texture_data, texture.format);
+            Ok((texture, unswizzled, comment))
+        }
+    }
+
+    pub fn load_desc(hash: TagHash) -> anyhow::Result<TextureDesc> {
         match package_manager().version {
             GameVersion::DestinyInternalAlpha | GameVersion::DestinyTheTakenKing => {
                 match package_manager().platform {
                     PackagePlatform::X360 => {
                         let texture: TextureHeaderDevAlphaX360 =
                             package_manager().read_tag_binrw(hash)?;
+                        Ok(TextureDesc {
+                            format: texture.format.to_wgpu()?,
+                            width: texture.width as u32,
+                            height: texture.height as u32,
+                            array_size: texture.array_size as u32,
+                            depth: texture.depth as u32,
+                            premultiply_alpha: false,
+                        })
+                    }
+                    PackagePlatform::PS3 => {
+                        let texture: TextureHeaderPs3 = package_manager().read_tag_binrw(hash)?;
                         Ok(TextureDesc {
                             format: texture.format.to_wgpu()?,
                             width: texture.width as u32,
@@ -520,24 +584,29 @@ impl Texture {
         hash: TagHash,
         premultiply_alpha: bool,
     ) -> anyhow::Result<Texture> {
-        if package_manager().version.is_d1()
-            && !matches!(
-                package_manager().platform,
-                PackagePlatform::PS4 | PackagePlatform::XboxOne | PackagePlatform::X360
-            )
-        {
-            anyhow::bail!(
-                "Textures are not supported for D1 on platform {}",
-                package_manager().platform
-            );
-        }
-
         match package_manager().version {
             GameVersion::DestinyInternalAlpha | GameVersion::DestinyTheTakenKing => {
                 match package_manager().platform {
                     PackagePlatform::X360 => {
                         let (texture, texture_data, comment) =
                             Self::load_data_devalpha_x360(hash, true)?;
+                        Self::create_texture(
+                            rs,
+                            hash,
+                            TextureDesc {
+                                format: texture.format.to_wgpu()?,
+                                width: texture.width as u32,
+                                height: texture.height as u32,
+                                depth: texture.depth as u32,
+                                array_size: texture.array_size as u32,
+                                premultiply_alpha,
+                            },
+                            texture_data,
+                            Some(comment),
+                        )
+                    }
+                    PackagePlatform::PS3 => {
+                        let (texture, texture_data, comment) = Self::load_data_ps3_ttk(hash, true)?;
                         Self::create_texture(
                             rs,
                             hash,
@@ -902,21 +971,6 @@ impl TextureCache {
     }
 }
 
-trait Deswizzler {
-    type Format;
-
-    fn deswizzle(
-        data: &[u8],
-        width: usize,
-        height: usize,
-        depth_or_array_size: usize,
-        format: Self::Format,
-        // PS4 D2 causes issues if compressed textures are aligned on power of two
-        // however on D1 it'll cause issues if *not* aligned
-        align_output: bool,
-    ) -> anyhow::Result<Vec<u8>>;
-}
-
 mod texture_capture {
     /// Capture a texture to a raw RGBA buffer
     pub fn capture_texture(
@@ -1036,7 +1090,7 @@ mod texture_capture {
             ],
         });
 
-        let copy_shader = device.create_shader_module(include_wgsl!("shaders/copy.wgsl"));
+        let copy_shader = device.create_shader_module(include_wgsl!("../gui/shaders/copy.wgsl"));
 
         let render_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
             label: Some("Render Pipeline"),
