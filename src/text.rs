@@ -387,6 +387,8 @@ pub fn create_stringmap_d2() -> anyhow::Result<StringCache> {
         package_manager().version,
         GameVersion::DestinyTheTakenKing
             | GameVersion::DestinyRiseOfIron
+            | GameVersion::Destiny2Beta
+            | GameVersion::Destiny2Forsaken
             | GameVersion::Destiny2Shadowkeep
     );
     // Beyond Light still uses the same struct layout as prebl, was updated in WQ
@@ -411,7 +413,7 @@ pub fn create_stringmap_d2() -> anyhow::Result<StringCache> {
             continue;
         };
         let mut cur = Cursor::new(&data);
-        let text_data: StringData = cur.read_le_args((prebl,bl))?;
+        let text_data: StringData = cur.read_le_args((prebl, bl))?;
 
         for (combination, hash) in text_data
             .string_combinations
