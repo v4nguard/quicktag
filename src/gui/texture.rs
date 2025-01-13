@@ -22,6 +22,7 @@ use image::{DynamicImage, GenericImageView};
 use linked_hash_map::LinkedHashMap;
 use poll_promise::Promise;
 use rustc_hash::FxHasher;
+use std::fmt::format;
 use std::hash::BuildHasherDefault;
 use swizzle_ps4::GcnDeswizzler;
 use swizzle_x360::XenosDetiler;
@@ -93,13 +94,9 @@ impl TryFrom<TextureHeaderPC> for TextureHeaderGeneric {
 pub struct Texture {
     pub view: wgpu::TextureView,
     pub handle: wgpu::Texture,
-    pub tex3d: Option<(wgpu::Texture, wgpu::TextureView)>,
-    pub format: wgpu::TextureFormat,
+    pub full_cubemap_texture: Option<wgpu::Texture>,
     pub aspect_ratio: f32,
-    pub width: u32,
-    pub height: u32,
-    pub depth: u32,
-    pub array_size: u32,
+    pub desc: TextureDesc,
 
     pub comment: Option<String>,
 }
@@ -206,7 +203,11 @@ impl Texture {
                         &texture_data,
                         texture.width as usize,
                         texture.height as usize,
-                        texture.depth as usize,
+                        if texture.array_size > 1 {
+                            texture.array_size as usize
+                        } else {
+                            texture.depth as usize
+                        },
                         texture.psformat.unwrap(),
                         false,
                     )
@@ -264,7 +265,11 @@ impl Texture {
                 &texture_data,
                 texture.width as usize,
                 texture.height as usize,
-                texture.depth as usize,
+                if texture.array_size > 1 {
+                    texture.array_size as usize
+                } else {
+                    texture.depth as usize
+                },
                 texture.format,
                 true,
             )
@@ -320,7 +325,11 @@ impl Texture {
             &texture_data,
             texture.width as usize,
             texture.height as usize,
-            texture.depth as usize,
+            if texture.array_size > 1 {
+                texture.array_size as usize
+            } else {
+                texture.depth as usize
+            },
             texture.format,
             false,
         )
@@ -413,7 +422,7 @@ impl Texture {
                             format: texture.format.to_wgpu()?,
                             width: texture.width as u32,
                             height: texture.height as u32,
-                            array_size: 1, // TODO
+                            array_size: texture.array_size as u32,
                             depth: texture.depth as u32,
                             premultiply_alpha: false,
                         })
@@ -537,7 +546,7 @@ impl Texture {
                                 width: texture.width as u32,
                                 height: texture.height as u32,
                                 depth: texture.depth as u32,
-                                array_size: 1, // TODO
+                                array_size: texture.array_size as u32,
                                 premultiply_alpha,
                             },
                             texture_data,
@@ -639,7 +648,7 @@ impl Texture {
         let image_size = wgpu::Extent3d {
             width: desc.width,
             height: desc.height,
-            depth_or_array_layers: desc.depth,
+            depth_or_array_layers: 1,
         };
 
         {
@@ -655,11 +664,8 @@ impl Texture {
 
             anyhow::ensure!(
                 data.len() >= expected_data_size as usize,
-                "Not enough data for texture {hash} ({}x{}x{} {:?}): expected 0x{:X}, got 0x{:X}",
-                desc.width,
-                desc.height,
-                desc.depth,
-                desc.format,
+                "Not enough data for texture {hash} ({}): expected 0x{:X}, got 0x{:X}",
+                desc.info(),
                 expected_data_size,
                 data.len()
             );
@@ -684,17 +690,22 @@ impl Texture {
             &data,
         );
 
-        let view = handle.create_view(&wgpu::TextureViewDescriptor::default());
+        let view = handle.create_view(&wgpu::TextureViewDescriptor {
+            ..Default::default()
+        });
 
-        let tex3d = if desc.depth > 1 {
+        let full_texture = if desc.array_size > 1 {
             let handle = rs.device.create_texture_with_data(
                 &rs.queue,
                 &wgpu::TextureDescriptor {
-                    label: Some(&*format!("Texture {hash}")),
-                    size: image_size,
+                    label: Some(&*format!("Texture {hash} (full)")),
+                    size: wgpu::Extent3d {
+                        depth_or_array_layers: desc.array_size,
+                        ..image_size
+                    },
                     mip_level_count: 1,
                     sample_count: 1,
-                    dimension: TextureDimension::D3,
+                    dimension: TextureDimension::D2,
                     format: desc.format,
                     usage: wgpu::TextureUsages::TEXTURE_BINDING,
                     view_formats: &[desc.format],
@@ -703,9 +714,7 @@ impl Texture {
                 &data,
             );
 
-            let view = handle.create_view(&wgpu::TextureViewDescriptor::default());
-
-            Some((handle, view))
+            Some(handle)
         } else {
             None
         };
@@ -713,13 +722,9 @@ impl Texture {
         Ok(Texture {
             view,
             handle,
-            tex3d,
-            format: desc.format,
+            full_cubemap_texture: full_texture,
             aspect_ratio: desc.width as f32 / desc.height as f32,
-            width: desc.width,
-            height: desc.height,
-            depth: desc.depth,
-            array_size: desc.array_size,
+            desc,
             comment,
         })
     }
@@ -744,12 +749,12 @@ impl Texture {
         )
     }
 
-    pub fn to_image(&self, rs: &RenderState) -> anyhow::Result<DynamicImage> {
-        let (rgba_data, padded_width, padded_height) = capture_texture(rs, self)?;
+    pub fn to_image(&self, rs: &RenderState, layer: u32) -> anyhow::Result<DynamicImage> {
+        let (rgba_data, padded_width, padded_height) = capture_texture(rs, self, layer)?;
         let image = image::RgbaImage::from_raw(padded_width, padded_height, rgba_data)
             .context("Failed to create image")?;
 
-        Ok(DynamicImage::from(image).crop(0, 0, self.width, self.height))
+        Ok(DynamicImage::from(image).crop(0, 0, self.desc.width, self.desc.height))
     }
 }
 
@@ -876,14 +881,11 @@ impl TextureCache {
                 egui_tex,
                 response.rect,
                 // Rotate the image if it's a cubemap
-                if tex.array_size == 6 { 90. } else { 0. },
-                tex.array_size == 6,
+                if tex.desc.array_size == 6 { 90. } else { 0. },
+                tex.desc.array_size == 6,
             );
 
-            ui.label(format!(
-                "{}x{}x{} {:?}",
-                tex.width, tex.height, tex.depth, tex.format
-            ));
+            ui.label(tex.desc.info());
         }
     }
 }
@@ -907,7 +909,7 @@ trait Deswizzler {
         data: &[u8],
         width: usize,
         height: usize,
-        depth: usize,
+        depth_or_array_size: usize,
         format: Self::Format,
         // PS4 D2 causes issues if compressed textures are aligned on power of two
         // however on D1 it'll cause issues if *not* aligned
@@ -920,6 +922,7 @@ mod texture_capture {
     pub fn capture_texture(
         rs: &super::RenderState,
         texture: &super::Texture,
+        layer: u32,
     ) -> anyhow::Result<(Vec<u8>, u32, u32)> {
         use eframe::wgpu::*;
 
@@ -933,8 +936,8 @@ mod texture_capture {
         let texture_wgpu = device.create_texture(&TextureDescriptor {
             label: None,
             size: Extent3d {
-                width: texture.width,
-                height: texture.height,
+                width: texture.desc.width,
+                height: texture.desc.height,
                 depth_or_array_layers: 1,
             },
             mip_level_count: 1,
@@ -957,8 +960,8 @@ mod texture_capture {
         });
 
         // Create a buffer to hold the result of copying the texture to CPU memory
-        let padded_width = (256.0 * (texture.width as f32 / 256.0).ceil()) as u32;
-        let padded_height = (256.0 * (texture.height as f32 / 256.0).ceil()) as u32;
+        let padded_width = (256.0 * (texture.desc.width as f32 / 256.0).ceil()) as u32;
+        let padded_height = (256.0 * (texture.desc.height as f32 / 256.0).ceil()) as u32;
         let buffer_size = (padded_width * padded_height * 4) as usize;
         let buffer = device.create_buffer(&BufferDescriptor {
             label: Some("Output Buffer"),
@@ -996,13 +999,24 @@ mod texture_capture {
             push_constant_ranges: &[],
         });
 
+        let view = if let Some(ref full_cubemap) = texture.full_cubemap_texture {
+            &full_cubemap.create_view(&TextureViewDescriptor {
+                base_array_layer: layer,
+                array_layer_count: Some(1),
+                dimension: Some(TextureViewDimension::D2),
+                ..Default::default()
+            })
+        } else {
+            &texture.view
+        };
+
         let bind_group = device.create_bind_group(&BindGroupDescriptor {
             label: Some("Bind Group"),
             layout: &bind_group_layout,
             entries: &[
                 BindGroupEntry {
                     binding: 0,
-                    resource: BindingResource::TextureView(&texture.view),
+                    resource: BindingResource::TextureView(view),
                 },
                 BindGroupEntry {
                     binding: 1,
@@ -1106,8 +1120,8 @@ mod texture_capture {
                     },
                 },
                 Extent3d {
-                    width: texture.width,
-                    height: texture.height,
+                    width: texture.desc.width,
+                    height: texture.desc.height,
                     depth_or_array_layers: 1,
                 },
             );

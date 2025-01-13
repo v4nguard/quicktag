@@ -560,14 +560,14 @@ impl TagView {
             match &self.texture {
                 Ok((tex, egui_texture)) => {
                     let min_dimension = ui.available_size().min_elem();
-                    let size = if tex.width > tex.height {
+                    let size = if tex.desc.width > tex.desc.height {
                         vec2(
                             min_dimension,
-                            min_dimension * tex.height as f32 / tex.width as f32,
+                            min_dimension * tex.desc.height as f32 / tex.desc.width as f32,
                         )
                     } else {
                         vec2(
-                            min_dimension * tex.width as f32 / tex.height as f32,
+                            min_dimension * tex.desc.width as f32 / tex.desc.height as f32,
                             min_dimension,
                         )
                     } * 0.8;
@@ -577,14 +577,11 @@ impl TagView {
                         *egui_texture,
                         response.rect,
                         // Rotate the image if it's a cubemap
-                        if tex.array_size == 6 { 90. } else { 0. },
-                        tex.array_size == 6,
+                        if tex.desc.array_size == 6 { 90. } else { 0. },
+                        tex.desc.array_size == 6,
                     );
 
-                    ui.label(format!(
-                        "{}x{}x{} {:?}",
-                        tex.width, tex.height, tex.depth, tex.format
-                    ));
+                    ui.label(tex.desc.info());
 
                     if let Some(ref comment) = tex.comment {
                         ui.collapsing("Texture Header", |ui| {

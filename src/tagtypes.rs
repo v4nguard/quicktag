@@ -215,7 +215,7 @@ impl TagType {
                 let is_header = t == 32;
                 match st {
                     1 => TagType::Texture2D { is_header },
-                    // 2 => TagType::TextureCube { is_header },
+                    2 => TagType::TextureCube { is_header },
                     3 => TagType::Texture3D { is_header },
                     4 => TagType::VertexBuffer { is_header },
                     6 => TagType::IndexBuffer { is_header },
@@ -238,7 +238,7 @@ impl TagType {
                 let is_header = t == 32;
                 match st {
                     1 => TagType::Texture2D { is_header },
-                    // 2 => TagType::TextureCube { is_header },
+                    2 => TagType::TextureCube { is_header },
                     3 => TagType::Texture3D { is_header },
                     4 => TagType::VertexBuffer { is_header },
                     6 => TagType::IndexBuffer { is_header },

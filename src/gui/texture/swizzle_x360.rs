@@ -61,6 +61,7 @@ fn untile_x360_image_data(
     image_data: &[u8],
     image_width: usize,
     image_height: usize,
+    image_depth: usize,
     block_pixel_size: usize,
     texel_byte_pitch: usize,
     deswizzle: bool,
@@ -69,39 +70,46 @@ fn untile_x360_image_data(
 
     let width_in_blocks = image_width / block_pixel_size;
     let height_in_blocks = image_height / block_pixel_size;
+    let slice_size = width_in_blocks * height_in_blocks * texel_byte_pitch;
 
-    for j in 0..height_in_blocks {
-        for i in 0..width_in_blocks {
-            let block_offset = j * width_in_blocks + i;
-            let x = xg_address_2d_tiled_x(block_offset, width_in_blocks, texel_byte_pitch);
-            let y = xg_address_2d_tiled_y(block_offset, width_in_blocks, texel_byte_pitch);
-            let src_byte_offset = j * width_in_blocks * texel_byte_pitch + i * texel_byte_pitch;
-            let dest_byte_offset = y * width_in_blocks * texel_byte_pitch + x * texel_byte_pitch;
+    for slice in 0..image_depth {
+        let slice_src = &image_data[slice * slice_size..];
+        let slice_dest = &mut converted_data[slice * slice_size..];
 
-            if dest_byte_offset + texel_byte_pitch > converted_data.len()
-                || src_byte_offset + texel_byte_pitch > image_data.len()
-            {
-                continue;
-            }
+        for j in 0..height_in_blocks {
+            for i in 0..width_in_blocks {
+                let block_offset = j * width_in_blocks + i;
+                let x = xg_address_2d_tiled_x(block_offset, width_in_blocks, texel_byte_pitch);
+                let y = xg_address_2d_tiled_y(block_offset, width_in_blocks, texel_byte_pitch);
+                let src_byte_offset = j * width_in_blocks * texel_byte_pitch + i * texel_byte_pitch;
+                let dest_byte_offset =
+                    y * width_in_blocks * texel_byte_pitch + x * texel_byte_pitch;
 
-            if deswizzle {
-                match image_data.get(src_byte_offset..src_byte_offset + texel_byte_pitch) {
-                    Some(source) => {
-                        converted_data[dest_byte_offset..dest_byte_offset + texel_byte_pitch]
-                            .copy_from_slice(source);
-                    }
-                    None => {
-                        continue;
-                    }
+                if dest_byte_offset + texel_byte_pitch > slice_dest.len()
+                    || src_byte_offset + texel_byte_pitch > slice_src.len()
+                {
+                    continue;
                 }
-            } else {
-                match image_data.get(dest_byte_offset..dest_byte_offset + texel_byte_pitch) {
-                    Some(source) => {
-                        converted_data[src_byte_offset..src_byte_offset + texel_byte_pitch]
-                            .copy_from_slice(source);
+
+                if deswizzle {
+                    match slice_src.get(src_byte_offset..src_byte_offset + texel_byte_pitch) {
+                        Some(source) => {
+                            slice_dest[dest_byte_offset..dest_byte_offset + texel_byte_pitch]
+                                .copy_from_slice(source);
+                        }
+                        None => {
+                            continue;
+                        }
                     }
-                    None => {
-                        continue;
+                } else {
+                    match slice_src.get(dest_byte_offset..dest_byte_offset + texel_byte_pitch) {
+                        Some(source) => {
+                            slice_dest[src_byte_offset..src_byte_offset + texel_byte_pitch]
+                                .copy_from_slice(source);
+                        }
+                        None => {
+                            continue;
+                        }
                     }
                 }
             }
@@ -119,9 +127,9 @@ impl Deswizzler for XenosDetiler {
         data: &[u8],
         width: usize,
         height: usize,
-        _depth: usize,
+        depth_or_array_size: usize,
         format: Self::Format,
-        align_output: bool,
+        _align_output: bool,
     ) -> anyhow::Result<Vec<u8>> {
         let block_pixel_size;
         let texel_byte_pitch;
@@ -172,6 +180,7 @@ impl Deswizzler for XenosDetiler {
             &source,
             width,
             height,
+            depth_or_array_size,
             block_pixel_size,
             texel_byte_pitch,
             true,

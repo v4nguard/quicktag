@@ -19,6 +19,10 @@ pub struct TextureHeaderDevAlphaX360 {
     pub width: u16,
     pub height: u16,
     pub depth: u16,
+
+    #[br(seek_before = SeekFrom::Start(0x40))]
+    pub array_size: u16,
+
     // pub flags1: u32,
     // pub flags2: u32,
     // pub flags3: u32,

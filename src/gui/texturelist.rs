@@ -268,19 +268,19 @@ impl View for TexturesView {
                                     let (tex, tid) = self.texture_cache.get_or_default(*hash);
                                     // The rect of the actual image itself, with aspect ratio corrections applied
                                     let img_rect = if self.keep_aspect_ratio {
-                                        if tex.width > tex.height {
+                                        if tex.desc.width > tex.desc.height {
                                             let scale =
-                                                img_container_rect.width() / tex.width as f32;
-                                            let height = tex.height as f32 * scale;
+                                                img_container_rect.width() / tex.desc.width as f32;
+                                            let height = tex.desc.height as f32 * scale;
                                             let y = img_container_rect.center().y - height / 2.0;
                                             egui::Rect::from_min_size(
                                                 pos2(img_container_rect.left(), y),
                                                 vec2(img_container_rect.width(), height),
                                             )
                                         } else {
-                                            let scale =
-                                                img_container_rect.height() / tex.height as f32;
-                                            let width = tex.width as f32 * scale;
+                                            let scale = img_container_rect.height()
+                                                / tex.desc.height as f32;
+                                            let width = tex.desc.width as f32 * scale;
                                             let x = img_container_rect.center().x - width / 2.0;
                                             egui::Rect::from_min_size(
                                                 pos2(x, img_container_rect.top()),
@@ -306,8 +306,8 @@ impl View for TexturesView {
                                         tid,
                                         img_rect,
                                         // Rotate the image if it's a cubemap
-                                        if tex.array_size == 6 { 90. } else { 0. },
-                                        tex.array_size == 6,
+                                        if tex.desc.array_size == 6 { 90. } else { 0. },
+                                        tex.desc.array_size == 6,
                                     );
 
                                     if img_container.hovered() {
