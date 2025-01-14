@@ -3,7 +3,6 @@ mod audio;
 #[cfg(feature = "audio")]
 mod audio_list;
 mod common;
-pub mod dxgi;
 mod external_file;
 mod hexview;
 mod named_tags;

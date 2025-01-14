@@ -2,7 +2,7 @@
 
 use log::warn;
 
-use crate::gui::dxgi::XenosSurfaceFormat;
+use crate::texture::dxgi::XenosSurfaceFormat;
 
 use super::Deswizzler;
 

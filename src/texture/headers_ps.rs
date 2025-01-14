@@ -3,7 +3,7 @@ use std::io::SeekFrom;
 use binrw::BinRead;
 use destiny_pkg::TagHash;
 
-use crate::gui::dxgi::{GcmSurfaceFormat, GcnSurfaceFormat};
+use super::dxgi::{GcmSurfaceFormat, GcnSurfaceFormat};
 
 #[derive(Debug, BinRead)]
 #[br(import(prebl: bool))]

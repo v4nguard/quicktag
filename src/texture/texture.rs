@@ -31,7 +31,7 @@ use std::hash::BuildHasherDefault;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use crate::gui::dxgi::{GcmSurfaceFormat, GcnSurfaceFormat};
+use super::dxgi::{GcmSurfaceFormat, GcnSurfaceFormat};
 
 #[derive(Debug)]
 pub struct TextureHeaderGeneric {

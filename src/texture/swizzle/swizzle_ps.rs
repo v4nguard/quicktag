@@ -1,4 +1,4 @@
-use crate::gui::dxgi::{GcmSurfaceFormat, GcnSurfaceFormat};
+use crate::texture::dxgi::{GcmSurfaceFormat, GcnSurfaceFormat};
 
 use super::Deswizzler;
 
@@ -44,7 +44,7 @@ impl Deswizzler for GcmDeswizzler {
 }
 
 mod ps3 {
-    use crate::{gui::dxgi::GcmSurfaceFormat, texture::swizzle::morton};
+    use crate::texture::{dxgi::GcmSurfaceFormat, swizzle::morton};
 
     pub fn do_swizzle(
         source: &[u8],
@@ -122,7 +122,7 @@ impl Deswizzler for GcnDeswizzler {
 }
 
 mod ps4 {
-    use crate::{gui::dxgi::GcnSurfaceFormat, texture::swizzle::morton};
+    use crate::texture::{dxgi::GcnSurfaceFormat, swizzle::morton};
 
     pub fn do_swizzle(
         source: &[u8],
