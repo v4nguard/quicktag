@@ -2,17 +2,16 @@ use destiny_pkg::package::UEntryHeader;
 use destiny_pkg::{manager::PackagePath, TagHash};
 use eframe::egui::{self, RichText};
 
-use crate::gui::common::open_audio_file_in_default_application;
-use crate::package_manager::get_hash64;
-use crate::util::format_file_size;
-use crate::{package_manager::package_manager, tagtypes::TagType};
-
 use super::{
     common::{dump_wwise_info, ResponseExt},
     tag::format_tag_entry,
-    texture::TextureCache,
     View, ViewAction,
 };
+use crate::gui::common::open_audio_file_in_default_application;
+use crate::package_manager::get_hash64;
+use crate::texture::TextureCache;
+use crate::util::format_file_size;
+use crate::{package_manager::package_manager, tagtypes::TagType};
 
 pub struct PackagesView {
     selected_package: u16,

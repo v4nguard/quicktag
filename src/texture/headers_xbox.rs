@@ -2,7 +2,7 @@ use std::io::SeekFrom;
 
 use binrw::BinRead;
 
-use crate::gui::dxgi::{DxgiFormat, XenosSurfaceFormat};
+use super::dxgi::{DxgiFormat, XenosSurfaceFormat};
 
 #[derive(Debug, BinRead)]
 pub struct TextureHeaderDevAlphaX360 {

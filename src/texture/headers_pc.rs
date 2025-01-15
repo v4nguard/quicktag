@@ -1,7 +1,7 @@
 use binrw::BinRead;
 use destiny_pkg::TagHash;
 
-use crate::gui::dxgi::DxgiFormat;
+use super::dxgi::DxgiFormat;
 
 #[derive(Debug, BinRead)]
 #[br(import(prebl: bool))]

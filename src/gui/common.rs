@@ -10,9 +10,9 @@ use std::io::{Cursor, Write};
 use std::num::NonZeroU32;
 
 use crate::package_manager::get_hash64;
+use crate::texture::{Texture, TextureCache};
 use crate::{package_manager::package_manager, tagtypes::TagType};
 
-use super::texture::{Texture, TextureCache};
 use super::TOASTS;
 
 lazy_static! {

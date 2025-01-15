@@ -3,7 +3,6 @@ mod audio;
 #[cfg(feature = "audio")]
 mod audio_list;
 mod common;
-mod dxgi;
 mod external_file;
 mod hexview;
 mod named_tags;
@@ -12,7 +11,6 @@ mod raw_strings;
 mod strings;
 mod style;
 mod tag;
-mod texture;
 mod texturelist;
 
 use std::cell::RefCell;
@@ -44,13 +42,13 @@ use self::packages::PackagesView;
 use self::raw_strings::RawStringsView;
 use self::strings::StringsView;
 use self::tag::TagView;
-use self::texture::TextureCache;
 use self::texturelist::TexturesView;
 use crate::classes;
 use crate::gui::external_file::ExternalFileScanView;
 use crate::gui::tag::TagHistory;
 use crate::scanner::{fnv1, ScannerContext};
 use crate::text::RawStringHashCache;
+use crate::texture::TextureCache;
 use crate::{
     package_manager::package_manager,
     scanner,

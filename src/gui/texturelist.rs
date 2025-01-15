@@ -3,11 +3,14 @@ use eframe::egui::{self, pos2, vec2, Color32, Pos2, RichText, Stroke, Ui, Vec2, 
 use eframe::emath::Rot2;
 use std::fmt::{Display, Formatter};
 
-use crate::gui::texture::{Texture, TextureDesc};
 use crate::util::ui_image_rotated;
-use crate::{package_manager::package_manager, tagtypes::TagType};
+use crate::{
+    package_manager::package_manager,
+    tagtypes::TagType,
+    texture::{Texture, TextureCache, TextureDesc},
+};
 
-use super::{common::ResponseExt, texture::TextureCache, View, ViewAction};
+use super::{common::ResponseExt, View, ViewAction};
 
 pub struct TexturesView {
     selected_package: u16,

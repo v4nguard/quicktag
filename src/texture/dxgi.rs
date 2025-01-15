@@ -903,3 +903,125 @@ impl TryFrom<u8> for XenosSurfaceFormat {
         })
     }
 }
+
+#[allow(non_snake_case, non_camel_case_types)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[repr(u8)]
+#[allow(dead_code)]
+pub enum GcmSurfaceFormat {
+    B8 = 0x81,
+    A1R5G5B5 = 0x82,
+    A4R4G4B4 = 0x83,
+    R5G6B5 = 0x84,
+    A8R8G8B8 = 0x85,
+    COMPRESSED_DXT1 = 0x86,
+    COMPRESSED_DXT23 = 0x87,
+    COMPRESSED_DXT45 = 0x88,
+    G8B8 = 0x8B,
+    COMPRESSED_B8R8_G8R8 = 0x8D,
+    COMPRESSED_R8B8_R8G8 = 0x8E,
+    R6G5B5 = 0x8F,
+    DEPTH24_D8 = 0x90,
+    DEPTH24_D8_FLOAT = 0x91,
+    DEPTH16 = 0x92,
+    DEPTH16_FLOAT = 0x93,
+    X16 = 0x94,
+    Y16_X16 = 0x95,
+    R5G5B5A1 = 0x97,
+    COMPRESSED_HILO8 = 0x98,
+    COMPRESSED_HILO_S8 = 0x99,
+    W16_Z16_Y16_X16_FLOAT = 0x9A,
+    W32_Z32_Y32_X32_FLOAT = 0x9B,
+    X32_FLOAT = 0x9C,
+    D1R5G5B5 = 0x9D,
+    D8R8G8B8 = 0x9E,
+    Y16_X16_FLOAT = 0x9F,
+}
+
+impl GcmSurfaceFormat {
+    pub fn to_wgpu(self) -> anyhow::Result<wgpu::TextureFormat> {
+        Ok(match self {
+            GcmSurfaceFormat::B8 => wgpu::TextureFormat::R8Unorm,
+            GcmSurfaceFormat::A8R8G8B8 => wgpu::TextureFormat::Rgba8UnormSrgb,
+            GcmSurfaceFormat::COMPRESSED_DXT1 => wgpu::TextureFormat::Bc1RgbaUnormSrgb,
+            GcmSurfaceFormat::COMPRESSED_DXT23 => wgpu::TextureFormat::Bc2RgbaUnormSrgb,
+            GcmSurfaceFormat::COMPRESSED_DXT45 => wgpu::TextureFormat::Bc3RgbaUnormSrgb,
+            GcmSurfaceFormat::G8B8 => wgpu::TextureFormat::Rg8Unorm,
+            GcmSurfaceFormat::DEPTH24_D8 => wgpu::TextureFormat::Depth24PlusStencil8,
+            GcmSurfaceFormat::DEPTH24_D8_FLOAT => wgpu::TextureFormat::Depth24PlusStencil8,
+            GcmSurfaceFormat::DEPTH16 => wgpu::TextureFormat::Depth16Unorm,
+            GcmSurfaceFormat::DEPTH16_FLOAT => wgpu::TextureFormat::Depth16Unorm,
+            GcmSurfaceFormat::X16 => wgpu::TextureFormat::R16Unorm,
+            GcmSurfaceFormat::Y16_X16 => wgpu::TextureFormat::Rg16Unorm,
+            GcmSurfaceFormat::W16_Z16_Y16_X16_FLOAT => wgpu::TextureFormat::Rgba16Float,
+            GcmSurfaceFormat::W32_Z32_Y32_X32_FLOAT => wgpu::TextureFormat::Rgba32Float,
+            GcmSurfaceFormat::X32_FLOAT => wgpu::TextureFormat::R32Float,
+            GcmSurfaceFormat::D8R8G8B8 => wgpu::TextureFormat::Rgba8UnormSrgb,
+            GcmSurfaceFormat::Y16_X16_FLOAT => wgpu::TextureFormat::Rg16Float,
+            u => anyhow::bail!("Unsupported GCM surface format conversion ({u:?} => ??)"),
+        })
+    }
+
+    pub fn bpp(&self) -> usize {
+        match self {
+            GcmSurfaceFormat::B8 => 8,
+            GcmSurfaceFormat::A1R5G5B5 => 16,
+            GcmSurfaceFormat::A4R4G4B4 => 16,
+            GcmSurfaceFormat::R5G6B5 => 16,
+            GcmSurfaceFormat::A8R8G8B8 => 32,
+            GcmSurfaceFormat::COMPRESSED_DXT1 => 4,
+            GcmSurfaceFormat::COMPRESSED_DXT23 | GcmSurfaceFormat::COMPRESSED_DXT45 => 8,
+            GcmSurfaceFormat::G8B8 => 16,
+            GcmSurfaceFormat::DEPTH24_D8 => 32,
+            GcmSurfaceFormat::DEPTH24_D8_FLOAT => 32,
+            GcmSurfaceFormat::DEPTH16 => 16,
+            GcmSurfaceFormat::DEPTH16_FLOAT => 16,
+            GcmSurfaceFormat::X16 => 16,
+            GcmSurfaceFormat::Y16_X16 => 32,
+            GcmSurfaceFormat::R5G5B5A1 => 16,
+            GcmSurfaceFormat::Y16_X16_FLOAT => 32,
+            u => unimplemented!("Unsupported GCM surface format bpp ({u:?} => ??)"),
+        }
+    }
+
+    pub fn block_size(&self) -> usize {
+        match self {
+            GcmSurfaceFormat::COMPRESSED_DXT1 => 8,
+            GcmSurfaceFormat::COMPRESSED_DXT23 | GcmSurfaceFormat::COMPRESSED_DXT45 => 16,
+            u => u.bpp() / 8,
+        }
+    }
+
+    pub fn pixel_block_size(&self) -> usize {
+        match self {
+            GcmSurfaceFormat::COMPRESSED_DXT1
+            | GcmSurfaceFormat::COMPRESSED_DXT23
+            | GcmSurfaceFormat::COMPRESSED_DXT45 => 4,
+            _ => 1,
+        }
+    }
+
+    pub fn is_compressed(&self) -> bool {
+        matches!(
+            self,
+            GcmSurfaceFormat::COMPRESSED_DXT1
+                | GcmSurfaceFormat::COMPRESSED_DXT23
+                | GcmSurfaceFormat::COMPRESSED_DXT45
+                | GcmSurfaceFormat::COMPRESSED_B8R8_G8R8
+                | GcmSurfaceFormat::COMPRESSED_R8B8_R8G8
+                | GcmSurfaceFormat::COMPRESSED_HILO8
+                | GcmSurfaceFormat::COMPRESSED_HILO_S8
+        )
+    }
+}
+
+impl TryFrom<u8> for GcmSurfaceFormat {
+    type Error = anyhow::Error;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        Ok(match value {
+            0x81..=0x9F => unsafe { transmute(value) },
+            e => return Err(anyhow::anyhow!("GCM format is out of range ({e:x})")),
+        })
+    }
+}

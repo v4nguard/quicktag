@@ -5,6 +5,7 @@ mod panic_handler;
 mod scanner;
 mod tagtypes;
 mod text;
+mod texture;
 mod util;
 
 use std::sync::Arc;
