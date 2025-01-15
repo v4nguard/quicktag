@@ -48,7 +48,7 @@ use crate::gui::external_file::ExternalFileScanView;
 use crate::gui::tag::TagHistory;
 use crate::scanner::{fnv1, ScannerContext};
 use crate::text::RawStringHashCache;
-use crate::texture::texture::TextureCache;
+use crate::texture::TextureCache;
 use crate::{
     package_manager::package_manager,
     scanner,

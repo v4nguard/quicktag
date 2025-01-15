@@ -6,7 +6,7 @@ use crate::gui::ViewAction;
 use crate::scanner;
 use crate::scanner::ScannerContext;
 use crate::tagtypes::TagType;
-use crate::texture::texture::TextureCache;
+use crate::texture::TextureCache;
 use eframe::egui;
 
 pub struct ExternalFileScanView {

@@ -7,7 +7,7 @@ use crate::util::ui_image_rotated;
 use crate::{
     package_manager::package_manager,
     tagtypes::TagType,
-    texture::texture::{Texture, TextureCache, TextureDesc},
+    texture::{Texture, TextureCache, TextureDesc},
 };
 
 use super::{common::ResponseExt, View, ViewAction};

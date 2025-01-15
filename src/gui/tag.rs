@@ -30,8 +30,8 @@ use crate::{
     text::StringCache,
 };
 use crate::{
-    scanner::read_raw_string_blob, text::RawStringHashCache, texture::texture::Texture,
-    texture::texture::TextureCache,
+    scanner::read_raw_string_blob, text::RawStringHashCache, texture::Texture,
+    texture::TextureCache,
 };
 use binrw::{binread, BinReaderExt, Endian};
 use destiny_pkg::{package::UEntryHeader, GameVersion, TagHash, TagHash64};

@@ -9,7 +9,7 @@ use super::{
 };
 use crate::gui::common::open_audio_file_in_default_application;
 use crate::package_manager::get_hash64;
-use crate::texture::texture::TextureCache;
+use crate::texture::TextureCache;
 use crate::util::format_file_size;
 use crate::{package_manager::package_manager, tagtypes::TagType};
 
