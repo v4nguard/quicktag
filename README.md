@@ -5,6 +5,8 @@
 QuickTag is a tool that scans and analyzes Tiger engine structure files (also known as 8080 files) to discover
 structures, patterns, strings and more.
 
+[Download Latest Build](https://nightly.link/v4nguard/quicktag/workflows/build/main/quicktag.zip)
+
 ## How does QuickTag work?
 
 When first starting QuickTag (or after a game update), QuickTag goes through every package file and scans the data for
@@ -17,29 +19,7 @@ cache file so the next time QuickTag is started, it doesn't have to scan every p
 
 ![tag view](./.github/readme_tag_view.png)
 
-#### References (left panel)
-
-*(TODO)*
-
-#### Tag Traversal (central panel)
-
-*(TODO)*
-
-Upwards traversal is not supported yet.
-
-#### Type analysis (right panel)
-
-*(TODO)*
-
-### Named Tags
-
-*(TODO)*
-
-### Packages
-
-*(TODO)*
-
-### (Localized) Strings
+### (Localized / Raw) Strings
 
 The strings tab shows any localized strings found in package files. These strings are referenced by a 32-bit FNV hash (
 note that this is not the hash of the string itself, but rather the hash of a localization key). Due to this, there will
@@ -66,12 +46,12 @@ will show the tags that reference it.
 
 QuickTag can also preview certain files, such as:
 
-- Textures (D1 (PS4 only) and D2)
-- WWise audio streams (D1+D2)
+- Textures
+- WWise audio streams
 
 ## Running
 
-Either download the [latest release](https://github.com/v4nguard/quicktag/releases)
+Either download the [latest nightly release](https://nightly.link/v4nguard/quicktag/workflows/build/main/quicktag.zip)
 or [build QuickTag yourself](#building).
 
 QuickTag can then be run with the following command:
@@ -83,6 +63,7 @@ quicktag.exe -v <version> <path to packages directory>
 Where `<version>` is the version of the game used by the given packages. These correspond to the ones used
 by `destiny-pkg`:
 
+<!-- - `d2_horizon` Destiny 2 Horizon Tools -->
 - `d1_devalpha` Destiny 2013 Internal Alpha
 - `d1_ttk` "Legacy" version of Destiny (The Taken King)
 - `d1_roi` The latest version of Destiny (Rise of Iron)
