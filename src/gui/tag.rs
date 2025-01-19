@@ -33,9 +33,9 @@ use crate::{
     scanner::read_raw_string_blob, text::RawStringHashCache, texture::Texture,
     texture::TextureCache,
 };
+use anyhow::Context;
 use binrw::{binread, BinReaderExt, Endian};
 use destiny_pkg::{package::UEntryHeader, GameVersion, TagHash, TagHash64};
-use eframe::egui::load::SizedTexture;
 use eframe::egui::Sense;
 use eframe::egui::{collapsing_header::CollapsingState, vec2, RichText, TextureId};
 use eframe::egui_wgpu::RenderState;
@@ -736,10 +736,12 @@ impl TagView {
             let ref_postfix = get_class_by_id(entry.reference)
                 .map(|c| format!("_{}", c.name))
                 .unwrap_or_default();
+            let tag_type =
+                TagType::from_type_subtype(entry.file_type, entry.file_subtype).to_string();
             format!(
                 "_{:08X}{ref_postfix}_{}",
                 entry.reference,
-                TagType::from_type_subtype(entry.file_type, entry.file_subtype)
+                tag_type.replace(" ", "").replace("/", "_")
             )
         } else {
             "".to_string()
@@ -748,8 +750,11 @@ impl TagView {
         let path = directory.join(format!("{}{}.bin", tag.tag, tag_postfix));
         match package_manager().read_tag(tag.tag) {
             Ok(o) => {
-                let mut file = File::create(&path)?;
-                file.write_all(&o)?;
+                let mut file = File::create(&path).with_context(|| {
+                    format!("Failed to create tag dump file ({})", path.display())
+                })?;
+                file.write_all(&o)
+                    .context("Failed to write tag dump file")?;
             }
             Err(e) => error!("Failed to dump data for tag {}: {e:?}", tag.tag),
         }
