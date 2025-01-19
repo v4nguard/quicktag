@@ -93,7 +93,7 @@ impl ResponseExt for egui::Response {
                         Ok(o) => {
                             std::fs::create_dir_all("textures/").unwrap();
                             let mut images = vec![];
-                            for layer in 0..o.desc.array_size {
+                            for layer in 0..(o.desc.array_size.max(o.desc.depth)) {
                                 let image = o.to_image(&texture_cache.render_state, layer).unwrap();
                                 image.save(format!("textures/{tag}_{layer}.png")).unwrap();
                                 images.push(image);
