@@ -1,9 +1,7 @@
 use crate::gui::audio::AudioPlayer;
-use crate::gui::common::{tag_context, ResponseExt};
-use crate::gui::texturelist::Sorting;
+use crate::gui::common::tag_context;
 use crate::gui::{audio, View, ViewAction};
 use crate::package_manager::package_manager;
-use crate::tagtypes::TagType;
 use destiny_pkg::manager::PackagePath;
 use destiny_pkg::{GameVersion, TagHash};
 use eframe::egui;
@@ -17,7 +15,7 @@ struct PackageAudio {
     pub events: Vec<TagHash>,
 }
 
-#[derive(Default, PartialEq)]
+#[derive(Clone, Copy, Default, PartialEq)]
 enum AudioSorting {
     #[default]
     IndexAsc,
@@ -27,10 +25,21 @@ enum AudioSorting {
     DurationDesc,
 }
 
+impl AudioSorting {
+    pub fn to_string(&self) -> &str {
+        match self {
+            AudioSorting::IndexAsc => "Index ⬆",
+            AudioSorting::IndexDesc => "Index ⬇",
+            AudioSorting::DurationAsc => "Duration ⬆",
+            AudioSorting::DurationDesc => "Duration ⬇",
+        }
+    }
+}
+
 fn wwise_stream_type() -> (u8, u8) {
     match package_manager().version {
         GameVersion::DestinyInternalAlpha => (2, 16),
-        GameVersion::DestinyTheTakenKing => (2, 21),
+        GameVersion::DestinyTheTakenKing => (8, 21),
         GameVersion::DestinyRiseOfIron => (8, 21),
         GameVersion::Destiny2Beta
         | GameVersion::Destiny2Forsaken
@@ -56,7 +65,7 @@ impl PackageAudio {
             streams: package_manager()
                 .get_all_by_type(wwise_type, Some(wwise_subtype))
                 .iter()
-                .filter(|(t, e)| t.pkg_id() == id)
+                .filter(|(t, _e)| t.pkg_id() == id)
                 .map(|(t, _)| (*t, audio::get_stream_duration_fast(*t)))
                 .collect(),
         }
@@ -110,6 +119,7 @@ pub struct AudioView {
     autoplay: bool,
     autoplay_timer: Instant,
     autoplay_interval: f32,
+    sorting: AudioSorting,
 }
 
 impl AudioView {
@@ -134,6 +144,13 @@ impl AudioView {
             autoplay: false,
             autoplay_timer: Instant::now(),
             autoplay_interval: 1.0,
+            sorting: AudioSorting::IndexAsc,
+        }
+    }
+
+    pub fn apply_sorting(&mut self) {
+        if let Some(audio) = self.selected_audio.as_mut() {
+            audio.sort(self.sorting);
         }
     }
 }
@@ -144,7 +161,7 @@ impl View for AudioView {
             .resizable(true)
             .min_width(256.0)
             .show_inside(ui, |ui| {
-                ui.style_mut().wrap = Some(false);
+                ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
                 egui::ScrollArea::vertical()
                     .max_width(f32::INFINITY)
                     .show(ui, |ui| {
@@ -170,10 +187,7 @@ impl View for AudioView {
                             {
                                 self.selected_package = *id;
                                 self.selected_audio = Some(PackageAudio::by_pkg_id(*id));
-                                self.selected_audio
-                                    .as_mut()
-                                    .unwrap()
-                                    .sort(AudioSorting::DurationAsc);
+                                self.selected_audio.as_mut().unwrap().sort(self.sorting);
                                 self.current_row = 0;
                             }
                         }
@@ -214,19 +228,43 @@ impl View for AudioView {
             }
         }
 
+        if self.selected_audio.is_some() {
+            ui.horizontal(|ui| {
+                ui.checkbox(&mut self.autoplay, "Autoplay").on_hover_text(format!("Automatically plays all the sounds in sequence.\nSkips to the next file each {:.1} seconds", self.autoplay_interval));
+                egui::DragValue::new(&mut self.autoplay_interval).speed(0.1).range(0.2f32..=5f32).max_decimals(1).ui(ui);
+                ui.label("Autoplay Interval");
+                #[allow(clippy::blocks_in_conditions)]
+                if egui::ComboBox::from_label("Sort by")
+                    .selected_text(self.sorting.to_string())
+                    .show_ui(ui, |ui| {
+                        let mut changed = ui
+                            .selectable_value(&mut self.sorting, AudioSorting::IndexAsc, "Index ⬆")
+                            .changed();
+                        changed |= ui
+                            .selectable_value(&mut self.sorting, AudioSorting::IndexDesc, "Index ⬇")
+                            .changed();
+                        changed |= ui
+                            .selectable_value(&mut self.sorting, AudioSorting::DurationAsc, "Duration ⬆")
+                            .changed();
+                        changed |= ui
+                            .selectable_value(&mut self.sorting, AudioSorting::DurationDesc, "Duration ⬇")
+                            .changed();
+                        changed
+                    })
+                    .inner
+                    .unwrap_or(false)
+                {
+                    self.apply_sorting();
+                }
+            });
+        }
+
         if let Some(audio) = &self.selected_audio {
             self.current_row = self.current_row.clamp(0, audio.streams.len());
             let text_height = egui::TextStyle::Body
                 .resolve(ui.style())
                 .size
                 .max(ui.spacing().interact_size.y);
-
-            ui.horizontal(|ui| {
-                ui.checkbox(&mut self.autoplay, "Autoplay").on_hover_text(format!("Automatically plays all the sounds in sequence.\nSkips to the next file each {:.1} seconds", self.autoplay_interval));
-                egui::DragValue::new(&mut self.autoplay_interval).speed(0.1).range(0.2f32..=5f32).max_decimals(1).ui(ui);
-                ui.label("Autoplay Interval");
-            });
-
             let available_height = ui.available_height();
             let mut table = TableBuilder::new(ui)
                 .striped(true)
@@ -256,7 +294,7 @@ impl View for AudioView {
                         ui.monospace("Duration");
                     });
                 })
-                .body(|mut body| {
+                .body(|body| {
                     body.rows(text_height, audio.streams.len(), |mut row| {
                         row.set_selected(row.index() == self.current_row);
                         let (tag, duration) = &audio.streams[row.index()];
@@ -265,7 +303,7 @@ impl View for AudioView {
                             move_row |= ui.label(tag.entry_index().to_string()).clicked();
                         });
                         row.col(|ui| {
-                            let mut s = ui.label(tag.to_string());
+                            let s = ui.label(tag.to_string());
                             s.context_menu(|ui| tag_context(ui, *tag));
                             move_row |= s.clicked();
                         });

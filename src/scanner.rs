@@ -16,7 +16,7 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use rustc_hash::FxHashMap;
 
 use crate::{
-    classes::{TagClass, CLASS_MAP},
+    classes::get_class_by_id,
     package_manager::package_manager,
     text::{create_stringmap, StringCache},
     util::{u32_from_endian, u64_from_endian},
@@ -140,7 +140,7 @@ pub fn scan_file(context: &ScannerContext, data: &[u8], tags_only: bool) -> Scan
             })();
 
             if let Some((count, class)) = array {
-                if let Some(class) = CLASS_MAP.load().get(&class) {
+                if let Some(class) = get_class_by_id(class) {
                     if class.block_tags {
                         let array_size = class.array_size(count as usize).unwrap_or(count as usize);
                         blocked_ranges.push(array_offset..array_offset + array_size as u64);
@@ -158,8 +158,7 @@ pub fn scan_file(context: &ScannerContext, data: &[u8], tags_only: bool) -> Scan
 
         if blocked_ranges
             .iter()
-            .find(|range| range.contains(&(offset as u64)))
-            .is_some()
+            .any(|range| range.contains(&(offset as u64)))
         {
             continue;
         }
@@ -281,7 +280,7 @@ pub fn create_scanner_context(package_manager: &PackageManager) -> anyhow::Resul
 
     let mut wordlist = StringCache::default();
     {
-        const WORDLIST: &'static str = include_str!("../wordlist.txt");
+        const WORDLIST: &str = include_str!("../wordlist.txt");
         for s in WORDLIST.lines() {
             let s = s.to_string();
             let h = fnv1(s.as_bytes());

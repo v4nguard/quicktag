@@ -7,7 +7,7 @@ use std::slice::Iter;
 
 use binrw::{BinRead, BinReaderExt, BinResult, Endian, VecArgs};
 use destiny_pkg::{GameVersion, TagHash};
-use log::{error, warn};
+use log::error;
 use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::package_manager::package_manager;
@@ -377,8 +377,6 @@ pub fn create_stringmap() -> anyhow::Result<StringCache> {
         | GameVersion::DestinyRiseOfIron => create_stringmap_d2(),
         GameVersion::DestinyTheTakenKing => create_stringmap_d1(),
         GameVersion::DestinyInternalAlpha => create_stringmap_d1_devalpha(),
-        u =>
-            panic!("Unsupported game version {u:?} (create_stringmap)")
 
     }
 }
@@ -389,6 +387,8 @@ pub fn create_stringmap_d2() -> anyhow::Result<StringCache> {
         package_manager().version,
         GameVersion::DestinyTheTakenKing
             | GameVersion::DestinyRiseOfIron
+            | GameVersion::Destiny2Beta
+            | GameVersion::Destiny2Forsaken
             | GameVersion::Destiny2Shadowkeep
     );
     // Beyond Light still uses the same struct layout as prebl, was updated in WQ
@@ -413,7 +413,7 @@ pub fn create_stringmap_d2() -> anyhow::Result<StringCache> {
             continue;
         };
         let mut cur = Cursor::new(&data);
-        let text_data: StringData = cur.read_le_args((prebl,bl))?;
+        let text_data: StringData = cur.read_le_args((prebl, bl))?;
 
         for (combination, hash) in text_data
             .string_combinations

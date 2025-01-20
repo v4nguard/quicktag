@@ -2,17 +2,16 @@ use destiny_pkg::package::UEntryHeader;
 use destiny_pkg::{manager::PackagePath, TagHash};
 use eframe::egui::{self, RichText};
 
-use crate::gui::common::open_audio_file_in_default_application;
-use crate::package_manager::get_hash64;
-use crate::util::format_file_size;
-use crate::{package_manager::package_manager, tagtypes::TagType};
-
 use super::{
     common::{dump_wwise_info, ResponseExt},
     tag::format_tag_entry,
-    texture::TextureCache,
     View, ViewAction,
 };
+use crate::gui::common::open_audio_file_in_default_application;
+use crate::package_manager::get_hash64;
+use crate::texture::TextureCache;
+use crate::util::format_file_size;
+use crate::{package_manager::package_manager, tagtypes::TagType};
 
 pub struct PackagesView {
     selected_package: u16,
@@ -69,7 +68,7 @@ impl View for PackagesView {
             .resizable(true)
             .min_width(256.0)
             .show_inside(ui, |ui| {
-                ui.style_mut().wrap = Some(false);
+                ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
                 ui.horizontal(|ui| {
                     ui.label("Search:");
                     ui.text_edit_singleline(&mut self.package_filter);
@@ -154,7 +153,7 @@ impl View for PackagesView {
                     egui::ScrollArea::vertical()
                         .max_width(f32::INFINITY)
                         .show(ui, |ui| {
-                            ui.style_mut().wrap = Some(false);
+                            ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
 
                             for (i, (tag, label, tag_type, entry)) in self
                                 .package_entry_search_cache

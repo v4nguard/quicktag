@@ -16,23 +16,27 @@ use super::{
         open_audio_file_in_default_application, open_tag_in_default_application, tag_context,
         ResponseExt,
     },
-    texture::TextureCache,
     View, ViewAction,
 };
+use crate::classes::get_class_by_id;
 use crate::gui::hexview::TagHexView;
 use crate::package_manager::get_hash64;
 use crate::scanner::ScannedHash;
+use crate::util::ui_image_rotated;
 use crate::{
-    classes::CLASS_MAP,
     package_manager::package_manager,
     scanner::{ScanResult, TagCache},
     tagtypes::TagType,
     text::StringCache,
 };
-use crate::{gui::texture::Texture, scanner::read_raw_string_blob, text::RawStringHashCache};
+use crate::{
+    scanner::read_raw_string_blob, text::RawStringHashCache, texture::Texture,
+    texture::TextureCache,
+};
+use anyhow::Context;
 use binrw::{binread, BinReaderExt, Endian};
 use destiny_pkg::{package::UEntryHeader, GameVersion, TagHash, TagHash64};
-use eframe::egui::load::SizedTexture;
+use eframe::egui::Sense;
 use eframe::egui::{collapsing_header::CollapsingState, vec2, RichText, TextureId};
 use eframe::egui_wgpu::RenderState;
 use eframe::wgpu::naga::{FastHashSet, FastIndexMap};
@@ -265,7 +269,7 @@ impl TagView {
             package_manager()
                 .read_tag(tag_entry.reference)
                 .ok()
-                .map(|d| TagHexView::new(d))
+                .map(TagHexView::new)
         } else {
             None
         };
@@ -434,7 +438,7 @@ impl TagView {
         }
 
         if self.tag_type.is_tag() {
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 if ui
                     .add_enabled(
                         self.tag_traversal
@@ -497,7 +501,7 @@ impl TagView {
                     }
                 }
 
-                ui.add(egui::DragValue::new(&mut self.traversal_depth_limit).clamp_range(1..=256));
+                ui.add(egui::DragValue::new(&mut self.traversal_depth_limit).range(1..=256));
                 ui.label("Max depth");
 
                 ui.checkbox(
@@ -509,8 +513,12 @@ impl TagView {
 
                 if let Some(traversal) = self.tag_traversal.as_ref() {
                     if let Some((trav_interactive, _)) = traversal.ready() {
+                        let ctrl = ui.input(|i| i.modifiers.ctrl);
                         if ui
-                            .button("Dump all tag data")
+                            .button(format!(
+                                "Dump all tag data{}",
+                                if ctrl { "+non-structure tag data" } else { "" }
+                            ))
                             .on_hover_text("Dumps the tag data for all tags in the traversal tree")
                             .clicked()
                         {
@@ -520,6 +528,7 @@ impl TagView {
                             if let Err(e) = Self::dump_traversed_tag_data_recursive(
                                 trav_interactive,
                                 &directory,
+                                ctrl,
                             ) {
                                 error!("Failed to dump tag data: {e:?}");
                             }
@@ -540,7 +549,7 @@ impl TagView {
                                     0,
                                 ));
                             } else {
-                                ui.style_mut().wrap = Some(false);
+                                ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
                                 ui.label(RichText::new(trav_static).monospace());
                             }
                         });
@@ -551,30 +560,32 @@ impl TagView {
             }
         } else if self.tag_type.is_texture() && self.tag_type.is_header() {
             match &self.texture {
-                Ok((t, egui_texture)) => {
+                Ok((tex, egui_texture)) => {
                     let min_dimension = ui.available_size().min_elem();
-                    let size = if t.width > t.height {
+                    let size = if tex.desc.width > tex.desc.height {
                         vec2(
                             min_dimension,
-                            min_dimension * t.height as f32 / t.width as f32,
+                            min_dimension * tex.desc.height as f32 / tex.desc.width as f32,
                         )
                     } else {
                         vec2(
-                            min_dimension * t.width as f32 / t.height as f32,
+                            min_dimension * tex.desc.width as f32 / tex.desc.height as f32,
                             min_dimension,
                         )
                     } * 0.8;
-                    ui.image(SizedTexture {
-                        id: *egui_texture,
-                        size,
-                    });
+                    let (response, painter) = ui.allocate_painter(size, Sense::hover());
+                    ui_image_rotated(
+                        &painter,
+                        *egui_texture,
+                        response.rect,
+                        // Rotate the image if it's a cubemap
+                        if tex.desc.array_size == 6 { 90. } else { 0. },
+                        tex.desc.array_size == 6,
+                    );
 
-                    ui.label(format!(
-                        "{}x{}x{} {:?}",
-                        t.width, t.height, t.depth, t.format
-                    ));
+                    ui.label(tex.desc.info());
 
-                    if let Some(ref comment) = t.comment {
+                    if let Some(ref comment) = tex.comment {
                         ui.collapsing("Texture Header", |ui| {
                             ui.weak(comment);
                         });
@@ -653,10 +664,10 @@ impl TagView {
                     }
                 });
 
-            ui.add(egui::DragValue::new(&mut self.search_min_depth).clamp_range(0..=256));
+            ui.add(egui::DragValue::new(&mut self.search_min_depth).range(0..=256));
             ui.label("Min depth");
 
-            ui.add(egui::DragValue::new(&mut self.search_depth_limit).clamp_range(1..=256));
+            ui.add(egui::DragValue::new(&mut self.search_depth_limit).range(1..=256));
             ui.label("Max depth");
 
             ui.text_edit_singleline(&mut self.search_package_name_filter);
@@ -719,11 +730,18 @@ impl TagView {
     pub fn dump_traversed_tag_data_recursive(
         tag: &TraversedTag,
         directory: &Path,
+        dump_non_structure: bool,
     ) -> anyhow::Result<()> {
         let tag_postfix = if let Some(entry) = &tag.entry {
+            let ref_postfix = get_class_by_id(entry.reference)
+                .map(|c| format!("_{}", c.name))
+                .unwrap_or_default();
+            let tag_type =
+                TagType::from_type_subtype(entry.file_type, entry.file_subtype).to_string();
             format!(
-                "_{}",
-                TagType::from_type_subtype(entry.file_type, entry.file_subtype)
+                "_{:08X}{ref_postfix}_{}",
+                entry.reference,
+                tag_type.replace(" ", "").replace("/", "_")
             )
         } else {
             "".to_string()
@@ -732,14 +750,34 @@ impl TagView {
         let path = directory.join(format!("{}{}.bin", tag.tag, tag_postfix));
         match package_manager().read_tag(tag.tag) {
             Ok(o) => {
-                let mut file = File::create(&path)?;
-                file.write_all(&o)?;
+                let mut file = File::create(&path).with_context(|| {
+                    format!("Failed to create tag dump file ({})", path.display())
+                })?;
+                file.write_all(&o)
+                    .context("Failed to write tag dump file")?;
             }
             Err(e) => error!("Failed to dump data for tag {}: {e:?}", tag.tag),
         }
 
+        if let Some(entry) = &tag.entry {
+            let tagtype = TagType::from_type_subtype(entry.file_type, entry.file_subtype);
+            if !tagtype.is_tag() && dump_non_structure {
+                return Ok(());
+            }
+        }
+
         for subtag in &tag.subtags {
-            Self::dump_traversed_tag_data_recursive(subtag, directory)?;
+            if let Some(entry) = &subtag.entry {
+                let tagtype = TagType::from_type_subtype(entry.file_type, entry.file_subtype);
+                if !tagtype.is_tag() && !dump_non_structure {
+                    continue;
+                }
+            }
+            if let Err(e) =
+                Self::dump_traversed_tag_data_recursive(subtag, directory, dump_non_structure)
+            {
+                error!("Failed to traverse tag {}: {e:?}", subtag.tag);
+            }
         }
 
         Ok(())
@@ -835,9 +873,10 @@ impl View for TagView {
                 open_tag_in_default_application(self.tag_entry.reference.into());
             }
 
-            
             if ui.button("Copy all hashes referencing this tag").clicked() {
-                let tag_hashes_str = self.scan.references
+                let tag_hashes_str = self
+                    .scan
+                    .references
                     .iter()
                     .map(|(hash, _entry)| format!("{}", hash))
                     .collect::<Vec<String>>()
@@ -852,7 +891,7 @@ impl View for TagView {
             .resizable(true)
             .min_width(256.0)
             .show_inside(ui, |ui| {
-                ui.style_mut().wrap = Some(false);
+                ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     CollapsingHeader::new(
                         egui::RichText::new("Files referencing this tag").strong(),
@@ -954,46 +993,6 @@ impl View for TagView {
                 });
             });
 
-        egui::CentralPanel::default().show_inside(ui, |ui| {
-            ui.horizontal(|ui| {
-                ui.selectable_value(&mut self.mode, TagViewMode::Traversal, "Traversal");
-                ui.selectable_value(&mut self.mode, TagViewMode::Hex, "Hex");
-                ui.selectable_value(&mut self.mode, TagViewMode::Float, "Floating point");
-                if self.hexview_referenced.is_some() {
-                    ui.selectable_value(
-                        &mut self.mode,
-                        TagViewMode::HexReferenced,
-                        "Hex (referenced data)",
-                    );
-                }
-                ui.selectable_value(&mut self.mode, TagViewMode::Search, "Search");
-            });
-
-            ui.separator();
-
-            match self.mode {
-                TagViewMode::Traversal => {
-                    open_new_tag = open_new_tag.or(self.traverse_ui(ui));
-                }
-                TagViewMode::Hex => {
-                    open_new_tag = open_new_tag.or(self.hexview.show(ui, &self.scan));
-                }
-                TagViewMode::HexReferenced => {
-                    if let Some(h) = self.hexview_referenced.as_mut() {
-                        open_new_tag = open_new_tag.or(h.show(ui, &self.scan));
-                    } else {
-                        self.mode = TagViewMode::Hex;
-                    }
-                }
-                TagViewMode::Float => {
-                    self.floatview_ui(ui);
-                }
-                TagViewMode::Search => {
-                    open_new_tag = open_new_tag.or(self.search_ui(ui));
-                }
-            }
-        });
-
         if !self.string_hashes.is_empty()
             || !self.raw_strings.is_empty()
             || !self.raw_string_hashes.is_empty()
@@ -1003,7 +1002,7 @@ impl View for TagView {
                 .resizable(true)
                 .min_width(320.0)
                 .show_inside(ui, |ui| {
-                    ui.style_mut().wrap = Some(false);
+                    ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
                     egui::ScrollArea::vertical().show(ui, |ui| {
                         CollapsingHeader::new(egui::RichText::new("Arrays").strong())
                             .default_open(true)
@@ -1013,9 +1012,7 @@ impl View for TagView {
                                         ui.label(RichText::new("No arrays found").italics());
                                     } else {
                                         for (offset, array) in &self.arrays {
-                                            let ref_label = CLASS_MAP
-                                                .load()
-                                                .get(&array.tagtype)
+                                            let ref_label = get_class_by_id(array.tagtype)
                                                 .map(|c| {
                                                     format!("{} ({:08X})", c.name, array.tagtype)
                                                 })
@@ -1213,6 +1210,46 @@ impl View for TagView {
                     });
                 });
         }
+
+        egui::CentralPanel::default().show_inside(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.selectable_value(&mut self.mode, TagViewMode::Traversal, "Traversal");
+                ui.selectable_value(&mut self.mode, TagViewMode::Hex, "Hex");
+                ui.selectable_value(&mut self.mode, TagViewMode::Float, "Floating point");
+                if self.hexview_referenced.is_some() {
+                    ui.selectable_value(
+                        &mut self.mode,
+                        TagViewMode::HexReferenced,
+                        "Hex (referenced data)",
+                    );
+                }
+                ui.selectable_value(&mut self.mode, TagViewMode::Search, "Search");
+            });
+
+            ui.separator();
+
+            match self.mode {
+                TagViewMode::Traversal => {
+                    open_new_tag = open_new_tag.or(self.traverse_ui(ui));
+                }
+                TagViewMode::Hex => {
+                    open_new_tag = open_new_tag.or(self.hexview.show(ui, &self.scan));
+                }
+                TagViewMode::HexReferenced => {
+                    if let Some(h) = self.hexview_referenced.as_mut() {
+                        open_new_tag = open_new_tag.or(h.show(ui, &self.scan));
+                    } else {
+                        self.mode = TagViewMode::Hex;
+                    }
+                }
+                TagViewMode::Float => {
+                    self.floatview_ui(ui);
+                }
+                TagViewMode::Search => {
+                    open_new_tag = open_new_tag.or(self.search_ui(ui));
+                }
+            }
+        });
 
         ctx.request_repaint_after(Duration::from_secs(1));
 
@@ -1599,9 +1636,7 @@ pub fn format_tag_entry(tag: TagHash, entry: Option<&UEntryHeader>) -> String {
             .map(|v| format!("{} ", v.name))
             .unwrap_or_default();
 
-        let ref_label = CLASS_MAP
-            .load()
-            .get(&entry.reference)
+        let ref_label = get_class_by_id(entry.reference)
             .map(|c| format!(" ({})", c.name))
             .unwrap_or_default();
 

@@ -19,6 +19,7 @@ pub enum TagType {
     ConstantBuffer { is_header: bool },
     PixelShader { is_header: bool },
     VertexShader { is_header: bool },
+    GeometryShader { is_header: bool },
     ComputeShader { is_header: bool },
 
     WwiseBank,
@@ -84,6 +85,7 @@ impl TagType {
 
             TagType::PixelShader { .. }
             | TagType::VertexShader { .. }
+            | TagType::GeometryShader { .. }
             | TagType::ComputeShader { .. } => Color32::from_rgb(249, 168, 71),
 
             TagType::WwiseBank | TagType::WwiseStream => Color32::from_rgb(191, 106, 247),
@@ -108,6 +110,7 @@ impl TagType {
             Self::ConstantBuffer { is_header: true },
             Self::PixelShader { is_header: true },
             Self::VertexShader { is_header: true },
+            Self::GeometryShader { is_header: true },
             Self::ComputeShader { is_header: true },
             Self::WwiseBank,
             Self::WwiseStream,
@@ -161,6 +164,10 @@ impl Display for TagType {
                 "VertexShader{}",
                 if *is_header { "" } else { " (Data)" }
             )),
+            TagType::GeometryShader { is_header } => f.write_fmt(format_args!(
+                "GeometryShader{}",
+                if *is_header { "" } else { " (Data)" }
+            )),
             TagType::ComputeShader { is_header } => f.write_fmt(format_args!(
                 "ComputeShader{}",
                 if *is_header { "" } else { " (Data)" }
@@ -208,7 +215,7 @@ impl TagType {
                 let is_header = t == 32;
                 match st {
                     1 => TagType::Texture2D { is_header },
-                    // 2 => TagType::TextureCube { is_header },
+                    2 => TagType::TextureCube { is_header },
                     3 => TagType::Texture3D { is_header },
                     4 => TagType::VertexBuffer { is_header },
                     6 => TagType::IndexBuffer { is_header },
@@ -231,7 +238,7 @@ impl TagType {
                 let is_header = t == 32;
                 match st {
                     1 => TagType::Texture2D { is_header },
-                    // 2 => TagType::TextureCube { is_header },
+                    2 => TagType::TextureCube { is_header },
                     3 => TagType::Texture3D { is_header },
                     4 => TagType::VertexBuffer { is_header },
                     6 => TagType::IndexBuffer { is_header },
@@ -254,6 +261,8 @@ impl TagType {
             (16, 0) => TagType::TagGlobal,
             (26, 5) => TagType::WwiseBank,
             (26, 6) => TagType::WwiseStream,
+            (26, 7) => TagType::Havok,
+            (27, 0) => TagType::CriwareUsm,
             (32 | 40, _) => match st {
                 1 => TagType::Texture2D { is_header },
                 2 => TagType::TextureCube { is_header },
@@ -266,6 +275,7 @@ impl TagType {
             (33 | 41, _) => match st {
                 0 => TagType::PixelShader { is_header },
                 1 => TagType::VertexShader { is_header },
+                2 => TagType::GeometryShader { is_header },
                 6 => TagType::ComputeShader { is_header },
                 fsubtype => TagType::Unknown { ftype: t, fsubtype },
             },
@@ -300,6 +310,7 @@ impl TagType {
             (33 | 41, _) => match st {
                 0 => TagType::PixelShader { is_header },
                 1 => TagType::VertexShader { is_header },
+                2 => TagType::GeometryShader { is_header },
                 6 => TagType::ComputeShader { is_header },
                 fsubtype => TagType::Unknown { ftype: t, fsubtype },
             },

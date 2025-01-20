@@ -1,6 +1,6 @@
 [package]
 name = "quicktag"
-version = "0.6.2"
+version = "0.7.0"
 edition = "2021"
 
 [dependencies]
@@ -39,7 +39,7 @@ rayon = "1.8.0"
 base64 = "0.22.0"
 bincode = "2.0.0-rc.3"
 binrw = "0.13.3"
-destiny-pkg = { version = "0.12.2", features = ["bincode"] }
+destiny-pkg = { version = "0.13.0", features = ["bincode"] }
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.108"
 vgmstream = { git = "https://github.com/cohaereo/vgmstream-rs/", version = "0.1.5", optional = true }
@@ -55,6 +55,7 @@ rodio = "0.18.1"
 # tiger-parse structure crates
 alkahest-data = { git = "https://github.com/cohaereo/alkahest.git" }
 arc-swap = "1.7.1"
+notify = "7.0.0"
 #cryptarch-data = { git = "https://github.com/v4nguard/cryptarch.git" }
 #dawn-data = { git = "https://github.com/cohaereo/dawn.git" }
 

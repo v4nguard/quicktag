@@ -1,8 +1,10 @@
 use std::{
+    borrow::Cow,
     fmt::{Debug, Display, UpperHex},
-    sync::Arc,
+    sync::{atomic::AtomicBool, Arc},
 };
 
+use anyhow::Context;
 use arc_swap::ArcSwap;
 use binrw::Endian;
 use bytemuck::{Pod, Zeroable};
@@ -17,7 +19,7 @@ use crate::{
 #[derive(Clone)]
 pub struct TagClass {
     pub id: u32,
-    pub name: &'static str,
+    pub name: Cow<'static, str>,
     pub size: Option<usize>,
     pub pretty_parser: Option<fn(&[u8], Endian) -> String>,
     /// Should this type block tag scanning? Useful for eliminating false positives in byte/vec4 blobs
@@ -69,7 +71,7 @@ macro_rules! class_internal {
     ($id:literal $name:ident @size($size:expr) @parse($parsefn:expr) @block_tags($block_tags:expr)) => {
         TagClass {
             id: $id,
-            name: stringify!($name),
+            name: Cow::Borrowed(stringify!($name)),
             size: $size,
             pretty_parser: $parsefn,
             block_tags: $block_tags,
@@ -160,7 +162,17 @@ pub const CLASSES_SK: &[TagClass] = &[
     class!(0x80804858 s_unk80804858 @size(24)),
     class!(0x808048D7 s_unk808048d7 @size(32)),
     class!(0x80806B10 s_unk80806b10 @size(12)),
+    class!(0x80807190 s_static_mesh_instance_group),
+    class!(0x80807193 s_static_special_mesh),
+    class!(0x80807194 s_static_mesh_data),
+    class!(0x8080719A s_static_mesh_part),
+    class!(0x8080719B s_static_mesh_group),
+    class!(0x808071A3 s_static_instance_transform),
+    class!(0x808071A7 s_static_mesh),
     class!(0x808071E8 s_technique),
+    class!(0x80807211 s_material_texture_assignment),
+    class!(0x808073F3 s_sampler_reference),
+    class!(0x8080966D s_static_mesh_instances),
     class!(0x808071F3 s_scope),
     class!(0x80809802 s_wwise_event),
     class!(0x80809A88 s_localized_strings),
@@ -233,7 +245,67 @@ pub const CLASSES_BL: &[TagClass] = &[
 
 // TODO(cohae): User-defined references
 lazy_static::lazy_static! {
-    pub static ref CLASS_MAP: ArcSwap<FxHashMap<u32, TagClass>> = ArcSwap::new(Default::default());
+    static ref CLASS_MAP: ArcSwap<FxHashMap<u32, TagClass>> = ArcSwap::new(Default::default());
+    static ref CLASS_MAP_FROM_FILE: ArcSwap<FxHashMap<u32, TagClass>> = ArcSwap::new(Default::default());
+    static ref REFRESHED_THIS_FRAME: AtomicBool = AtomicBool::new(false);
+}
+
+pub fn get_class_by_id(id: u32) -> Option<TagClass> {
+    CLASS_MAP
+        .load()
+        .get(&id)
+        .cloned()
+        .or_else(|| CLASS_MAP_FROM_FILE.load().get(&id).cloned())
+}
+
+pub fn load_schemafile() {
+    let Ok(schemafile) = std::fs::read_to_string("schema.txt") else {
+        return;
+    };
+
+    match parse_schemafile(&schemafile) {
+        Ok(o) => {
+            CLASS_MAP_FROM_FILE.store(Arc::new(o));
+            REFRESHED_THIS_FRAME.store(true, std::sync::atomic::Ordering::Relaxed);
+        }
+        Err(e) => {
+            log::error!("Failed to parse schema file: {:?}", e);
+        }
+    }
+}
+
+pub fn was_schemafile_refreshed() -> bool {
+    REFRESHED_THIS_FRAME.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+fn parse_schemafile(s: &str) -> anyhow::Result<FxHashMap<u32, TagClass>> {
+    let mut schema: FxHashMap<u32, TagClass> = Default::default();
+
+    // schema.txt lines can either be formatted as:
+    // 8080XXXX <name>
+    // 8080XXXX <name> <size>
+    for l in s.lines() {
+        let mut parts = l.split_whitespace();
+        let id = u32::from_str_radix(parts.next().context("Missing class ID")?, 16)?;
+        let name = parts.next().context("Missing name")?;
+        let size = parts
+            .next()
+            .map(|s| s.parse().context("Failed to parse size"))
+            .transpose()?;
+
+        schema.insert(
+            id,
+            TagClass {
+                id,
+                name: Cow::Owned(name.to_string()),
+                size,
+                pretty_parser: Some(parse_hex),
+                block_tags: false,
+            },
+        );
+    }
+
+    Ok(schema)
 }
 
 pub fn initialize_reference_names() {

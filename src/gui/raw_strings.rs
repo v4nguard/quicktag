@@ -64,7 +64,7 @@ impl View for RawStringsView {
         ui: &mut eframe::egui::Ui,
     ) -> Option<super::ViewAction> {
         egui::CentralPanel::default().show_inside(ui, |ui| {
-            ui.style_mut().wrap = Some(false);
+            ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
             ui.horizontal(|ui| {
                 ui.label("Search:");
                 if ui.text_edit_singleline(&mut self.string_filter).changed() {
@@ -150,7 +150,7 @@ impl View for RawStringsView {
                     egui::ScrollArea::vertical()
                         .max_width(f32::INFINITY)
                         .show(ui, |ui| {
-                            ui.style_mut().wrap = Some(false);
+                            ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
                             for tag in &self.strings[self.selected_stringset].1 {
                                 if let Some(e) = package_manager().get_entry(*tag) {
                                     let label = format_tag_entry(*tag, Some(&e));

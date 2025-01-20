@@ -1,18 +1,19 @@
 use std::fs::File;
 
-use destiny_pkg::{TagHash, TagHash64};
+use destiny_pkg::TagHash;
 use eframe::egui;
 use eframe::egui::RichText;
-use image::ImageFormat;
+use image::{DynamicImage, GenericImage, ImageFormat};
 use lazy_static::lazy_static;
 use log::{error, info, warn};
 use std::io::{Cursor, Write};
 use std::num::NonZeroU32;
 
 use crate::package_manager::get_hash64;
+use crate::texture::{Texture, TextureCache};
 use crate::{package_manager::package_manager, tagtypes::TagType};
 
-use super::texture::{Texture, TextureCache};
+use super::TOASTS;
 
 lazy_static! {
     static ref CF_PNG: NonZeroU32 = clipboard_win::register_format("PNG").unwrap();
@@ -44,40 +45,74 @@ impl ResponseExt for egui::Response {
         is_texture: bool,
     ) -> Self {
         self.context_menu(|ui| {
-            if is_texture && ui.selectable_label(false, "📷 Copy texture").clicked() {
-                match Texture::load(&texture_cache.render_state, tag, false) {
-                    Ok(o) => {
-                        let image = o.to_image(&texture_cache.render_state).unwrap();
-                        let mut png_data = vec![];
-                        let mut png_writer = Cursor::new(&mut png_data);
-                        image.write_to(&mut png_writer, ImageFormat::Png).unwrap();
+            if is_texture {
+                if ui.selectable_label(false, "📷 Copy texture").clicked() {
+                    match Texture::load(&texture_cache.render_state, tag, false) {
+                        Ok(o) => {
+                            let image = o.to_image(&texture_cache.render_state, 0).unwrap();
+                            let mut png_data = vec![];
+                            let mut png_writer = Cursor::new(&mut png_data);
+                            image.write_to(&mut png_writer, ImageFormat::Png).unwrap();
 
-                        let _clipboard = clipboard_win::Clipboard::new();
-                        if let Err(e) = clipboard_win::raw::set(CF_PNG.get(), &png_data) {
-                            error!("Failed to copy texture to clipboard: {e}");
+                            let _clipboard = clipboard_win::Clipboard::new();
+                            if let Err(e) = clipboard_win::raw::set(CF_PNG.get(), &png_data) {
+                                error!("Failed to copy texture to clipboard: {e}");
+                            }
+
+                            // Save to temp
+                            let path = std::env::temp_dir().join(format!("{tag}.png"));
+                            let mut file = File::create(&path).unwrap();
+                            file.write_all(&png_data).unwrap();
+
+                            let mut path_utf16 =
+                                path.to_string_lossy().encode_utf16().collect::<Vec<u16>>();
+                            path_utf16.push(0);
+
+                            if let Err(e) = clipboard_win::raw::set_without_clear(
+                                CF_FILENAME.get(),
+                                bytemuck::cast_slice(&path_utf16),
+                            ) {
+                                error!("Failed to copy texture path to clipboard: {e}");
+                            } else {
+                                TOASTS.lock().success("Texture copied to clipboard");
+                            }
                         }
-
-                        // Save to temp
-                        let path = std::env::temp_dir().join(format!("{tag}.png"));
-                        let mut file = File::create(&path).unwrap();
-                        file.write_all(&png_data).unwrap();
-
-                        let mut path_utf16 =
-                            path.to_string_lossy().encode_utf16().collect::<Vec<u16>>();
-                        path_utf16.push(0);
-
-                        if let Err(e) = clipboard_win::raw::set_without_clear(
-                            CF_FILENAME.get(),
-                            bytemuck::cast_slice(&path_utf16),
-                        ) {
-                            error!("Failed to copy texture path to clipboard: {e}");
+                        Err(e) => {
+                            error!("Failed to load texture: {e}");
                         }
                     }
-                    Err(e) => {
-                        error!("Failed to load texture: {e}");
-                    }
+                    ui.close_menu();
                 }
-                ui.close_menu();
+
+                if ui
+                    .selectable_label(false, "📷 Save texture")
+                    .on_hover_text("Texture(s) will be saved to the textures/ directory")
+                    .clicked()
+                {
+                    match Texture::load(&texture_cache.render_state, tag, false) {
+                        Ok(o) => {
+                            std::fs::create_dir_all("textures/").unwrap();
+                            let mut images = vec![];
+                            for layer in 0..(o.desc.array_size.max(o.desc.depth)) {
+                                let image = o.to_image(&texture_cache.render_state, layer).unwrap();
+                                image.save(format!("textures/{tag}_{layer}.png")).unwrap();
+                                images.push(image);
+                            }
+
+                            if images.len() == 6 {
+                                let cubemap_image = assemble_cubemap(images);
+                                cubemap_image
+                                    .save(format!("textures/{tag}_cubemap.png"))
+                                    .unwrap();
+                            }
+                            TOASTS.lock().success("Texture saved");
+                        }
+                        Err(e) => {
+                            error!("Failed to load texture: {e}");
+                        }
+                    }
+                    ui.close_menu();
+                }
             }
             tag_context(ui, tag);
         });
@@ -272,6 +307,8 @@ pub fn open_audio_file_in_default_application(tag: TagHash, ext: &str) {
         let path = std::env::temp_dir().join(filename_wav);
         // std::fs::write(&path, data).ok();
         if let Ok(mut f) = File::create(&path) {
+            // TODO(cohae): Replace with `hound` crate
+            #[allow(deprecated)]
             wav::write(
                 wav::Header {
                     audio_format: wav::WAV_FORMAT_PCM,
@@ -334,4 +371,31 @@ pub fn dump_wwise_info(package_id: u16) {
 
         info!("dump_wwise_info: Done");
     });
+}
+
+#[allow(clippy::erasing_op)]
+fn assemble_cubemap(images: Vec<DynamicImage>) -> DynamicImage {
+    let tile_w = images[0].width();
+    let tile_h = images[0].height();
+
+    let mut cubemap = DynamicImage::new_rgba8(tile_w * 4, tile_h * 3);
+
+    let x_pos = images[0].rotate90();
+    let x_neg = images[1].rotate270();
+    let y_pos = images[2].rotate180();
+    let y_neg = images[3].clone();
+    let z_pos = images[4].rotate90();
+    let z_neg = images[5].rotate90();
+
+    // -- Z+ -- --
+    // Y- X+ Y+ X-
+    // -- Z- -- --
+    let _ = cubemap.copy_from(&z_pos, tile_w * 1, tile_h * 0);
+    let _ = cubemap.copy_from(&y_neg, tile_w * 0, tile_h * 1);
+    let _ = cubemap.copy_from(&x_pos, tile_w * 1, tile_h * 1);
+    let _ = cubemap.copy_from(&y_pos, tile_w * 2, tile_h * 1);
+    let _ = cubemap.copy_from(&x_neg, tile_w * 3, tile_h * 1);
+    let _ = cubemap.copy_from(&z_neg, tile_w * 1, tile_h * 2);
+
+    cubemap
 }

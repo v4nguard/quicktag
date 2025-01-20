@@ -1,11 +1,16 @@
 use destiny_pkg::{manager::PackagePath, TagHash};
-use eframe::egui::{self, pos2, vec2, Color32, RichText, Stroke, Widget};
+use eframe::egui::{self, pos2, vec2, Color32, Pos2, RichText, Stroke, Ui, Vec2, Widget};
+use eframe::emath::Rot2;
 use std::fmt::{Display, Formatter};
 
-use crate::gui::texture::{Texture, TextureDesc};
-use crate::{package_manager::package_manager, tagtypes::TagType};
+use crate::util::ui_image_rotated;
+use crate::{
+    package_manager::package_manager,
+    tagtypes::TagType,
+    texture::{Texture, TextureCache, TextureDesc},
+};
 
-use super::{common::ResponseExt, texture::TextureCache, View, ViewAction};
+use super::{common::ResponseExt, View, ViewAction};
 
 pub struct TexturesView {
     selected_package: u16,
@@ -92,7 +97,7 @@ impl View for TexturesView {
             .resizable(true)
             .min_width(256.0)
             .show_inside(ui, |ui| {
-                ui.style_mut().wrap = Some(false);
+                ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
 
                 ui.horizontal(|ui| {
                     ui.label("Search:");
@@ -233,7 +238,7 @@ impl View for TexturesView {
                 .auto_shrink([false, false])
                 .max_width(f32::INFINITY)
                 .show(ui, |ui| {
-                    ui.style_mut().wrap = Some(true);
+                    ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Wrap);
                     ui.spacing_mut().item_spacing = [4. * self.zoom; 2].into();
 
                     if self.selected_package == u16::MAX {
@@ -266,19 +271,19 @@ impl View for TexturesView {
                                     let (tex, tid) = self.texture_cache.get_or_default(*hash);
                                     // The rect of the actual image itself, with aspect ratio corrections applied
                                     let img_rect = if self.keep_aspect_ratio {
-                                        if tex.width > tex.height {
+                                        if tex.desc.width > tex.desc.height {
                                             let scale =
-                                                img_container_rect.width() / tex.width as f32;
-                                            let height = tex.height as f32 * scale;
+                                                img_container_rect.width() / tex.desc.width as f32;
+                                            let height = tex.desc.height as f32 * scale;
                                             let y = img_container_rect.center().y - height / 2.0;
                                             egui::Rect::from_min_size(
                                                 pos2(img_container_rect.left(), y),
                                                 vec2(img_container_rect.width(), height),
                                             )
                                         } else {
-                                            let scale =
-                                                img_container_rect.height() / tex.height as f32;
-                                            let width = tex.width as f32 * scale;
+                                            let scale = img_container_rect.height()
+                                                / tex.desc.height as f32;
+                                            let width = tex.desc.width as f32 * scale;
                                             let x = img_container_rect.center().x - width / 2.0;
                                             egui::Rect::from_min_size(
                                                 pos2(x, img_container_rect.top()),
@@ -292,11 +297,20 @@ impl View for TexturesView {
                                     let painter = ui.painter_at(img_container_rect);
 
                                     painter.rect_filled(img_container_rect, 4.0, Color32::BLACK);
-                                    painter.image(
+                                    // painter.image(
+                                    //     tid,
+                                    //     img_rect,
+                                    //     // egui::Rect::from_min_size(pos2(0.0, 0.0), vec2(1.0, 1.0)),
+                                    //     egui::Rect::from_min_max(pos2(0.0, 1.0), pos2(1.0, 0.0)),
+                                    //     Color32::WHITE,
+                                    // );
+                                    ui_image_rotated(
+                                        &painter,
                                         tid,
                                         img_rect,
-                                        egui::Rect::from_min_size(pos2(0.0, 0.0), vec2(1.0, 1.0)),
-                                        Color32::WHITE,
+                                        // Rotate the image if it's a cubemap
+                                        if tex.desc.array_size == 6 { 90. } else { 0. },
+                                        tex.desc.array_size == 6,
                                     );
 
                                     if img_container.hovered() {

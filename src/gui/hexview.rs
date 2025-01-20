@@ -1,4 +1,4 @@
-use crate::classes::CLASS_MAP;
+use crate::classes::{self, get_class_by_id};
 use crate::gui::common::ResponseExt;
 use crate::gui::tag::{format_tag_entry, ExtendedScanResult};
 use crate::package_manager::package_manager;
@@ -8,13 +8,12 @@ use binrw::{binread, BinReaderExt, Endian};
 use destiny_pkg::{GameVersion, TagHash};
 use eframe::egui;
 use eframe::egui::{
-    collapsing_header::CollapsingState, pos2, vec2, Color32, CursorIcon, Rgba, RichText,
-    ScrollArea, Sense, Stroke, Ui,
+    collapsing_header::CollapsingState, vec2, Color32, CursorIcon, Rgba, RichText, ScrollArea,
+    Sense, Stroke, Ui,
 };
 use itertools::Itertools;
 use log::warn;
 use std::io::{Cursor, Seek, SeekFrom};
-use std::str::FromStr;
 
 pub struct TagHexView {
     data: Vec<u8>,
@@ -55,6 +54,10 @@ impl TagHexView {
             return None;
         }
 
+        if classes::was_schemafile_refreshed() {
+            self.array_ranges = find_all_array_ranges(&self.data);
+        }
+
         ui.checkbox(&mut self.raw_array_data, "Show raw array data");
         ui.separator();
 
@@ -84,9 +87,7 @@ impl TagHexView {
                                 let heading = if let Some(label) = &array.label {
                                     label.clone()
                                 } else {
-                                    let ref_label = CLASS_MAP
-                                        .load()
-                                        .get(&array.class)
+                                    let ref_label = get_class_by_id(array.class)
                                         .map(|c| format!("{} ({:08X})", c.name, array.class))
                                         .unwrap_or_else(|| format!("{:08X}", array.class));
                                     format!("Array {ref_label} ({} elements)", array.length)
@@ -97,8 +98,7 @@ impl TagHexView {
                         })
                         .body_unindented(|ui| {
                             if !self.raw_array_data && !array.pretty_rows.is_empty() {
-                                let class_size =
-                                    CLASS_MAP.load().get(&array.class).and_then(|c| c.size);
+                                let class_size = get_class_by_id(array.class).and_then(|c| c.size);
                                 for (i, row) in array.pretty_rows.iter().enumerate() {
                                     ui.horizontal(|ui| {
                                         if let Some(class_size) = class_size {
@@ -206,7 +206,7 @@ impl TagHexView {
                         if data.iter().all(|&v| v >= 0.0) {
                             let needs_normalization = data.iter().any(|&v| v > 1.0);
                             let floats = if needs_normalization {
-                                let factor = data.clone().into_iter().reduce(f32::max).unwrap();
+                                let factor = (*data).into_iter().reduce(f32::max).unwrap();
                                 [
                                     data[0] / factor,
                                     data[1] / factor,
@@ -214,7 +214,7 @@ impl TagHexView {
                                     data[3] / factor,
                                 ]
                             } else {
-                                data.clone()
+                                *data
                             };
 
                             let color =
@@ -399,7 +399,7 @@ fn find_all_array_ranges(data: &[u8]) -> Vec<ArrayRange> {
         let start = offset;
         let data_start = offset + 16;
         let mut pretty_rows = vec![];
-        if let Some(class) = CLASS_MAP.load().get(&header.tagtype) {
+        if let Some(class) = get_class_by_id(header.tagtype) {
             if class.has_pretty_formatter() {
                 let class_size = class
                     .size
@@ -413,7 +413,7 @@ fn find_all_array_ranges(data: &[u8]) -> Vec<ArrayRange> {
                         pretty_rows.push(
                             class
                                 .parse_and_format(data, endian)
-                                .unwrap_or_else(|| format!("Failed to parse row")),
+                                .unwrap_or_else(|| "Failed to parse row".to_string()),
                         );
                     }
                 } else {

@@ -2,11 +2,11 @@ use crate::gui::common::ResponseExt;
 use crate::gui::tag::{
     format_tag_entry, ExtendedScanResult, ExtendedTagHash, ScannedHashWithEntry,
 };
-use crate::gui::texture::TextureCache;
 use crate::gui::ViewAction;
 use crate::scanner;
 use crate::scanner::ScannerContext;
 use crate::tagtypes::TagType;
+use crate::texture::TextureCache;
 use eframe::egui;
 
 pub struct ExternalFileScanView {

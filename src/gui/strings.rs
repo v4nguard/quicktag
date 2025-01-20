@@ -13,7 +13,7 @@ use rustc_hash::FxHashMap;
 
 use crate::{
     package_manager::package_manager,
-    scanner::{fnv1, TagCache},
+    scanner::TagCache,
     tagtypes::TagType,
     text::{decode_text, StringCache, StringCacheVec, StringContainer, StringData, StringPart},
 };
@@ -82,14 +82,14 @@ impl View for StringsView {
             .resizable(true)
             .min_width(384.0)
             .show_inside(ui, |ui| {
-                if self.variant == StringViewVariant::LocalizedStrings {
-                    if ui.button("Dump all languages").clicked() {
-                        dump_all_languages().unwrap();
-                    }
+                if self.variant == StringViewVariant::LocalizedStrings
+                    && ui.button("Dump all languages").clicked()
+                {
+                    dump_all_languages().unwrap();
                 }
 
                 ui.separator();
-                ui.style_mut().wrap = Some(false);
+                ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
                 ui.horizontal(|ui| {
                     ui.label("Search:");
                     let mut update_search =
@@ -233,7 +233,7 @@ impl View for StringsView {
                 egui::ScrollArea::vertical()
                     .max_width(f32::INFINITY)
                     .show(ui, |ui| {
-                        ui.style_mut().wrap = Some(false);
+                        ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
                         if self.selected_string == u32::MAX {
                             ui.label(RichText::new("No string selected").italics());
                         } else {
@@ -269,7 +269,10 @@ fn truncate_string_stripped(s: &str, max_length: usize) -> String {
 }
 
 fn dump_all_languages() -> anyhow::Result<()> {
-    let prebl = package_manager().version == GameVersion::Destiny2Shadowkeep;
+    let prebl = matches!(
+        package_manager().version,
+        GameVersion::Destiny2Beta | GameVersion::Destiny2Forsaken | GameVersion::Destiny2Shadowkeep
+    );
     let bl = package_manager().version == GameVersion::Destiny2BeyondLight;
 
     std::fs::create_dir("strings").ok();
@@ -293,7 +296,7 @@ fn dump_all_languages() -> anyhow::Result<()> {
                 continue;
             };
             let mut cur = Cursor::new(&data);
-            let text_data: StringData = cur.read_le_args((prebl,bl))?;
+            let text_data: StringData = cur.read_le_args((prebl, bl))?;
 
             for (combination, hash) in text_data
                 .string_combinations
