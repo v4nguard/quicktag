@@ -53,7 +53,7 @@ clipboard-win = "5.3.1"
 rodio = "0.18.1"
 
 # tiger-parse structure crates
-alkahest-data = { git = "https://github.com/cohaereo/alkahest.git" }
+# alkahest-data = { git = "https://github.com/cohaereo/alkahest.git" }
 arc-swap = "1.7.1"
 notify = "7.0.0"
 #cryptarch-data = { git = "https://github.com/v4nguard/cryptarch.git" }
