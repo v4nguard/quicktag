@@ -410,7 +410,10 @@ impl eframe::App for QuickTagApp {
                         } else if tag_input_trimmed.len() >= 16 {
                             let hash =
                                 u64::from_str_radix(tag_input_trimmed, 16).unwrap_or_default();
-                            if let Some(t) = package_manager().hash64_table.get(&u64::from_be(hash))
+                            if let Some(t) = package_manager()
+                                .lookup
+                                .tag64_entries
+                                .get(&u64::from_be(hash))
                             {
                                 t.hash32
                             } else {

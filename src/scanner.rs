@@ -295,7 +295,8 @@ pub fn create_scanner_context(package_manager: &PackageManager) -> anyhow::Resul
 
     let mut res = ScannerContext {
         valid_file_hashes: package_manager
-            .package_entry_index
+            .lookup
+            .tag32_entries_by_pkg
             .iter()
             .flat_map(|(pkg_id, entries)| {
                 entries
@@ -306,7 +307,8 @@ pub fn create_scanner_context(package_manager: &PackageManager) -> anyhow::Resul
             })
             .collect(),
         valid_file_hashes64: package_manager
-            .hash64_table
+            .lookup
+            .tag64_entries
             .keys()
             .map(|&v| TagHash64(v))
             .collect(),
@@ -599,7 +601,7 @@ fn transform_tag_cache(cache: FxHashMap<TagHash, ScanResult>) -> TagCache {
         }
 
         for t64 in &v2.file_hashes64 {
-            if let Some(t32) = package_manager().hash64_table.get(&t64.hash.0) {
+            if let Some(t32) = package_manager().lookup.tag64_entries.get(&t64.hash.0) {
                 match direct_reference_cache.entry(t32.hash32) {
                     std::collections::hash_map::Entry::Occupied(mut o) => {
                         o.get_mut().push(*k2);

@@ -1033,9 +1033,9 @@ dependencies = [
 
 [[package]]
 name = "destiny-pkg"
-version = "0.13.0"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22edba1c037da388ac6ba361eb3184c1e126d1dc3130714fb7f511a9c4b44e08"
+checksum = "daeb4e7dc68ce26f5b234514248c8b187221ca8f1471b4e1809dd0cb221fe571"
 dependencies = [
  "aes",
  "aes-gcm",
@@ -1044,10 +1044,8 @@ dependencies = [
  "binrw",
  "clap",
  "clap-num",
- "ddsfile",
  "hex",
  "itertools 0.13.0",
- "json",
  "lazy_static",
  "libloading 0.8.4",
  "parking_lot",
@@ -2847,7 +2845,7 @@ dependencies = [
  "chrono",
  "clap",
  "clipboard-win",
- "destiny-pkg 0.13.0",
+ "destiny-pkg 0.14.0",
  "eframe",
  "egui-notify",
  "egui_extras",

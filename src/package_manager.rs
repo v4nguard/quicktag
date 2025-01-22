@@ -15,7 +15,7 @@ pub fn initialize_package_manager(pm: PackageManager) {
 
     let mut hash64_lookup = PM_HASH64_LOOKUP.write();
     hash64_lookup.clear();
-    for (hash64, hash) in package_manager().hash64_table.iter() {
+    for (hash64, hash) in package_manager().lookup.tag64_entries.iter() {
         hash64_lookup.insert(hash.hash32, TagHash64(*hash64));
     }
 }

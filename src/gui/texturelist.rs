@@ -45,7 +45,7 @@ impl TexturesView {
             .package_paths
             .iter()
             .filter_map(|(id, path)| {
-                if let Some(entries) = package_manager().package_entry_index.get(id) {
+                if let Some(entries) = package_manager().lookup.tag32_entries_by_pkg.get(id) {
                     for e in entries {
                         let st = TagType::from_type_subtype(e.file_type, e.file_subtype);
                         if st.is_texture() && st.is_header() {
@@ -126,7 +126,7 @@ impl View for TexturesView {
                                 )
                                 .changed()
                             {
-                                self.textures = package_manager().package_entry_index[id]
+                                self.textures = package_manager().lookup.tag32_entries_by_pkg[id]
                                     .iter()
                                     .enumerate()
                                     .filter_map(|(i, e)| {
