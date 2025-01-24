@@ -242,7 +242,8 @@ impl TagView {
         }
 
         let tag64 = package_manager()
-            .hash64_table
+            .lookup
+            .tag64_entries
             .iter()
             .find(|(_, e)| e.hash32 == tag)
             .map(|(&h64, _)| TagHash64(h64));
@@ -1281,7 +1282,8 @@ impl ExtendedTagHash {
         match self {
             ExtendedTagHash::Hash32(h) => *h,
             ExtendedTagHash::Hash64(h) => package_manager()
-                .hash64_table
+                .lookup
+                .tag64_entries
                 .get(&h.0)
                 .map(|v| v.hash32)
                 .unwrap_or(TagHash::NONE),
@@ -1331,7 +1333,8 @@ impl ExtendedScanResult {
                 hash: ExtendedTagHash::Hash64(s.hash),
                 entry: package_manager().get_entry(
                     package_manager()
-                        .hash64_table
+                        .lookup
+                        .tag64_entries
                         .get(&s.hash.0)
                         .map(|v| v.hash32)
                         .unwrap_or(TagHash::NONE),
@@ -1630,6 +1633,7 @@ fn traverse_tag(
 pub fn format_tag_entry(tag: TagHash, entry: Option<&UEntryHeader>) -> String {
     if let Some(entry) = entry {
         let named_tag = package_manager()
+            .lookup
             .named_tags
             .iter()
             .find(|v| v.hash == tag)

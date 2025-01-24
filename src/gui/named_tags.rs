@@ -13,6 +13,7 @@ impl NamedTags {
     pub fn new() -> NamedTags {
         NamedTags {
             tags: package_manager()
+                .lookup
                 .named_tags
                 .iter()
                 .cloned()

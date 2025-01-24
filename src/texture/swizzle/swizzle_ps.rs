@@ -11,7 +11,7 @@ impl GcmDeswizzler {
             // ARGB => RGBA
             GcmSurfaceFormat::A8R8G8B8 => {
                 for chunk in source.chunks_exact(4) {
-                    result.extend_from_slice(&[chunk[1], chunk[2], chunk[3], chunk[0]]);
+                    result.extend_from_slice(&[chunk[3], chunk[2], chunk[1], chunk[0]]);
                 }
                 result
             }
