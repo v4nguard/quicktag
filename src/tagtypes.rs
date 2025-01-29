@@ -188,8 +188,11 @@ impl Display for TagType {
 
 impl TagType {
     pub fn from_type_subtype(t: u8, st: u8) -> TagType {
+        Self::from_type_subtype_for_version(package_manager().version, t, st)
+    }
+    pub fn from_type_subtype_for_version(version: GameVersion, t: u8, st: u8) -> TagType {
         // TODO: Change this match to use ordered version checking after destiny-pkg 0.11
-        match package_manager().version {
+        match version {
             GameVersion::DestinyInternalAlpha => Self::from_type_subtype_devalpha(t, st),
             GameVersion::DestinyTheTakenKing | GameVersion::DestinyRiseOfIron => {
                 Self::from_type_subtype_d1(t, st)
