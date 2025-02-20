@@ -516,7 +516,10 @@ pub fn load_tag_cache() -> TagCache {
                     );
                     matches!(
                         tagtype,
-                        TagType::Tag | TagType::TagGlobal | TagType::WwiseBank // WWise banks are included to allow for reverse hash lookup
+                        TagType::Tag
+                            | TagType::TagGlobal
+                            | TagType::WwiseInitBank
+                            | TagType::WwiseBank // WWise banks are included to allow for reverse hash lookup
                     )
                 })
                 .map(|(i, e)| (i, e.clone()))
@@ -547,7 +550,9 @@ pub fn load_tag_cache() -> TagCache {
 
                 let scanner_mode;
                 match TagType::from_type_subtype_for_version(version, e.file_type, e.file_subtype) {
-                    TagType::WwiseBank => scanner_mode = ScannerMode::Hashes,
+                    TagType::WwiseInitBank | TagType::WwiseBank => {
+                        scanner_mode = ScannerMode::Hashes
+                    }
                     _ => scanner_mode = ScannerMode::Both,
                 }
 

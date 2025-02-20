@@ -22,6 +22,7 @@ pub enum TagType {
     GeometryShader { is_header: bool },
     ComputeShader { is_header: bool },
 
+    WwiseInitBank,
     WwiseBank,
     WwiseStream,
 
@@ -88,7 +89,9 @@ impl TagType {
             | TagType::GeometryShader { .. }
             | TagType::ComputeShader { .. } => Color32::from_rgb(249, 168, 71),
 
-            TagType::WwiseBank | TagType::WwiseStream => Color32::from_rgb(191, 106, 247),
+            TagType::WwiseInitBank | TagType::WwiseBank | TagType::WwiseStream => {
+                Color32::from_rgb(191, 106, 247)
+            }
             TagType::Havok | TagType::OtfFontOrUmbraTome | TagType::CriwareUsm => Color32::YELLOW,
 
             TagType::TagGlobal => Color32::WHITE,
@@ -112,6 +115,7 @@ impl TagType {
             Self::VertexShader { is_header: true },
             Self::GeometryShader { is_header: true },
             Self::ComputeShader { is_header: true },
+            Self::WwiseInitBank,
             Self::WwiseBank,
             Self::WwiseStream,
             Self::Havok,
@@ -174,6 +178,7 @@ impl Display for TagType {
             )),
             TagType::Tag => f.write_str("Tag"),
             TagType::TagGlobal => f.write_str("TagGlobal"),
+            TagType::WwiseInitBank => f.write_str("WwiseInitBank"),
             TagType::WwiseBank => f.write_str("WwiseBank"),
             TagType::WwiseStream => f.write_str("WwiseStream"),
             TagType::Havok => f.write_str("Havok"),
@@ -212,6 +217,7 @@ impl TagType {
             (0, 0) => TagType::Tag,
             (16, 0) => TagType::Tag,
             (128, 0) => TagType::TagGlobal,
+            (0, 14) => TagType::WwiseInitBank,
             (0, 15) => TagType::WwiseBank,
             (2, 16) => TagType::WwiseStream,
             (32 | 64 | 1, _) => {
@@ -234,6 +240,7 @@ impl TagType {
 
     pub fn from_type_subtype_d1(t: u8, st: u8) -> TagType {
         match (t, st) {
+            (0, 19) => TagType::WwiseInitBank,
             (0, 20) => TagType::WwiseBank,
             (8, 21) => TagType::WwiseStream,
             (16, 0) => TagType::Tag,
@@ -262,6 +269,7 @@ impl TagType {
         match (t, st) {
             (8, 0) => TagType::Tag,
             (16, 0) => TagType::TagGlobal,
+            (26, 4) => TagType::WwiseInitBank,
             (26, 5) => TagType::WwiseBank,
             (26, 6) => TagType::WwiseStream,
             (26, 7) => TagType::Havok,
@@ -297,6 +305,7 @@ impl TagType {
             (8, 0) => TagType::Tag,
             (16, 0) => TagType::TagGlobal,
             (24, 0) => TagType::OtfFontOrUmbraTome,
+            (26, 5) => TagType::WwiseInitBank,
             (26, 6) => TagType::WwiseBank,
             (26, 7) => TagType::WwiseStream,
             (27, 0) => TagType::Havok,

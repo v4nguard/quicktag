@@ -199,7 +199,7 @@ impl TagHexView {
                         }
                     }
                     DataRow::Float(data) => {
-                        let string = data.iter().map(|f| format!("{f:<11.6}")).join("  ");
+                        let string = data.iter().map(|f| fmt_short_float(*f)).join("  ");
                         ui.monospace(string);
                         ui.add_space(16.0);
 
@@ -297,9 +297,12 @@ impl From<[u8; 16]> for DataRow {
             from_xe_bytes(data[12..16].try_into().unwrap()),
         ];
 
-        let mut all_valid_floats = floats
-            .iter()
-            .all(|&v| (v.is_normal() && v.abs() < 1e7 && v.abs() > 1e-10) || v == 0.0);
+        let mut all_valid_floats = floats.iter().all(|&v| {
+            (v.is_normal() && v.abs() < 1e7 && v.abs() > 1e-10)
+                || v == 0.0
+                || v == f32::MAX
+                || v == f32::MIN
+        });
         if floats.iter().all(|&v| v == 0.0) {
             all_valid_floats = false;
         }
@@ -465,4 +468,12 @@ fn find_all_array_ranges(data: &[u8]) -> Vec<ArrayRange> {
 struct TagArrayHeader {
     pub count: u64,
     pub tagtype: u32,
+}
+
+fn fmt_short_float(f: f32) -> String {
+    match f {
+        f32::MAX => "f32::MAX".to_string(),
+        f32::MIN => "f32::MIN".to_string(),
+        _ => format!("{f:<11.6}"),
+    }
 }
