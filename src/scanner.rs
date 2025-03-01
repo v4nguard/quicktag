@@ -21,6 +21,7 @@ use crate::{
     tagtypes::TagType,
     text::{create_stringmap, StringCache},
     util::{u32_from_endian, u64_from_endian},
+    wordlist,
 };
 
 #[derive(bincode::Encode, bincode::Decode)]
@@ -285,19 +286,14 @@ pub fn create_scanner_context(package_manager: &PackageManager) -> anyhow::Resul
     let stringmap = create_stringmap()?;
 
     let mut wordlist = StringCache::default();
-    {
-        const WORDLIST: &str = include_str!("../wordlist.txt");
-        for s in WORDLIST.lines() {
-            let s = s.to_string();
-            let h = fnv1(s.as_bytes());
-            let entry = wordlist.entry(h).or_default();
-            if entry.iter().any(|s2| s2 == &s) {
-                continue;
-            }
-
-            entry.push(s);
+    wordlist::load_wordlist(|s, h| {
+        let entry = wordlist.entry(h).or_default();
+        if entry.iter().any(|s2| s2 == s) {
+            return;
         }
-    }
+
+        entry.push(s.to_string());
+    });
 
     let mut res = ScannerContext {
         valid_file_hashes: package_manager

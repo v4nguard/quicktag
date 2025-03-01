@@ -1431,7 +1431,8 @@ fn traverse_tag(
     writeln!(out, "{fancy_tag} @ 0x{offset:X}",).ok();
 
     if let Some(entry) = &entry {
-        if entry.reference == 0x808099F1 {
+        // ??? and localized string data
+        if matches!(entry.reference, 0x808099F1 | 0x80809A8A) {
             return TraversedTag {
                 tag,
                 entry: Some(entry.clone()),
