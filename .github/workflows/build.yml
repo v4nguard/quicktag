@@ -31,7 +31,7 @@ jobs:
         run: cargo build --verbose --release
 
       - name: Copy FFmpeg DLLs
-        run: cp ./libs/*.dll ./target/release/
+        run: cp ./lib/*.dll ./target/release/
 
       - name: Publish artifact
         if: matrix.platform == 'windows-latest'
