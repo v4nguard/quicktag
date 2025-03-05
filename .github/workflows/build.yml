@@ -30,6 +30,9 @@ jobs:
       - name: Build
         run: cargo build --verbose --release
 
+      - name: Copy FFmpeg DLLs
+        run: cp ./lib/*.dll ./target/release/
+
       - name: Publish artifact
         if: matrix.platform == 'windows-latest'
         uses: actions/upload-artifact@v4
@@ -38,4 +41,4 @@ jobs:
           path: |
             ./target/release/*.exe
             ./target/release/*.pdb
-            ./lib/*.dll
+            ./target/release/*.dll

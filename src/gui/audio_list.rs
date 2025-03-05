@@ -8,6 +8,7 @@ use eframe::egui;
 use eframe::egui::{Key, Widget};
 use eframe::wgpu::naga::FastIndexMap;
 use egui_extras::{Column, TableBuilder};
+use itertools::Itertools;
 use std::time::{Duration, Instant};
 
 struct PackageAudio {
@@ -51,9 +52,25 @@ fn wwise_stream_type() -> (u8, u8) {
     }
 }
 
+pub fn wwise_bank_type() -> (u8, u8) {
+    match package_manager().version {
+        GameVersion::DestinyInternalAlpha => (0, 15),
+        GameVersion::DestinyTheTakenKing => (0, 20),
+        GameVersion::DestinyRiseOfIron => (0, 20),
+        GameVersion::Destiny2Beta
+        | GameVersion::Destiny2Forsaken
+        | GameVersion::Destiny2Shadowkeep => (26, 5),
+        GameVersion::Destiny2BeyondLight
+        | GameVersion::Destiny2WitchQueen
+        | GameVersion::Destiny2Lightfall
+        | GameVersion::Destiny2TheFinalShape => (26, 6),
+    }
+}
+
 impl PackageAudio {
     pub fn by_pkg_id(id: u16) -> Self {
         let (wwise_type, wwise_subtype) = wwise_stream_type();
+
         Self {
             // TODO(cohae): Reading events only works for game versions after beyond light
             events: package_manager()

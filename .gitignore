@@ -1,6 +1,7 @@
 .idea
 .vscode
 /target
+/target_ra
 *.dll
 *.exe
 *.log

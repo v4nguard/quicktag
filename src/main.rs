@@ -7,6 +7,7 @@ mod tagtypes;
 mod text;
 mod texture;
 mod util;
+mod wordlist;
 
 use std::sync::Arc;
 

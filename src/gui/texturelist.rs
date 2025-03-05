@@ -12,6 +12,14 @@ use crate::{
 
 use super::{common::ResponseExt, View, ViewAction};
 
+const DESC_FILTER_PRESETS: &[(&'static str, &'static str)] = &[
+    ("(De)buff Icons", "75x75x1 Rgb"),
+    ("Items/medals/perks", "96x96x1 Rgb"),
+    ("Ability Icons", "54x54x1 Rgb"),
+    ("Weapon Icons", "137x76x1 Rgb"),
+    ("Upsell Screen", "1920x830x1"),
+];
+
 pub struct TexturesView {
     selected_package: u16,
     packages_with_textures: Vec<u16>,
@@ -231,6 +239,16 @@ impl View for TexturesView {
             ui.horizontal(|ui| {
                 ui.label("Texture desc filter: ");
                 ui.text_edit_singleline(&mut self.filter_texdesc).changed();
+
+                egui::ComboBox::from_id_source("Presets")
+                    .selected_text("Filter Presets")
+                    .show_ui(ui, |ui| {
+                        for (name, filter) in DESC_FILTER_PRESETS {
+                            if ui.selectable_label(false, *name).clicked() {
+                                self.filter_texdesc = filter.to_string();
+                            }
+                        }
+                    });
             });
 
             ui.separator();

@@ -43,12 +43,12 @@ use self::raw_strings::RawStringsView;
 use self::strings::StringsView;
 use self::tag::TagView;
 use self::texturelist::TexturesView;
-use crate::classes;
 use crate::gui::external_file::ExternalFileScanView;
 use crate::gui::tag::TagHistory;
 use crate::scanner::{fnv1, ScannerContext};
 use crate::text::RawStringHashCache;
 use crate::texture::TextureCache;
+use crate::{classes, wordlist};
 use crate::{
     package_manager::package_manager,
     scanner,
@@ -266,26 +266,14 @@ impl eframe::App for QuickTagApp {
                 entry.push((s, false));
             }
 
-            #[cfg(feature = "wordlist")]
-            {
-                const WORDLIST: &str = include_str!("../../wordlist.txt");
-                let load_start = Instant::now();
-                for s in WORDLIST.lines() {
-                    let s = s.to_string();
-                    let h = fnv1(s.as_bytes());
-                    let entry = new_rsh_cache.entry(h).or_default();
-                    if entry.iter().any(|(s2, _)| s2 == &s) {
-                        continue;
-                    }
-
-                    entry.push((s, true));
+            wordlist::load_wordlist(|s, h| {
+                let entry = new_rsh_cache.entry(h).or_default();
+                if entry.iter().any(|(s2, _)| s2 == s) {
+                    return;
                 }
-                info!(
-                    "Loading {} strings from embedded wordlist in {}ms",
-                    WORDLIST.lines().count(),
-                    load_start.elapsed().as_millis()
-                );
-            }
+
+                entry.push((s.to_string(), true));
+            });
 
             let mut filtered_wordlist_hashes: StringCache = Default::default();
             let found_hashes: FxHashSet<u32> = self

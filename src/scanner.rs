@@ -8,7 +8,7 @@ use std::{
 };
 
 use binrw::{BinReaderExt, Endian};
-use destiny_pkg::{GameVersion, PackageManager, TagHash, TagHash64};
+use destiny_pkg::{package::UEntryHeader, GameVersion, PackageManager, TagHash, TagHash64};
 use eframe::epaint::mutex::RwLock;
 use itertools::Itertools;
 use log::{error, info, warn};
@@ -18,8 +18,10 @@ use rustc_hash::FxHashMap;
 use crate::{
     classes::get_class_by_id,
     package_manager::package_manager,
+    tagtypes::TagType,
     text::{create_stringmap, StringCache},
     util::{u32_from_endian, u64_from_endian},
+    wordlist,
 };
 
 #[derive(bincode::Encode, bincode::Decode)]
@@ -101,7 +103,7 @@ pub fn fnv1(data: &[u8]) -> u32 {
     })
 }
 
-pub fn scan_file(context: &ScannerContext, data: &[u8], tags_only: bool) -> ScanResult {
+pub fn scan_file(context: &ScannerContext, data: &[u8], mode: ScannerMode) -> ScanResult {
     profiling::scope!(
         "scan_file",
         format!("data len = {} bytes", data.len()).as_str()
@@ -174,7 +176,7 @@ pub fn scan_file(context: &ScannerContext, data: &[u8], tags_only: bool) -> Scan
             });
         }
 
-        if !tags_only {
+        if mode != ScannerMode::Tags {
             // cohae: 0x808000CB is used in the alpha
             if matches!(value, 0x80800065 | 0x808000CB) {
                 r.raw_strings.extend(
@@ -215,6 +217,11 @@ pub fn scan_file(context: &ScannerContext, data: &[u8], tags_only: bool) -> Scan
                 }
             }
         }
+    }
+
+    if mode == ScannerMode::Hashes {
+        r.file_hashes.clear();
+        r.file_hashes64.clear();
     }
 
     r
@@ -279,19 +286,14 @@ pub fn create_scanner_context(package_manager: &PackageManager) -> anyhow::Resul
     let stringmap = create_stringmap()?;
 
     let mut wordlist = StringCache::default();
-    {
-        const WORDLIST: &str = include_str!("../wordlist.txt");
-        for s in WORDLIST.lines() {
-            let s = s.to_string();
-            let h = fnv1(s.as_bytes());
-            let entry = wordlist.entry(h).or_default();
-            if entry.iter().any(|s2| s2 == &s) {
-                continue;
-            }
-
-            entry.push(s);
+    wordlist::load_wordlist(|s, h| {
+        let entry = wordlist.entry(h).or_default();
+        if entry.iter().any(|s2| s2 == s) {
+            return;
         }
-    }
+
+        entry.push(s.to_string());
+    });
 
     let mut res = ScannerContext {
         valid_file_hashes: package_manager
@@ -498,33 +500,32 @@ pub fn load_tag_cache() -> TagCache {
                 version.open(&path.path).unwrap()
             };
 
-            let mut all_tags = match version {
-                GameVersion::DestinyInternalAlpha => [
-                    pkg.get_all_by_type(16, None),
-                    pkg.get_all_by_type(128, None),
-                ]
-                .concat(),
-                GameVersion::DestinyRiseOfIron | GameVersion::DestinyTheTakenKing => [
-                    pkg.get_all_by_type(16, None),
-                    pkg.get_all_by_type(128, None),
-                ]
-                .concat(),
-                GameVersion::Destiny2Beta
-                | GameVersion::Destiny2Forsaken
-                | GameVersion::Destiny2Shadowkeep
-                | GameVersion::Destiny2BeyondLight
-                | GameVersion::Destiny2WitchQueen
-                | GameVersion::Destiny2Lightfall
-                | GameVersion::Destiny2TheFinalShape => {
-                    [pkg.get_all_by_type(8, None), pkg.get_all_by_type(16, None)].concat()
-                }
-            };
+            let mut all_tags: Vec<(usize, UEntryHeader)> = pkg
+                .entries()
+                .iter()
+                .enumerate()
+                .filter(|(_, e)| {
+                    let tagtype = TagType::from_type_subtype_for_version(
+                        version,
+                        e.file_type,
+                        e.file_subtype,
+                    );
+                    matches!(
+                        tagtype,
+                        TagType::Tag
+                            | TagType::TagGlobal
+                            | TagType::WwiseInitBank
+                            | TagType::WwiseBank // WWise banks are included to allow for reverse hash lookup
+                    )
+                })
+                .map(|(i, e)| (i, e.clone()))
+                .collect();
 
             // Sort tags by starting block index to optimize sequential block reads
             all_tags.sort_by_key(|v| v.1.starting_block);
 
             let mut results = FxHashMap::default();
-            for (t, _) in all_tags {
+            for (t, e) in all_tags {
                 let hash = TagHash::new(pkg.pkg_id(), t as u16);
                 profiling::scope!("scan_tag", format!("tag {hash}").as_str());
 
@@ -543,7 +544,15 @@ pub fn load_tag_cache() -> TagCache {
                     }
                 };
 
-                let mut scan_result = scan_file(context, &data, false);
+                let scanner_mode;
+                match TagType::from_type_subtype_for_version(version, e.file_type, e.file_subtype) {
+                    TagType::WwiseInitBank | TagType::WwiseBank => {
+                        scanner_mode = ScannerMode::Hashes
+                    }
+                    _ => scanner_mode = ScannerMode::Both,
+                }
+
+                let mut scan_result = scan_file(context, &data, scanner_mode);
                 if version.is_d1() {
                     if let Some(entry) = pkg.entry(t) {
                         let ref_tag = TagHash(entry.reference);
@@ -667,4 +676,11 @@ fn exe_directory() -> PathBuf {
 
 fn exe_relative_path<P: AsRef<Path>>(path: P) -> PathBuf {
     exe_directory().join(path.as_ref())
+}
+
+#[derive(PartialEq)]
+pub enum ScannerMode {
+    Tags,
+    Hashes,
+    Both,
 }

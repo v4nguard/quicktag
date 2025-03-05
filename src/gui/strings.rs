@@ -18,7 +18,9 @@ use crate::{
     text::{decode_text, StringCache, StringCacheVec, StringContainer, StringData, StringPart},
 };
 
-use super::{common::ResponseExt, tag::format_tag_entry, View, ViewAction};
+use super::{
+    audio_list::wwise_bank_type, common::ResponseExt, tag::format_tag_entry, View, ViewAction,
+};
 
 pub struct StringsView {
     cache: Arc<TagCache>,
@@ -47,6 +49,24 @@ impl StringsView {
         cache: Arc<TagCache>,
         variant: StringViewVariant,
     ) -> Self {
+        // if variant == StringViewVariant::RawWordlist {
+        //     let (wwise_bank_type, wwise_bank_subtype) = wwise_bank_type();
+        //     let banks = package_manager()
+        //         .get_all_by_type(wwise_bank_type, Some(wwise_bank_subtype))
+        //         .iter()
+        //         // .filter(|(t, _e)| t.pkg_id() == id)
+        //         .map(|(t, e)| (*t, e.reference))
+        //         .collect_vec();
+
+        //     for (bt, be) in banks {
+        //         if let Some(name) = strings.get(&be) {
+        //             println!("{bt}: '{}'", name.first().cloned().unwrap_or_default());
+        //         } else {
+        //             println!("{bt}: <{be:08X}>");
+        //         }
+        //     }
+        // }
+
         let devstr_regex = regex::Regex::new(r"^str[0-9]*").unwrap();
         let mut strings_vec_filtered: StringCacheVec =
             strings.iter().map(|(k, v)| (*k, v.clone())).collect();
