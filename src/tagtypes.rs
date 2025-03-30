@@ -199,9 +199,9 @@ impl TagType {
         // TODO: Change this match to use ordered version checking after destiny-pkg 0.11
         match version {
             GameVersion::DestinyInternalAlpha => Self::from_type_subtype_devalpha(t, st),
-            GameVersion::DestinyTheTakenKing | GameVersion::DestinyRiseOfIron => {
-                Self::from_type_subtype_d1(t, st)
-            }
+            GameVersion::DestinyFirstLookAlpha
+            | GameVersion::DestinyTheTakenKing
+            | GameVersion::DestinyRiseOfIron => Self::from_type_subtype_d1(t, st),
             GameVersion::Destiny2Beta
             | GameVersion::Destiny2Forsaken
             | GameVersion::Destiny2Shadowkeep => Self::from_type_subtype_sk(t, st),

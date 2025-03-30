@@ -39,7 +39,7 @@ rayon = "1.8.0"
 base64 = "0.22.0"
 bincode = "2.0.0-rc.3"
 binrw = "0.13.3"
-destiny-pkg = { version = "0.14.0" }
+destiny-pkg = { version = "0.16.1" }
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.108"
 vgmstream = { git = "https://github.com/cohaereo/vgmstream-rs/", version = "0.1.5", optional = true }

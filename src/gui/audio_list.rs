@@ -40,8 +40,9 @@ impl AudioSorting {
 fn wwise_stream_type() -> (u8, u8) {
     match package_manager().version {
         GameVersion::DestinyInternalAlpha => (2, 16),
-        GameVersion::DestinyTheTakenKing => (8, 21),
-        GameVersion::DestinyRiseOfIron => (8, 21),
+        GameVersion::DestinyFirstLookAlpha
+        | GameVersion::DestinyTheTakenKing
+        | GameVersion::DestinyRiseOfIron => (8, 21),
         GameVersion::Destiny2Beta
         | GameVersion::Destiny2Forsaken
         | GameVersion::Destiny2Shadowkeep => (26, 6),
@@ -55,8 +56,9 @@ fn wwise_stream_type() -> (u8, u8) {
 pub fn wwise_bank_type() -> (u8, u8) {
     match package_manager().version {
         GameVersion::DestinyInternalAlpha => (0, 15),
-        GameVersion::DestinyTheTakenKing => (0, 20),
-        GameVersion::DestinyRiseOfIron => (0, 20),
+        GameVersion::DestinyTheTakenKing
+        | GameVersion::DestinyFirstLookAlpha
+        | GameVersion::DestinyRiseOfIron => (0, 20),
         GameVersion::Destiny2Beta
         | GameVersion::Destiny2Forsaken
         | GameVersion::Destiny2Shadowkeep => (26, 5),

@@ -328,6 +328,36 @@ pub struct StringPartD1Alpha {
     pub data_end: RelPointer32,
 }
 
+#[derive(BinRead, Debug)]
+pub struct StringContainerD1FirstLook {
+    pub file_size: u64,
+    pub string_hashes: TablePointer<u32>,
+    pub language_english: TagHash,
+}
+
+#[derive(BinRead, Debug)]
+pub struct StringDataD1FirstLook {
+    pub file_size: u64,
+    pub _unk2: TablePointer<()>,
+    pub string_data: TablePointer<u16>,
+    pub string_combinations: TablePointer<StringCombinationD1FirstLook>,
+}
+
+#[derive(BinRead, Debug)]
+pub struct StringCombinationD1FirstLook {
+    pub part_count: i64,
+    pub data: RelPointer,
+}
+
+#[derive(BinRead, Debug)]
+pub struct StringPartD1FirstLook {
+    pub _unk0: u64,
+    pub variable_hash: u32,
+    pub _unk2: u32,
+    pub data: RelPointer,
+    pub data_end: RelPointer,
+}
+
 /// Expects raw un-shifted data as input
 pub fn decode_text(data: &[u8], cipher: u16) -> String {
     // cohae: Modern versions of D2 no longer use the cipher system, we can take a shortcut
@@ -375,6 +405,7 @@ pub fn create_stringmap() -> anyhow::Result<StringCache> {
         | GameVersion::Destiny2TheFinalShape
         // cohae: Rise of Iron uses the same string format as D2
         | GameVersion::DestinyRiseOfIron => create_stringmap_d2(),
+        GameVersion::DestinyFirstLookAlpha => create_stringmap_d1_firstlook(),
         GameVersion::DestinyTheTakenKing => create_stringmap_d1(),
         GameVersion::DestinyInternalAlpha => create_stringmap_d1_devalpha(),
 
@@ -382,15 +413,7 @@ pub fn create_stringmap() -> anyhow::Result<StringCache> {
 }
 
 pub fn create_stringmap_d2() -> anyhow::Result<StringCache> {
-    // TODO(cohae): We should probably derive PartialOrd for GameVersion
-    let prebl = matches!(
-        package_manager().version,
-        GameVersion::DestinyTheTakenKing
-            | GameVersion::DestinyRiseOfIron
-            | GameVersion::Destiny2Beta
-            | GameVersion::Destiny2Forsaken
-            | GameVersion::Destiny2Shadowkeep
-    );
+    let prebl = package_manager().version.is_prebl() | package_manager().version.is_d1();
     // Beyond Light still uses the same struct layout as prebl, was updated in WQ
     let bl = package_manager().version == GameVersion::Destiny2BeyondLight;
 
@@ -546,6 +569,68 @@ pub fn create_stringmap_d1_devalpha() -> anyhow::Result<StringCache> {
                 })?;
 
                 final_string += &String::from_utf16_lossy(&data);
+            }
+
+            tmp_map.entry(*hash).or_default().insert(final_string);
+        }
+    }
+
+    Ok(tmp_map
+        .into_iter()
+        .map(|(k, v)| (k, v.into_iter().collect()))
+        .collect())
+}
+
+pub fn create_stringmap_d1_firstlook() -> anyhow::Result<StringCache> {
+    let mut tmp_map: FxHashMap<u32, FxHashSet<String>> = Default::default();
+    for (t, _) in package_manager()
+        .get_all_by_reference(0x8080035A)
+        .into_iter()
+    {
+        let Ok(textset_header) = package_manager().read_tag_binrw::<StringContainerD1FirstLook>(t)
+        else {
+            continue;
+        };
+
+        let Ok(data) = package_manager().read_tag(textset_header.language_english) else {
+            continue;
+        };
+        let mut cur = Cursor::new(&data);
+        let text_data = match cur.read_le::<StringDataD1FirstLook>() {
+            Ok(data) => data,
+            Err(e) => {
+                error!("Failed to read string data: {:?}", e);
+                continue;
+            }
+        };
+
+        for (combination, hash) in text_data
+            .string_combinations
+            .iter()
+            .zip(textset_header.string_hashes.iter())
+        {
+            if *hash == 0x811c9dc5 {
+                continue;
+            }
+
+            let mut final_string = String::new();
+
+            for ip in 0..combination.part_count {
+                cur.seek(combination.data.into())?;
+                cur.seek(SeekFrom::Current(0x10))?;
+                cur.seek(SeekFrom::Current(ip * 0x20))?;
+                let part: StringPartD1FirstLook = cur.read_le()?;
+                cur.seek(part.data.into())?;
+
+                let len = part.data_end.offset_absolute() - part.data.offset_absolute();
+
+                let mut data = vec![0u8; len as usize];
+                cur.read_exact(&mut data)?;
+
+                // Alignment always seems to be off here
+                let data_u16: Vec<u16> = bytemuck::pod_collect_to_vec(&data);
+
+                final_string += &String::from_utf16(&data_u16)?;
             }
 
             tmp_map.entry(*hash).or_default().insert(final_string);
