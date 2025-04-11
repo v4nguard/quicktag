@@ -1870,28 +1870,5 @@ fn decompile_shader(data: &[u8]) -> Result<String, String> {
         return Err("Decompilation is not supported on this platform".to_string());
     }
 
-    // Write shader to a temporary file
-    let temp_file = temp_dir().join("shader");
-    std::fs::write(&temp_file, data).map_err(|e| format!("Failed to create temp file: {}", e))?;
-
-    let mut decompiler_path = exe_directory().join("3dmigoto_shader_decomp.exe");
-    if !decompiler_path.exists() {
-        decompiler_path = current_dir().unwrap().join("3dmigoto_shader_decomp.exe");
-    }
-
-    Command::new(decompiler_path)
-        .arg(&temp_file)
-        .arg("-D")
-        .output()
-        .map_err(|e| format!("Failed to run shader decompiler: {}", e))?;
-
-    // Read output file (temp_file + .hlsl)
-    let output_file = temp_file.with_extension("hlsl");
-    let output = std::fs::read_to_string(&output_file)
-        .map_err(|e| format!("Failed to read decompiled shader: {}", e))?;
-
-    // Cleanup
-    let _ = std::fs::remove_file(&output_file);
-
-    Ok(output)
+    hlsldecompiler::decompile(data)
 }

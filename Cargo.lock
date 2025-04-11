@@ -1672,6 +1672,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dfa686283ad6dd069f105e5ab091b04c62850d3e4cf5d67debad1933f55023df"
 
 [[package]]
+name = "hlsldecompiler"
+version = "0.1.0"
+source = "git+https://github.com/cohaereo/hlsldecompiler-rs#75f2dc343e7b6c6a4015da909e06c19056b7e196"
+
+[[package]]
 name = "home"
 version = "0.5.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2922,6 +2927,7 @@ dependencies = [
  "either",
  "env_logger",
  "game-detector",
+ "hlsldecompiler",
  "image",
  "indexmap",
  "itertools 0.13.0",
