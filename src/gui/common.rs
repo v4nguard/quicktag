@@ -206,8 +206,19 @@ fn format_time(seconds: f32) -> String {
 }
 
 pub fn tag_context(ui: &mut egui::Ui, tag: TagHash) {
-    if ui.selectable_label(false, "📋 Copy tag").clicked() {
-        ui.output_mut(|o| o.copied_text = tag.to_string());
+    let copy_flipped = ui.input(|i| i.modifiers.shift);
+    let flipped_postfix = if copy_flipped { " - old style" } else { "" };
+    if ui
+        .selectable_label(false, format!("📋 Copy tag{flipped_postfix}"))
+        .clicked()
+    {
+        ui.output_mut(|o| {
+            o.copied_text = if copy_flipped {
+                format!("{:08X}", tag.0.swap_bytes())
+            } else {
+                format!("{:08X}", tag.0)
+            }
+        });
         ui.close_menu();
     }
 
@@ -222,10 +233,16 @@ pub fn tag_context(ui: &mut egui::Ui, tag: TagHash) {
         let shift = ui.input(|i| i.modifiers.shift);
 
         if ui
-            .selectable_label(false, "📋 Copy reference tag")
+            .selectable_label(false, format!("📋 Copy reference tag{flipped_postfix}"))
             .clicked()
         {
-            ui.output_mut(|o| o.copied_text = format!("{:08X}", entry.reference));
+            ui.output_mut(|o| {
+                o.copied_text = if copy_flipped {
+                    format!("{:08X}", entry.reference.swap_bytes())
+                } else {
+                    format!("{:08X}", entry.reference)
+                }
+            });
             ui.close_menu();
         }
 
