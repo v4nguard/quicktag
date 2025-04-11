@@ -415,7 +415,18 @@ impl eframe::App for QuickTagApp {
                         } else {
                             let hash =
                                 u32::from_str_radix(tag_input_trimmed, 16).unwrap_or_default();
-                            TagHash(u32::from_be(hash))
+
+                            let hash = TagHash(hash);
+                            if hash.is_valid() {
+                                hash
+                            } else {
+                                // Try old format hash
+                                let s = TagHash(hash.0.swap_bytes());
+                                if s.is_valid() {
+                                    TOASTS.lock().warning("Old-style flipped hashes (eg. from Alkahest/Charm) are deprecated.");
+                                }
+                                s
+                            }
                         };
 
                         self.open_tag(tag, true);

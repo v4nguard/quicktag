@@ -222,25 +222,10 @@ pub fn tag_context(ui: &mut egui::Ui, tag: TagHash) {
         let shift = ui.input(|i| i.modifiers.shift);
 
         if ui
-            .selectable_label(
-                false,
-                format!(
-                    "📋 Copy reference tag{}",
-                    if shift { " (native endian)" } else { "" }
-                ),
-            )
+            .selectable_label(false, "📋 Copy reference tag")
             .clicked()
         {
-            ui.output_mut(|o| {
-                o.copied_text = format!(
-                    "{:08X}",
-                    if shift {
-                        entry.reference
-                    } else {
-                        entry.reference.to_be()
-                    }
-                )
-            });
+            ui.output_mut(|o| o.copied_text = format!("{:08X}", entry.reference));
             ui.close_menu();
         }
 

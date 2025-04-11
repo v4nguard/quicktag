@@ -207,6 +207,7 @@ pub const CLASSES_BL: &[TagClass] = &[
     class!(0x80809B06 s_entity_resource),
     class!(0x8080BFE6 s_unk_music_8080bfe6),
     class!(0x8080BFE8 s_unk_music_8080bfe8),
+    class!(0x80806920 s_gpu_particle_system),
     // huge array in the umbra tome tags
     class!(0x80806E89 s_unk_80806e89 @size(16) @block_tags),
 ];

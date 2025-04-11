@@ -46,6 +46,15 @@ impl TagType {
                 | TagType::Texture3D { .. }
         )
     }
+    pub fn is_shader(&self) -> bool {
+        matches!(
+            self,
+            TagType::PixelShader { .. }
+                | TagType::VertexShader { .. }
+                | TagType::GeometryShader { .. }
+                | TagType::ComputeShader { .. }
+        )
+    }
 
     pub fn is_header(&self) -> bool {
         matches!(
@@ -60,6 +69,7 @@ impl TagType {
                 | TagType::PixelShader { is_header: true }
                 | TagType::VertexShader { is_header: true }
                 | TagType::ComputeShader { is_header: true }
+                | TagType::GeometryShader { is_header: true }
         )
     }
 
