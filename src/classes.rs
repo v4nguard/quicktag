@@ -90,12 +90,12 @@ pub const CLASSES_BASE: &[TagClass] = &[
     class!(0x80800090 vec4 @size(16) @parse(parse_vec4) @block_tags),
 ];
 
-pub const CLASSES_DEVALPHA: &[TagClass] = &[
+pub const CLASSES_DESTINY_DEVALPHA: &[TagClass] = &[
     class!(0x808004A8 s_localized_strings),
     class!(0x808004A6 s_localized_strings_data),
 ];
 
-pub const CLASSES_TTK: &[TagClass] = &[
+pub const CLASSES_DESTINY_TTK: &[TagClass] = &[
     class!(0x8080035A s_localized_strings),
     class!(0x80800734 s_entity),
     class!(0x80800861 s_entity_resource),
@@ -104,7 +104,7 @@ pub const CLASSES_TTK: &[TagClass] = &[
     class!(0x80801B4C s_technique),
 ];
 
-pub const CLASSES_ROI: &[TagClass] = &[
+pub const CLASSES_DESTINY_ROI: &[TagClass] = &[
     class!(0x8080035A s_localized_strings),
     class!(0x808008BE s_localized_strings_data),
     class!(0x80801A7A s_hdao_settings),
@@ -118,7 +118,7 @@ pub const CLASSES_ROI: &[TagClass] = &[
     class!(0x808033EB sui_simple_dialog),
 ];
 
-pub const CLASSES_SK: &[TagClass] = &[
+pub const CLASSES_DESTINY_SK: &[TagClass] = &[
     class!(0x80804607 s_unk80804607 @size(12)),
     class!(0x80804616 s_unk80804616 @size(4)),
     class!(0x80804618 s_unk80804618 @size(4)),
@@ -160,7 +160,7 @@ pub const CLASSES_SK: &[TagClass] = &[
     class!(0x80809A8A s_localized_strings_data),
 ];
 
-pub const CLASSES_BL: &[TagClass] = &[
+pub const CLASSES_DESTINY_BL: &[TagClass] = &[
     class!(0x808045EB s_music_score),
     class!(0x80804F2C s_dye_channel_hash),
     class!(0x808051F2 s_dye_channels),
@@ -286,17 +286,17 @@ pub fn initialize_reference_names() {
         CLASSES_BASE.iter().map(|c| (c.id, c.clone())).collect();
 
     let version_specific = match package_manager().version {
-        GameVersion::Destiny(DestinyVersion::DestinyInternalAlpha) => CLASSES_DEVALPHA,
-        GameVersion::Destiny(DestinyVersion::DestinyTheTakenKing) => CLASSES_TTK,
+        GameVersion::Destiny(DestinyVersion::DestinyInternalAlpha) => CLASSES_DESTINY_DEVALPHA,
+        GameVersion::Destiny(DestinyVersion::DestinyTheTakenKing) => CLASSES_DESTINY_TTK,
         GameVersion::Destiny(DestinyVersion::DestinyFirstLookAlpha)
-        | GameVersion::Destiny(DestinyVersion::DestinyRiseOfIron) => CLASSES_ROI,
+        | GameVersion::Destiny(DestinyVersion::DestinyRiseOfIron) => CLASSES_DESTINY_ROI,
         GameVersion::Destiny(DestinyVersion::Destiny2Beta)
         | GameVersion::Destiny(DestinyVersion::Destiny2Forsaken)
-        | GameVersion::Destiny(DestinyVersion::Destiny2Shadowkeep) => CLASSES_SK,
+        | GameVersion::Destiny(DestinyVersion::Destiny2Shadowkeep) => CLASSES_DESTINY_SK,
         GameVersion::Destiny(DestinyVersion::Destiny2BeyondLight)
         | GameVersion::Destiny(DestinyVersion::Destiny2WitchQueen)
         | GameVersion::Destiny(DestinyVersion::Destiny2Lightfall)
-        | GameVersion::Destiny(DestinyVersion::Destiny2TheFinalShape) => CLASSES_BL,
+        | GameVersion::Destiny(DestinyVersion::Destiny2TheFinalShape) => CLASSES_DESTINY_BL,
         _ => unimplemented!(),
     };
 
