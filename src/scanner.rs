@@ -8,12 +8,14 @@ use std::{
 };
 
 use binrw::{BinReaderExt, Endian};
-use destiny_pkg::{package::UEntryHeader, GameVersion, PackageManager, TagHash, TagHash64};
 use eframe::epaint::mutex::RwLock;
 use itertools::Itertools;
 use log::{error, info, warn};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use rustc_hash::FxHashMap;
+use tiger_pkg::{
+    package::UEntryHeader, DestinyVersion, GameVersion, PackageManager, TagHash, TagHash64, Version,
+};
 
 use crate::{
     classes::get_class_by_id,
@@ -133,7 +135,8 @@ pub fn scan_file(context: &ScannerContext, data: &[u8], mode: ScannerMode) -> Sc
                 c.seek(SeekFrom::Start(array_offset)).ok()?;
                 if matches!(
                     package_manager().version,
-                    GameVersion::DestinyInternalAlpha | GameVersion::DestinyTheTakenKing
+                    GameVersion::Destiny(DestinyVersion::DestinyInternalAlpha)
+                        | GameVersion::Destiny(DestinyVersion::DestinyTheTakenKing)
                 ) {
                     Some((c.read_be::<u32>().ok()? as u64, c.read_be::<u32>().ok()?))
                 } else {
@@ -236,7 +239,8 @@ pub fn read_raw_string_blob(data: &[u8], offset: u64) -> Vec<(u64, String)> {
         c.seek(SeekFrom::Start(offset + 4))?;
         let (buffer_size, buffer_base_offset) = if matches!(
             package_manager().version,
-            GameVersion::DestinyInternalAlpha | GameVersion::DestinyTheTakenKing
+            GameVersion::Destiny(DestinyVersion::DestinyInternalAlpha)
+                | GameVersion::Destiny(DestinyVersion::DestinyTheTakenKing)
         ) {
             let buffer_size: u32 = c.read_be()?;
             let buffer_base_offset = offset + 4 + 4;
@@ -553,17 +557,19 @@ pub fn load_tag_cache() -> TagCache {
                 }
 
                 let mut scan_result = scan_file(context, &data, scanner_mode);
-                if version.is_d1() {
-                    if let Some(entry) = pkg.entry(t) {
-                        let ref_tag = TagHash(entry.reference);
-                        if context.valid_file_hashes.contains(&ref_tag) {
-                            scan_result.file_hashes.insert(
-                                0,
-                                ScannedHash {
-                                    offset: u64::MAX,
-                                    hash: ref_tag,
-                                },
-                            );
+                if let GameVersion::Destiny(v) = version {
+                    if v.is_d1() {
+                        if let Some(entry) = pkg.entry(t) {
+                            let ref_tag = TagHash(entry.reference);
+                            if context.valid_file_hashes.contains(&ref_tag) {
+                                scan_result.file_hashes.insert(
+                                    0,
+                                    ScannedHash {
+                                        offset: u64::MAX,
+                                        hash: ref_tag,
+                                    },
+                                );
+                            }
                         }
                     }
                 }

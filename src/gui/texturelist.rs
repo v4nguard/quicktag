@@ -1,4 +1,4 @@
-use destiny_pkg::{manager::PackagePath, TagHash};
+use tiger_pkg::{manager::PackagePath, TagHash};
 use eframe::egui::{self, pos2, vec2, Color32, Pos2, RichText, Stroke, Ui, Vec2, Widget};
 use eframe::emath::Rot2;
 use std::fmt::{Display, Formatter};

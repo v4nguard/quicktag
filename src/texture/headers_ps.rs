@@ -1,7 +1,7 @@
 use std::io::SeekFrom;
 
 use binrw::BinRead;
-use destiny_pkg::TagHash;
+use tiger_pkg::TagHash;
 
 use super::dxgi::{GcmSurfaceFormat, GcnSurfaceFormat};
 

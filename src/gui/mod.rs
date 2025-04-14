@@ -20,7 +20,7 @@ use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 use std::time::Instant;
 
-use destiny_pkg::TagHash;
+use tiger_pkg::TagHash;
 use eframe::egui::{PointerButton, TextEdit, Widget};
 use eframe::egui_wgpu::RenderState;
 use eframe::{

@@ -1,6 +1,5 @@
-use destiny_pkg::package::UEntryHeader;
-use destiny_pkg::{manager::PackagePath, TagHash};
 use eframe::egui::{self, RichText};
+use tiger_pkg::{manager::PackagePath, package::UEntryHeader, TagHash, Version};
 
 use super::{
     common::{dump_wwise_info, ResponseExt},

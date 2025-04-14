@@ -37,9 +37,6 @@ use crate::{
 };
 use anyhow::Context;
 use binrw::{binread, BinReaderExt, Endian};
-use destiny_pkg::manager::path_cache::exe_directory;
-use destiny_pkg::PackagePlatform;
-use destiny_pkg::{package::UEntryHeader, GameVersion, TagHash, TagHash64};
 use eframe::egui::Sense;
 use eframe::egui::{collapsing_header::CollapsingState, vec2, RichText, TextureId};
 use eframe::egui_wgpu::RenderState;
@@ -57,6 +54,11 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use std::fmt::Write;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
+use tiger_pkg::{
+    manager::path_cache::exe_directory, package::UEntryHeader, GameVersion, PackagePlatform,
+    TagHash, TagHash64,
+};
+use tiger_pkg::{DestinyVersion, Version};
 
 #[derive(Copy, Clone, PartialEq)]
 enum TagViewMode {
@@ -201,7 +203,8 @@ impl TagView {
 
         let mut arrays: Vec<(u64, TagArray)> = if matches!(
             package_manager().version,
-            GameVersion::DestinyInternalAlpha | GameVersion::DestinyTheTakenKing
+            GameVersion::Destiny(DestinyVersion::DestinyInternalAlpha)
+                | GameVersion::Destiny(DestinyVersion::DestinyTheTakenKing)
         ) {
             array_offsets
                 .into_iter()

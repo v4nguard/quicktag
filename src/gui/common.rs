@@ -1,6 +1,6 @@
 use std::fs::File;
 
-use destiny_pkg::TagHash;
+use tiger_pkg::TagHash;
 use eframe::egui;
 use eframe::egui::RichText;
 use image::{DynamicImage, GenericImage, ImageFormat};
@@ -335,6 +335,8 @@ pub fn dump_wwise_info(_package_id: u16) {}
 
 #[cfg(feature = "audio")]
 pub fn dump_wwise_info(package_id: u16) {
+    use tiger_pkg::Version;
+
     let package_path = package_manager()
         .package_paths
         .get(&package_id)

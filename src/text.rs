@@ -6,9 +6,9 @@ use std::ops::Deref;
 use std::slice::Iter;
 
 use binrw::{BinRead, BinReaderExt, BinResult, Endian, VecArgs};
-use destiny_pkg::{GameVersion, TagHash};
 use log::error;
 use rustc_hash::{FxHashMap, FxHashSet};
+use tiger_pkg::{DestinyVersion, GameVersion, TagHash};
 
 use crate::package_manager::package_manager;
 
@@ -396,30 +396,34 @@ pub fn decode_text(data: &[u8], cipher: u16) -> String {
 pub fn create_stringmap() -> anyhow::Result<StringCache> {
     // TODO: Change this match to use ordered version checking after destiny-pkg 0.11
     match package_manager().version {
-        GameVersion::Destiny2Beta
-        | GameVersion::Destiny2Forsaken
-        | GameVersion::Destiny2Shadowkeep
-        | GameVersion::Destiny2BeyondLight
-        | GameVersion::Destiny2WitchQueen
-        | GameVersion::Destiny2Lightfall
-        | GameVersion::Destiny2TheFinalShape
+        GameVersion::Destiny(DestinyVersion::Destiny2Beta)
+        | GameVersion::Destiny(DestinyVersion::Destiny2Forsaken)
+        | GameVersion::Destiny(DestinyVersion::Destiny2Shadowkeep)
+        | GameVersion::Destiny(DestinyVersion::Destiny2BeyondLight)
+        | GameVersion::Destiny(DestinyVersion::Destiny2WitchQueen)
+        | GameVersion::Destiny(DestinyVersion::Destiny2Lightfall)
+        | GameVersion::Destiny(DestinyVersion::Destiny2TheFinalShape)
         // cohae: Rise of Iron uses the same string format as D2
-        | GameVersion::DestinyRiseOfIron => create_stringmap_d2(),
-        GameVersion::DestinyFirstLookAlpha => create_stringmap_d1_firstlook(),
-        GameVersion::DestinyTheTakenKing => create_stringmap_d1(),
-        GameVersion::DestinyInternalAlpha => create_stringmap_d1_devalpha(),
-
+        | GameVersion::Destiny(DestinyVersion::DestinyRiseOfIron) => create_stringmap_d2(),
+        GameVersion::Destiny(DestinyVersion::DestinyFirstLookAlpha) => create_stringmap_d1_firstlook(),
+        GameVersion::Destiny(DestinyVersion::DestinyTheTakenKing) => create_stringmap_d1(),
+        GameVersion::Destiny(DestinyVersion::DestinyInternalAlpha) => create_stringmap_d1_devalpha(),
+        _ => unimplemented!()
     }
 }
 
 pub fn create_stringmap_d2() -> anyhow::Result<StringCache> {
-    let prebl = package_manager().version.is_prebl() | package_manager().version.is_d1();
+    let GameVersion::Destiny(version) = package_manager().version else {
+        return Err(anyhow::anyhow!("unsupported version"));
+    };
+
+    let prebl = version.is_prebl() | version.is_d1();
     // Beyond Light still uses the same struct layout as prebl, was updated in WQ
-    let bl = package_manager().version == GameVersion::Destiny2BeyondLight;
+    let bl = version == DestinyVersion::Destiny2BeyondLight;
 
     let mut tmp_map: FxHashMap<u32, FxHashSet<String>> = Default::default();
     for (t, _) in package_manager()
-        .get_all_by_reference(if package_manager().version.is_d1() {
+        .get_all_by_reference(if version.is_d1() {
             0x8080035A
         } else if prebl {
             0x80809A88

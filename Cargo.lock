@@ -986,31 +986,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "destiny-pkg"
-version = "0.17.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44fd30483b9ed1335df6981b8eafcc7c760a03d09cee8a65cca06d38fc996245"
-dependencies = [
- "aes",
- "aes-gcm",
- "anyhow",
- "bincode 2.0.0-rc.3",
- "binrw",
- "clap",
- "clap-num",
- "hex",
- "itertools 0.13.0",
- "lazy_static",
- "libloading 0.8.6",
- "parking_lot",
- "rayon",
- "rustc-hash 1.1.0",
- "serde",
- "serde_json",
- "tracing",
-]
-
-[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2920,7 +2895,6 @@ dependencies = [
  "chrono",
  "clap",
  "clipboard-win",
- "destiny-pkg",
  "eframe",
  "egui-notify",
  "egui_extras",
@@ -2946,6 +2920,7 @@ dependencies = [
  "rustc-hash 2.1.0",
  "serde",
  "serde_json",
+ "tiger-pkg",
  "tokio",
  "vgmstream",
  "wav",
@@ -3495,6 +3470,31 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.96",
+]
+
+[[package]]
+name = "tiger-pkg"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "73a9aadc12ea37e39229b6b71d57c9b6c66c5295f33d1f8ae2de30ae957345a0"
+dependencies = [
+ "aes",
+ "aes-gcm",
+ "anyhow",
+ "bincode 2.0.0-rc.3",
+ "binrw",
+ "clap",
+ "clap-num",
+ "hex",
+ "itertools 0.13.0",
+ "lazy_static",
+ "libloading 0.8.6",
+ "parking_lot",
+ "rayon",
+ "rustc-hash 1.1.0",
+ "serde",
+ "serde_json",
+ "tracing",
 ]
 
 [[package]]

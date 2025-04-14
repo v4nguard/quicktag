@@ -8,8 +8,8 @@ use anyhow::Context;
 use arc_swap::ArcSwap;
 use binrw::Endian;
 use bytemuck::{Pod, Zeroable};
-use destiny_pkg::{GameVersion, TagHash};
 use rustc_hash::FxHashMap;
+use tiger_pkg::{DestinyVersion, GameVersion, TagHash};
 
 use crate::{
     package_manager::{package_manager, package_manager_checked},
@@ -286,16 +286,18 @@ pub fn initialize_reference_names() {
         CLASSES_BASE.iter().map(|c| (c.id, c.clone())).collect();
 
     let version_specific = match package_manager().version {
-        GameVersion::DestinyInternalAlpha => CLASSES_DEVALPHA,
-        GameVersion::DestinyTheTakenKing => CLASSES_TTK,
-        GameVersion::DestinyFirstLookAlpha | GameVersion::DestinyRiseOfIron => CLASSES_ROI,
-        GameVersion::Destiny2Beta
-        | GameVersion::Destiny2Forsaken
-        | GameVersion::Destiny2Shadowkeep => CLASSES_SK,
-        GameVersion::Destiny2BeyondLight
-        | GameVersion::Destiny2WitchQueen
-        | GameVersion::Destiny2Lightfall
-        | GameVersion::Destiny2TheFinalShape => CLASSES_BL,
+        GameVersion::Destiny(DestinyVersion::DestinyInternalAlpha) => CLASSES_DEVALPHA,
+        GameVersion::Destiny(DestinyVersion::DestinyTheTakenKing) => CLASSES_TTK,
+        GameVersion::Destiny(DestinyVersion::DestinyFirstLookAlpha)
+        | GameVersion::Destiny(DestinyVersion::DestinyRiseOfIron) => CLASSES_ROI,
+        GameVersion::Destiny(DestinyVersion::Destiny2Beta)
+        | GameVersion::Destiny(DestinyVersion::Destiny2Forsaken)
+        | GameVersion::Destiny(DestinyVersion::Destiny2Shadowkeep) => CLASSES_SK,
+        GameVersion::Destiny(DestinyVersion::Destiny2BeyondLight)
+        | GameVersion::Destiny(DestinyVersion::Destiny2WitchQueen)
+        | GameVersion::Destiny(DestinyVersion::Destiny2Lightfall)
+        | GameVersion::Destiny(DestinyVersion::Destiny2TheFinalShape) => CLASSES_BL,
+        _ => unimplemented!(),
     };
 
     new_classes.extend(version_specific.iter().map(|c| (c.id, c.clone())));

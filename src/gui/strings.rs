@@ -6,10 +6,10 @@ use std::{
 
 use binrw::BinReaderExt;
 
-use destiny_pkg::{GameVersion, TagHash};
 use eframe::egui::{self, RichText};
 use itertools::Itertools;
 use rustc_hash::FxHashMap;
+use tiger_pkg::{DestinyVersion, GameVersion, TagHash};
 
 use crate::{
     package_manager::package_manager,
@@ -71,7 +71,8 @@ impl StringsView {
         let mut strings_vec_filtered: StringCacheVec =
             strings.iter().map(|(k, v)| (*k, v.clone())).collect();
 
-        let hide_devalpha_str = package_manager().version == GameVersion::DestinyInternalAlpha;
+        let hide_devalpha_str =
+            package_manager().version == GameVersion::Destiny(DestinyVersion::DestinyInternalAlpha);
         if hide_devalpha_str {
             strings_vec_filtered.retain(|(_, s)| !devstr_regex.is_match(&s[0]));
         }
@@ -119,7 +120,9 @@ impl View for StringsView {
                         .checkbox(&mut self.case_sensitive, "Case sensitive")
                         .changed();
 
-                    if package_manager().version == GameVersion::DestinyInternalAlpha {
+                    if package_manager().version
+                        == GameVersion::Destiny(DestinyVersion::DestinyInternalAlpha)
+                    {
                         update_search |= ui
                             .checkbox(&mut self.hide_devalpha_str, "Hide devalpha strXX strings")
                             .changed();
@@ -289,17 +292,19 @@ fn truncate_string_stripped(s: &str, max_length: usize) -> String {
 }
 
 fn dump_all_languages() -> anyhow::Result<()> {
-    let prebl = matches!(
-        package_manager().version,
-        GameVersion::Destiny2Beta | GameVersion::Destiny2Forsaken | GameVersion::Destiny2Shadowkeep
-    );
-    let bl = package_manager().version == GameVersion::Destiny2BeyondLight;
+    let GameVersion::Destiny(version) = package_manager().version else {
+        return Err(anyhow::anyhow!("unsupported version"));
+    };
 
     std::fs::create_dir("strings").ok();
     let mut files: FxHashMap<String, File> = Default::default();
 
     for (t, _) in package_manager()
-        .get_all_by_reference(u32::from_be(if prebl { 0x889a8080 } else { 0xEF998080 }))
+        .get_all_by_reference(u32::from_be(if version.is_prebl() {
+            0x889a8080
+        } else {
+            0xEF998080
+        }))
         .into_iter()
     {
         let Ok(textset_header) = package_manager().read_tag_binrw::<StringContainer>(t) else {
@@ -316,7 +321,10 @@ fn dump_all_languages() -> anyhow::Result<()> {
                 continue;
             };
             let mut cur = Cursor::new(&data);
-            let text_data: StringData = cur.read_le_args((prebl, bl))?;
+            let text_data: StringData = cur.read_le_args((
+                version.is_prebl(),
+                version == DestinyVersion::Destiny2BeyondLight,
+            ))?;
 
             for (combination, hash) in text_data
                 .string_combinations

@@ -1,6 +1,6 @@
 use crate::package_manager::package_manager;
 use binrw::BinReaderExt;
-use destiny_pkg::TagHash;
+use tiger_pkg::TagHash;
 use eframe::egui::mutex::RwLock;
 use either::{Either, Left, Right};
 use lazy_static::lazy_static;
