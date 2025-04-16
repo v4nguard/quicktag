@@ -14,12 +14,12 @@ use log::{error, info, warn};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use rustc_hash::FxHashMap;
 use tiger_pkg::{
-    package::UEntryHeader, DestinyVersion, GameVersion, PackageManager, TagHash, TagHash64, Version,
+    package::UEntryHeader, package_manager, DestinyVersion, GameVersion, PackageManager, TagHash,
+    TagHash64, Version,
 };
 
 use crate::{
     classes::get_class_by_id,
-    package_manager::package_manager,
     tagtypes::TagType,
     text::{create_stringmap, StringCache},
     util::{u32_from_endian, u64_from_endian},

@@ -4,7 +4,6 @@ mod headers_ps;
 mod headers_xbox;
 mod swizzle;
 
-use crate::package_manager::package_manager;
 use crate::texture::texture_capture::capture_texture;
 use crate::util::ui_image_rotated;
 use anyhow::Context;
@@ -25,8 +24,8 @@ use image::{DynamicImage, GenericImageView};
 use swizzle::swizzle_ps::{GcmDeswizzler, GcnDeswizzler};
 use swizzle::swizzle_xbox::XenosDetiler;
 use swizzle::Deswizzler;
-use tiger_pkg::DestinyVersion;
 use tiger_pkg::{package::PackagePlatform, GameVersion, TagHash};
+use tiger_pkg::{package_manager, DestinyVersion};
 
 use linked_hash_map::LinkedHashMap;
 use poll_promise::Promise;

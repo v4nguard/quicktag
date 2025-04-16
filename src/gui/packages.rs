@@ -1,5 +1,5 @@
 use eframe::egui::{self, RichText};
-use tiger_pkg::{manager::PackagePath, package::UEntryHeader, TagHash, Version};
+use tiger_pkg::{manager::PackagePath, package::UEntryHeader, package_manager, TagHash, Version};
 
 use super::{
     common::{dump_wwise_info, ResponseExt},
@@ -7,10 +7,9 @@ use super::{
     View, ViewAction,
 };
 use crate::gui::common::open_audio_file_in_default_application;
-use crate::package_manager::get_hash64;
+use crate::tagtypes::TagType;
 use crate::texture::TextureCache;
 use crate::util::format_file_size;
-use crate::{package_manager::package_manager, tagtypes::TagType};
 
 pub struct PackagesView {
     selected_package: u16,
@@ -169,7 +168,8 @@ impl View for PackagesView {
                                     (i, (tag, label.clone(), tag_type, entry))
                                 })
                                 .filter(|(_, (tag, _, _, _))| {
-                                    !self.show_only_hash64 || get_hash64(*tag).is_some()
+                                    !self.show_only_hash64
+                                        || package_manager().get_tag64_for_tag32(*tag).is_some()
                                 })
                             {
                                 ctx.style_mut(|s| {

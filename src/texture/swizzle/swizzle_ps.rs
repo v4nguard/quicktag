@@ -147,9 +147,9 @@ mod ps4 {
         let height_texels_dest = height / pixel_block_size;
 
         let width_texels = width_src / pixel_block_size;
-        let width_texels_aligned = (width_texels + 7) / 8;
+        let width_texels_aligned = width_texels.div_ceil(8);
         let height_texels = height_src / pixel_block_size;
-        let height_texels_aligned = (height_texels + 7) / 8;
+        let height_texels_aligned = height_texels.div_ceil(8);
         let mut data_index = 0;
 
         for z in 0..depth {

@@ -1,6 +1,5 @@
 use std::fs::File;
 
-use tiger_pkg::TagHash;
 use eframe::egui;
 use eframe::egui::RichText;
 use image::{DynamicImage, GenericImage, ImageFormat};
@@ -8,10 +7,10 @@ use lazy_static::lazy_static;
 use log::{error, info, warn};
 use std::io::{Cursor, Write};
 use std::num::NonZeroU32;
+use tiger_pkg::{package_manager, TagHash};
 
-use crate::package_manager::get_hash64;
+use crate::tagtypes::TagType;
 use crate::texture::{Texture, TextureCache};
-use crate::{package_manager::package_manager, tagtypes::TagType};
 
 use super::TOASTS;
 
@@ -222,7 +221,7 @@ pub fn tag_context(ui: &mut egui::Ui, tag: TagHash) {
         ui.close_menu();
     }
 
-    if let Some(tag64) = get_hash64(tag) {
+    if let Some(tag64) = package_manager().get_tag64_for_tag32(tag) {
         if ui.selectable_label(false, "📋 Copy 64-bit tag").clicked() {
             ui.output_mut(|o| o.copied_text = tag64.to_string());
             ui.close_menu();
@@ -394,12 +393,12 @@ fn assemble_cubemap(images: Vec<DynamicImage>) -> DynamicImage {
     // -- Z+ -- --
     // Y- X+ Y+ X-
     // -- Z- -- --
-    let _ = cubemap.copy_from(&z_pos, tile_w * 1, tile_h * 0);
-    let _ = cubemap.copy_from(&y_neg, tile_w * 0, tile_h * 1);
-    let _ = cubemap.copy_from(&x_pos, tile_w * 1, tile_h * 1);
-    let _ = cubemap.copy_from(&y_pos, tile_w * 2, tile_h * 1);
-    let _ = cubemap.copy_from(&x_neg, tile_w * 3, tile_h * 1);
-    let _ = cubemap.copy_from(&z_neg, tile_w * 1, tile_h * 2);
+    let _ = cubemap.copy_from(&z_pos, tile_w, tile_h * 0);
+    let _ = cubemap.copy_from(&y_neg, tile_w * 0, tile_h);
+    let _ = cubemap.copy_from(&x_pos, tile_w, tile_h);
+    let _ = cubemap.copy_from(&y_pos, tile_w * 2, tile_h);
+    let _ = cubemap.copy_from(&x_neg, tile_w * 3, tile_h);
+    let _ = cubemap.copy_from(&z_neg, tile_w, tile_h * 2);
 
     cubemap
 }

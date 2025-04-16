@@ -1,9 +1,7 @@
 use std::fmt::Display;
 
 use eframe::epaint::Color32;
-use tiger_pkg::{DestinyVersion, GameVersion};
-
-use crate::package_manager::package_manager;
+use tiger_pkg::{package_manager, DestinyVersion, GameVersion};
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum TagType {
@@ -88,7 +86,7 @@ impl TagType {
             | TagType::TextureCube { .. }
             | TagType::Texture3D { .. }
             | TagType::TextureSampler { .. }
-            | TagType::TextureLargeBuffer { .. } => Color32::GREEN,
+            | TagType::TextureLargeBuffer => Color32::GREEN,
 
             TagType::VertexBuffer { .. }
             | TagType::IndexBuffer { .. }

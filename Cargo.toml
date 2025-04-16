@@ -1,3 +1,11 @@
+[workspace]
+members = [ "crates/scanner", "crates/strings"]
+
+[workspace.dependencies]
+anyhow = "1.0.75"
+parking_lot = "0.12.1"
+tiger-pkg = { version = "0.18.2", features = ["global_manager_instance"] }
+
 [package]
 name = "quicktag"
 version = "0.8.0"
@@ -5,7 +13,7 @@ edition = "2021"
 
 [dependencies]
 # General
-anyhow = "1.0.75"
+anyhow.workspace = true
 bytemuck = "1.14.1"
 chrono = "0.4.31"
 clap = { version = "4.3.11", features = ["derive"] }
@@ -17,7 +25,7 @@ indexmap = "2.2.6"
 lazy_static = "1.4.0"
 linked-hash-map = "0.5.6"
 log = "0.4.20"
-parking_lot = "0.12.1"
+parking_lot.workspace = true
 profiling = { version = "1.0.15", features = [] }
 rustc-hash = "2.0.0"
 
@@ -40,18 +48,18 @@ rayon = "1.8.0"
 base64 = "0.22.0"
 bincode = "2.0.0-rc.3"
 binrw = "0.13.3"
-tiger-pkg = { version = "0.18" }
+clipboard-win = "5.3.1"
+either = "1.10.0"
+image = { version = "0.25.1", features = ["png"], default-features = false }
+regex = "1.10.4"
+rodio = "0.18.1"
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.108"
+tiger-pkg.workspace = true
+tokio = { version = "1.37.0", features = ["rt", "macros"] }
 vgmstream = { git = "https://github.com/cohaereo/vgmstream-rs/", version = "0.1.5", optional = true }
 wav = "1.0.0"
 zstd = { version = "0.13.0", features = ["zstdmt"] }
-either = "1.10.0"
-tokio = { version = "1.37.0", features = ["rt", "macros"] }
-image = { version = "0.25.1", features = ["png"], default-features = false }
-regex = "1.10.4"
-clipboard-win = "5.3.1"
-rodio = "0.18.1"
 
 # tiger-parse structure crates
 # alkahest-data = { git = "https://github.com/cohaereo/alkahest.git" }

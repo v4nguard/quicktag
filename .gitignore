@@ -17,6 +17,7 @@ wwise_info_*.txt
 dump/
 textures/
 strings/
+misc/
 # Wordlist source filest
 wordlist_*.txt
 wordlist_src/

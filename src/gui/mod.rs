@@ -18,9 +18,7 @@ use std::path::Path;
 use std::rc::Rc;
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
-use std::time::Instant;
 
-use tiger_pkg::TagHash;
 use eframe::egui::{PointerButton, TextEdit, Widget};
 use eframe::egui_wgpu::RenderState;
 use eframe::{
@@ -36,6 +34,7 @@ use parking_lot::Mutex;
 use poll_promise::Promise;
 use rustc_hash::FxHashSet;
 use strings::StringViewVariant;
+use tiger_pkg::{package_manager, TagHash};
 
 use self::named_tags::NamedTagView;
 use self::packages::PackagesView;
@@ -50,7 +49,6 @@ use crate::text::RawStringHashCache;
 use crate::texture::TextureCache;
 use crate::{classes, wordlist};
 use crate::{
-    package_manager::package_manager,
     scanner,
     scanner::{load_tag_cache, scanner_progress, ScanStatus, TagCache},
     text::{create_stringmap, StringCache},

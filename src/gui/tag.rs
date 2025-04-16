@@ -1,9 +1,7 @@
 use std::cell::RefCell;
-use std::env::{current_dir, temp_dir};
 use std::fs::File;
 use std::io::Write as _;
 use std::path::PathBuf;
-use std::process::Command;
 use std::{
     collections::HashSet,
     fmt::Display,
@@ -22,18 +20,16 @@ use super::{
 };
 use crate::classes::get_class_by_id;
 use crate::gui::hexview::TagHexView;
-use crate::package_manager::get_hash64;
 use crate::scanner::ScannedHash;
 use crate::util::ui_image_rotated;
 use crate::{
-    package_manager::package_manager,
+    scanner::read_raw_string_blob, text::RawStringHashCache, texture::Texture,
+    texture::TextureCache,
+};
+use crate::{
     scanner::{ScanResult, TagCache},
     tagtypes::TagType,
     text::StringCache,
-};
-use crate::{
-    scanner::read_raw_string_blob, text::RawStringHashCache, texture::Texture,
-    texture::TextureCache,
 };
 use anyhow::Context;
 use binrw::{binread, BinReaderExt, Endian};
@@ -54,11 +50,8 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use std::fmt::Write;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
-use tiger_pkg::{
-    manager::path_cache::exe_directory, package::UEntryHeader, GameVersion, PackagePlatform,
-    TagHash, TagHash64,
-};
-use tiger_pkg::{DestinyVersion, Version};
+use tiger_pkg::{package::UEntryHeader, GameVersion, PackagePlatform, TagHash, TagHash64};
+use tiger_pkg::{package_manager, DestinyVersion, Version};
 
 #[derive(Copy, Clone, PartialEq)]
 enum TagViewMode {
@@ -628,7 +621,7 @@ impl TagView {
                             egui_extras::syntax_highlighting::code_view_ui(
                                 ui,
                                 &CodeTheme::dark(),
-                                &d,
+                                d,
                                 "cpp",
                             )
                         });
@@ -1687,7 +1680,7 @@ pub fn format_tag_entry(tag: TagHash, entry: Option<&UEntryHeader>) -> String {
 
         format!(
             "{}{named_tag}{tag} {}{ref_label} ({}+{}, ref {:08X})",
-            if get_hash64(tag).is_some() {
+            if package_manager().get_tag64_for_tag32(tag).is_some() {
                 "★ "
             } else {
                 ""

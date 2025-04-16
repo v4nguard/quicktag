@@ -1,7 +1,6 @@
 use crate::classes::{self, get_class_by_id};
 use crate::gui::common::ResponseExt;
 use crate::gui::tag::{format_tag_entry, ExtendedScanResult};
-use crate::package_manager::package_manager;
 use crate::swap_to_ne;
 use crate::tagtypes::TagType;
 use binrw::{binread, BinReaderExt, Endian};
@@ -13,6 +12,7 @@ use eframe::egui::{
 use itertools::Itertools;
 use log::warn;
 use std::io::{Cursor, Seek, SeekFrom};
+use tiger_pkg::package_manager;
 use tiger_pkg::{DestinyVersion, GameVersion, TagHash, Version};
 
 pub struct TagHexView {

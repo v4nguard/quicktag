@@ -1,12 +1,11 @@
 use std::{fs::File, io::Write as _, sync::Arc};
 
-use tiger_pkg::TagHash;
 use eframe::egui::{self, RichText};
 use itertools::Itertools;
 use rustc_hash::FxHashMap;
+use tiger_pkg::{package_manager, TagHash};
 
 use crate::{
-    package_manager::package_manager,
     scanner::{fnv1, TagCache},
     tagtypes::TagType,
 };

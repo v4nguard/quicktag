@@ -1,6 +1,5 @@
 mod classes;
 mod gui;
-mod package_manager;
 mod panic_handler;
 mod scanner;
 mod tagtypes;
@@ -18,11 +17,10 @@ use eframe::wgpu;
 use env_logger::Env;
 use game_detector::InstalledGame;
 use log::info;
-use tiger_pkg::{DestinyVersion, GameVersion, PackageManager, Version};
+use tiger_pkg::{package_manager, DestinyVersion, GameVersion, PackageManager, Version};
 
 use crate::classes::initialize_reference_names;
-use crate::package_manager::initialize_package_manager;
-use crate::{gui::QuickTagApp, package_manager::package_manager};
+use crate::gui::QuickTagApp;
 
 #[derive(clap::Parser, Debug)]
 #[command(author, version, about, long_about = None, disable_version_flag(true))]
@@ -46,7 +44,7 @@ fn main() -> eframe::Result<()> {
     let _rt_guard = rt.enter();
 
     env_logger::Builder::from_env(
-        Env::default().default_filter_or("info,wgpu_core=warn,naga=warn"),
+        Env::default().default_filter_or("info,wgpu_core=warn,wgpu_hal=warn,naga=warn"),
     )
     .init();
     let args = Args::parse();
@@ -73,7 +71,7 @@ fn main() -> eframe::Result<()> {
     )
     .unwrap();
 
-    initialize_package_manager(pm);
+    tiger_pkg::initialize(&Arc::new(pm));
 
     initialize_reference_names();
 

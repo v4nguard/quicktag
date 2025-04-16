@@ -2928,6 +2928,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "quicktag-scanner"
+version = "0.1.0"
+
+[[package]]
+name = "quicktag-strings"
+version = "0.1.0"
+
+[[package]]
 name = "quote"
 version = "1.0.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3474,9 +3482,9 @@ dependencies = [
 
 [[package]]
 name = "tiger-pkg"
-version = "0.18.0"
+version = "0.18.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73a9aadc12ea37e39229b6b71d57c9b6c66c5295f33d1f8ae2de30ae957345a0"
+checksum = "7b5bb5b467e0737e9e9dca1eb6997831bc8c61de757ea36e74943d38da766655"
 dependencies = [
  "aes",
  "aes-gcm",

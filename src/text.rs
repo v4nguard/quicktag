@@ -8,9 +8,7 @@ use std::slice::Iter;
 use binrw::{BinRead, BinReaderExt, BinResult, Endian, VecArgs};
 use log::error;
 use rustc_hash::{FxHashMap, FxHashSet};
-use tiger_pkg::{DestinyVersion, GameVersion, TagHash};
-
-use crate::package_manager::package_manager;
+use tiger_pkg::{package_manager, DestinyVersion, GameVersion, TagHash};
 
 pub type TablePointer32<T> = _TablePointer<i32, u32, T>;
 pub type TablePointer64<T> = _TablePointer<i64, u64, T>;

@@ -1,7 +1,7 @@
-use tiger_pkg::{package::UEntryHeader, PackageNamedTagEntry};
 use eframe::egui::{self, RichText};
+use tiger_pkg::{package::UEntryHeader, package_manager, PackageNamedTagEntry};
 
-use crate::{package_manager::package_manager, tagtypes::TagType};
+use crate::tagtypes::TagType;
 
 use super::{common::ResponseExt, tag::format_tag_entry, View, ViewAction};
 

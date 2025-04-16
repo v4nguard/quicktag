@@ -1,13 +1,13 @@
 use crate::gui::audio::AudioPlayer;
 use crate::gui::common::tag_context;
 use crate::gui::{audio, View, ViewAction};
-use crate::package_manager::package_manager;
 use eframe::egui;
 use eframe::egui::{Key, Widget};
 use eframe::wgpu::naga::FastIndexMap;
 use egui_extras::{Column, TableBuilder};
 use itertools::Itertools;
 use std::time::{Duration, Instant};
+use tiger_pkg::package_manager;
 use tiger_pkg::DestinyVersion;
 use tiger_pkg::{manager::PackagePath, GameVersion, TagHash};
 

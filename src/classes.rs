@@ -9,12 +9,9 @@ use arc_swap::ArcSwap;
 use binrw::Endian;
 use bytemuck::{Pod, Zeroable};
 use rustc_hash::FxHashMap;
-use tiger_pkg::{DestinyVersion, GameVersion, TagHash};
+use tiger_pkg::{package_manager, package_manager_checked, DestinyVersion, GameVersion, TagHash};
 
-use crate::{
-    package_manager::{package_manager, package_manager_checked},
-    util::u32_from_endian,
-};
+use crate::util::u32_from_endian;
 
 #[derive(Clone)]
 pub struct TagClass {

@@ -9,18 +9,15 @@ use binrw::BinReaderExt;
 use eframe::egui::{self, RichText};
 use itertools::Itertools;
 use rustc_hash::FxHashMap;
-use tiger_pkg::{DestinyVersion, GameVersion, TagHash};
+use tiger_pkg::{package_manager, DestinyVersion, GameVersion, TagHash};
 
 use crate::{
-    package_manager::package_manager,
     scanner::TagCache,
     tagtypes::TagType,
     text::{decode_text, StringCache, StringCacheVec, StringContainer, StringData, StringPart},
 };
 
-use super::{
-    audio_list::wwise_bank_type, common::ResponseExt, tag::format_tag_entry, View, ViewAction,
-};
+use super::{common::ResponseExt, tag::format_tag_entry, View, ViewAction};
 
 pub struct StringsView {
     cache: Arc<TagCache>,
