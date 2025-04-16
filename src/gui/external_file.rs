@@ -6,7 +6,7 @@ use crate::gui::ViewAction;
 use crate::texture::TextureCache;
 use eframe::egui;
 use quicktag_core::tagtypes::TagType;
-use quicktag_scanner::{ScannerContext, ScannerMode};
+use quicktag_scanner::{context::ScannerContext, ScannerMode};
 
 pub struct ExternalFileScanView {
     pub filename: String,

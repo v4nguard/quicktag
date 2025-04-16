@@ -33,9 +33,8 @@ use notify::Watcher;
 use parking_lot::Mutex;
 use poll_promise::Promise;
 use quicktag_core::util::fnv1;
-use quicktag_scanner::{
-    create_scanner_context, load_tag_cache, scanner_progress, ScanStatus, ScannerContext, TagCache,
-};
+use quicktag_scanner::context::ScannerContext;
+use quicktag_scanner::{load_tag_cache, scanner_progress, ScanStatus, TagCache};
 use quicktag_strings::localized::{create_stringmap, RawStringHashCache, StringCache};
 use rustc_hash::FxHashSet;
 use strings::StringViewVariant;
@@ -136,7 +135,7 @@ impl QuickTagApp {
         quicktag_core::classes::load_schemafile();
 
         QuickTagApp {
-            scanner_context: create_scanner_context(&package_manager())
+            scanner_context: ScannerContext::create(&package_manager())
                 .expect("Failed to create scanner context"),
             cache_load: Some(Promise::spawn_thread("load_cache", move || {
                 load_tag_cache()
