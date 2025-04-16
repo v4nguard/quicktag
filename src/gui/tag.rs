@@ -1,7 +1,9 @@
 use std::cell::RefCell;
+use std::env::{current_dir, temp_dir};
 use std::fs::File;
 use std::io::Write as _;
 use std::path::PathBuf;
+use std::process::Command;
 use std::{
     collections::HashSet,
     fmt::Display,
@@ -35,7 +37,6 @@ use crate::{
 };
 use anyhow::Context;
 use binrw::{binread, BinReaderExt, Endian};
-use destiny_pkg::{package::UEntryHeader, GameVersion, TagHash, TagHash64};
 use eframe::egui::Sense;
 use eframe::egui::{collapsing_header::CollapsingState, vec2, RichText, TextureId};
 use eframe::egui_wgpu::RenderState;
@@ -45,6 +46,7 @@ use eframe::{
     epaint::Color32,
     wgpu,
 };
+use egui_extras::syntax_highlighting::CodeTheme;
 use itertools::Itertools;
 use log::error;
 use poll_promise::Promise;
@@ -52,6 +54,11 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use std::fmt::Write;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
+use tiger_pkg::{
+    manager::path_cache::exe_directory, package::UEntryHeader, GameVersion, PackagePlatform,
+    TagHash, TagHash64,
+};
+use tiger_pkg::{DestinyVersion, Version};
 
 #[derive(Copy, Clone, PartialEq)]
 enum TagViewMode {
@@ -102,6 +109,8 @@ pub struct TagView {
     hexview: TagHexView,
     hexview_referenced: Option<TagHexView>,
     mode: TagViewMode,
+
+    decompiled_shader: Result<String, String>,
 }
 
 #[macro_export]
@@ -194,7 +203,8 @@ impl TagView {
 
         let mut arrays: Vec<(u64, TagArray)> = if matches!(
             package_manager().version,
-            GameVersion::DestinyInternalAlpha | GameVersion::DestinyTheTakenKing
+            GameVersion::Destiny(DestinyVersion::DestinyInternalAlpha)
+                | GameVersion::Destiny(DestinyVersion::DestinyTheTakenKing)
         ) {
             array_offsets
                 .into_iter()
@@ -275,6 +285,16 @@ impl TagView {
             None
         };
 
+        let decompiled_shader = if tag_type.is_shader() && tag_type.is_header() {
+            package_manager()
+                .read_tag(tag_entry.reference)
+                .ok()
+                .map(|d| decompile_shader(&d))
+                .unwrap_or(Err("Failed to read shader data".to_string()))
+        } else {
+            Err("Not a shader".to_string())
+        };
+
         Some(Self {
             hexview: TagHexView::new(tag_data.clone()),
             hexview_referenced,
@@ -313,6 +333,7 @@ impl TagView {
             start_time: Instant::now(),
             render_state,
             texture_cache,
+            decompiled_shader,
         })
     }
 
@@ -595,6 +616,25 @@ impl TagView {
                 Err(e) => {
                     ui.colored_label(Color32::RED, "⚠ Failed to load texture");
                     ui.colored_label(Color32::RED, strip_ansi_codes(&format!("{e:?}")));
+                }
+            }
+        } else if self.tag_type.is_shader() && self.tag_type.is_header() {
+            match &self.decompiled_shader {
+                Ok(d) => {
+                    egui::ScrollArea::vertical()
+                        .auto_shrink([false; 2])
+                        .show(ui, |ui| {
+                            // ui.monospace(d);
+                            egui_extras::syntax_highlighting::code_view_ui(
+                                ui,
+                                &CodeTheme::dark(),
+                                &d,
+                                "cpp",
+                            )
+                        });
+                }
+                Err(e) => {
+                    ui.label(format!("Decompiled shader output not available: {e}"));
                 }
             }
         } else {
@@ -1817,4 +1857,21 @@ fn search_for_tag(
     }
 
     results
+}
+
+fn decompile_shader(data: &[u8]) -> Result<String, String> {
+    if !matches!(
+        package_manager().platform,
+        PackagePlatform::Tool32
+            | PackagePlatform::Win32
+            | PackagePlatform::Win64
+            | PackagePlatform::Tool64
+            | PackagePlatform::Win64v1
+            | PackagePlatform::XboxOne
+            | PackagePlatform::Scarlett
+    ) {
+        return Err("Decompilation is not supported on this platform".to_string());
+    }
+
+    hlsldecompiler::decompile(data)
 }

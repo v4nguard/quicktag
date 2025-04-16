@@ -8,8 +8,8 @@ use anyhow::Context;
 use arc_swap::ArcSwap;
 use binrw::Endian;
 use bytemuck::{Pod, Zeroable};
-use destiny_pkg::TagHash;
 use rustc_hash::FxHashMap;
+use tiger_pkg::{DestinyVersion, GameVersion, TagHash};
 
 use crate::{
     package_manager::{package_manager, package_manager_checked},
@@ -90,12 +90,12 @@ pub const CLASSES_BASE: &[TagClass] = &[
     class!(0x80800090 vec4 @size(16) @parse(parse_vec4) @block_tags),
 ];
 
-pub const CLASSES_DEVALPHA: &[TagClass] = &[
+pub const CLASSES_DESTINY_DEVALPHA: &[TagClass] = &[
     class!(0x808004A8 s_localized_strings),
     class!(0x808004A6 s_localized_strings_data),
 ];
 
-pub const CLASSES_TTK: &[TagClass] = &[
+pub const CLASSES_DESTINY_TTK: &[TagClass] = &[
     class!(0x8080035A s_localized_strings),
     class!(0x80800734 s_entity),
     class!(0x80800861 s_entity_resource),
@@ -104,7 +104,7 @@ pub const CLASSES_TTK: &[TagClass] = &[
     class!(0x80801B4C s_technique),
 ];
 
-pub const CLASSES_ROI: &[TagClass] = &[
+pub const CLASSES_DESTINY_ROI: &[TagClass] = &[
     class!(0x8080035A s_localized_strings),
     class!(0x808008BE s_localized_strings_data),
     class!(0x80801A7A s_hdao_settings),
@@ -137,7 +137,7 @@ pub const CLASSES_ROI: &[TagClass] = &[
     class!(0x8080080A s_wwise_event),
 ];
 
-pub const CLASSES_SK: &[TagClass] = &[
+pub const CLASSES_DESTINY_SK: &[TagClass] = &[
     class!(0x80804607 s_unk80804607 @size(12)),
     class!(0x80804616 s_unk80804616 @size(4)),
     class!(0x80804618 s_unk80804618 @size(4)),
@@ -188,7 +188,7 @@ pub const CLASSES_SK: &[TagClass] = &[
     class!(0x8080714F s_terrain),
 ];
 
-pub const CLASSES_BL: &[TagClass] = &[
+pub const CLASSES_DESTINY_BL: &[TagClass] = &[
     class!(0x808045EB s_music_score),
     class!(0x80804F2C s_dye_channel_hash),
     class!(0x808051F2 s_dye_channels),
@@ -235,6 +235,7 @@ pub const CLASSES_BL: &[TagClass] = &[
     class!(0x80809B06 s_entity_resource),
     class!(0x8080BFE6 s_unk_music_8080bfe6),
     class!(0x8080BFE8 s_unk_music_8080bfe8),
+    class!(0x80806920 s_gpu_particle_system),
     // huge array in the umbra tome tags
     class!(0x80806E89 s_unk_80806e89 @size(16) @block_tags),
     class!(0x80806C65 s_light_collection),
@@ -317,16 +318,18 @@ pub fn initialize_reference_names() {
         CLASSES_BASE.iter().map(|c| (c.id, c.clone())).collect();
 
     let version_specific = match package_manager().version {
-        destiny_pkg::GameVersion::DestinyInternalAlpha => CLASSES_DEVALPHA,
-        destiny_pkg::GameVersion::DestinyTheTakenKing => CLASSES_TTK,
-        destiny_pkg::GameVersion::DestinyRiseOfIron => CLASSES_ROI,
-        destiny_pkg::GameVersion::Destiny2Beta
-        | destiny_pkg::GameVersion::Destiny2Forsaken
-        | destiny_pkg::GameVersion::Destiny2Shadowkeep => CLASSES_SK,
-        destiny_pkg::GameVersion::Destiny2BeyondLight
-        | destiny_pkg::GameVersion::Destiny2WitchQueen
-        | destiny_pkg::GameVersion::Destiny2Lightfall
-        | destiny_pkg::GameVersion::Destiny2TheFinalShape => CLASSES_BL,
+        GameVersion::Destiny(DestinyVersion::DestinyInternalAlpha) => CLASSES_DESTINY_DEVALPHA,
+        GameVersion::Destiny(DestinyVersion::DestinyTheTakenKing) => CLASSES_DESTINY_TTK,
+        GameVersion::Destiny(DestinyVersion::DestinyFirstLookAlpha)
+        | GameVersion::Destiny(DestinyVersion::DestinyRiseOfIron) => CLASSES_DESTINY_ROI,
+        GameVersion::Destiny(DestinyVersion::Destiny2Beta)
+        | GameVersion::Destiny(DestinyVersion::Destiny2Forsaken)
+        | GameVersion::Destiny(DestinyVersion::Destiny2Shadowkeep) => CLASSES_DESTINY_SK,
+        GameVersion::Destiny(DestinyVersion::Destiny2BeyondLight)
+        | GameVersion::Destiny(DestinyVersion::Destiny2WitchQueen)
+        | GameVersion::Destiny(DestinyVersion::Destiny2Lightfall)
+        | GameVersion::Destiny(DestinyVersion::Destiny2TheFinalShape) => CLASSES_DESTINY_BL,
+        _ => unimplemented!(),
     };
 
     new_classes.extend(version_specific.iter().map(|c| (c.id, c.clone())));

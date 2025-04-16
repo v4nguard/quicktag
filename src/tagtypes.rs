@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
-use destiny_pkg::GameVersion;
 use eframe::epaint::Color32;
+use tiger_pkg::{DestinyVersion, GameVersion};
 
 use crate::package_manager::package_manager;
 
@@ -46,6 +46,15 @@ impl TagType {
                 | TagType::Texture3D { .. }
         )
     }
+    pub fn is_shader(&self) -> bool {
+        matches!(
+            self,
+            TagType::PixelShader { .. }
+                | TagType::VertexShader { .. }
+                | TagType::GeometryShader { .. }
+                | TagType::ComputeShader { .. }
+        )
+    }
 
     pub fn is_header(&self) -> bool {
         matches!(
@@ -60,6 +69,7 @@ impl TagType {
                 | TagType::PixelShader { is_header: true }
                 | TagType::VertexShader { is_header: true }
                 | TagType::ComputeShader { is_header: true }
+                | TagType::GeometryShader { is_header: true }
         )
     }
 
@@ -198,17 +208,26 @@ impl TagType {
     pub fn from_type_subtype_for_version(version: GameVersion, t: u8, st: u8) -> TagType {
         // TODO: Change this match to use ordered version checking after destiny-pkg 0.11
         match version {
-            GameVersion::DestinyInternalAlpha => Self::from_type_subtype_devalpha(t, st),
-            GameVersion::DestinyTheTakenKing | GameVersion::DestinyRiseOfIron => {
+            GameVersion::Destiny(DestinyVersion::DestinyInternalAlpha) => {
+                Self::from_type_subtype_devalpha(t, st)
+            }
+            GameVersion::Destiny(DestinyVersion::DestinyFirstLookAlpha)
+            | GameVersion::Destiny(DestinyVersion::DestinyTheTakenKing)
+            | GameVersion::Destiny(DestinyVersion::DestinyRiseOfIron) => {
                 Self::from_type_subtype_d1(t, st)
             }
-            GameVersion::Destiny2Beta
-            | GameVersion::Destiny2Forsaken
-            | GameVersion::Destiny2Shadowkeep => Self::from_type_subtype_sk(t, st),
-            GameVersion::Destiny2BeyondLight
-            | GameVersion::Destiny2WitchQueen
-            | GameVersion::Destiny2Lightfall
-            | GameVersion::Destiny2TheFinalShape => Self::from_type_subtype_lf(t, st),
+            GameVersion::Destiny(DestinyVersion::Destiny2Beta)
+            | GameVersion::Destiny(DestinyVersion::Destiny2Forsaken)
+            | GameVersion::Destiny(DestinyVersion::Destiny2Shadowkeep) => {
+                Self::from_type_subtype_sk(t, st)
+            }
+            GameVersion::Destiny(DestinyVersion::Destiny2BeyondLight)
+            | GameVersion::Destiny(DestinyVersion::Destiny2WitchQueen)
+            | GameVersion::Destiny(DestinyVersion::Destiny2Lightfall)
+            | GameVersion::Destiny(DestinyVersion::Destiny2TheFinalShape) => {
+                Self::from_type_subtype_lf(t, st)
+            }
+            _ => unimplemented!(),
         }
     }
 

@@ -1,4 +1,4 @@
-use destiny_pkg::{PackageManager, TagHash, TagHash64};
+use tiger_pkg::{PackageManager, TagHash, TagHash64};
 use eframe::epaint::mutex::RwLock;
 use lazy_static::lazy_static;
 use rustc_hash::FxHashMap;

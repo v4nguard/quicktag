@@ -1,6 +1,6 @@
 use std::{fs::File, io::Write as _, sync::Arc};
 
-use destiny_pkg::TagHash;
+use tiger_pkg::TagHash;
 use eframe::egui::{self, RichText};
 use itertools::Itertools;
 use rustc_hash::FxHashMap;

@@ -12,13 +12,13 @@ mod wordlist;
 use std::sync::Arc;
 
 use clap::Parser;
-use destiny_pkg::{GameVersion, PackageManager};
 use eframe::egui::ViewportBuilder;
 use eframe::egui_wgpu::WgpuConfiguration;
 use eframe::wgpu;
 use env_logger::Env;
 use game_detector::InstalledGame;
 use log::info;
+use tiger_pkg::{DestinyVersion, GameVersion, PackageManager, Version};
 
 use crate::classes::initialize_reference_names;
 use crate::package_manager::initialize_package_manager;
@@ -67,7 +67,8 @@ fn main() -> eframe::Result<()> {
     );
     let pm = PackageManager::new(
         packages_path,
-        args.version.unwrap_or(GameVersion::Destiny2TheFinalShape),
+        args.version
+            .unwrap_or(GameVersion::Destiny(DestinyVersion::Destiny2TheFinalShape)),
         None,
     )
     .unwrap();

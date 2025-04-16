@@ -5,7 +5,6 @@ use crate::package_manager::package_manager;
 use crate::swap_to_ne;
 use crate::tagtypes::TagType;
 use binrw::{binread, BinReaderExt, Endian};
-use destiny_pkg::{GameVersion, TagHash};
 use eframe::egui;
 use eframe::egui::{
     collapsing_header::CollapsingState, vec2, Color32, CursorIcon, Rgba, RichText, ScrollArea,
@@ -14,6 +13,7 @@ use eframe::egui::{
 use itertools::Itertools;
 use log::warn;
 use std::io::{Cursor, Seek, SeekFrom};
+use tiger_pkg::{DestinyVersion, GameVersion, TagHash, Version};
 
 pub struct TagHexView {
     data: Vec<u8>,
@@ -370,7 +370,8 @@ fn find_all_array_ranges(data: &[u8]) -> Vec<ArrayRange> {
 
     let arrays: Vec<(u64, TagArrayHeader)> = if matches!(
         package_manager().version,
-        GameVersion::DestinyInternalAlpha | GameVersion::DestinyTheTakenKing
+        GameVersion::Destiny(DestinyVersion::DestinyInternalAlpha)
+            | GameVersion::Destiny(DestinyVersion::DestinyTheTakenKing)
     ) {
         array_offsets
             .into_iter()

@@ -2,14 +2,14 @@ use crate::gui::audio::AudioPlayer;
 use crate::gui::common::tag_context;
 use crate::gui::{audio, View, ViewAction};
 use crate::package_manager::package_manager;
-use destiny_pkg::manager::PackagePath;
-use destiny_pkg::{GameVersion, TagHash};
 use eframe::egui;
 use eframe::egui::{Key, Widget};
 use eframe::wgpu::naga::FastIndexMap;
 use egui_extras::{Column, TableBuilder};
 use itertools::Itertools;
 use std::time::{Duration, Instant};
+use tiger_pkg::DestinyVersion;
+use tiger_pkg::{manager::PackagePath, GameVersion, TagHash};
 
 struct PackageAudio {
     pub streams: Vec<(TagHash, f32)>,
@@ -39,31 +39,39 @@ impl AudioSorting {
 
 fn wwise_stream_type() -> (u8, u8) {
     match package_manager().version {
-        GameVersion::DestinyInternalAlpha => (2, 16),
-        GameVersion::DestinyTheTakenKing => (8, 21),
-        GameVersion::DestinyRiseOfIron => (8, 21),
-        GameVersion::Destiny2Beta
-        | GameVersion::Destiny2Forsaken
-        | GameVersion::Destiny2Shadowkeep => (26, 6),
-        GameVersion::Destiny2BeyondLight
-        | GameVersion::Destiny2WitchQueen
-        | GameVersion::Destiny2Lightfall
-        | GameVersion::Destiny2TheFinalShape => (26, 7),
+        GameVersion::Destiny(v) => match v {
+            DestinyVersion::DestinyInternalAlpha => (2, 16),
+            DestinyVersion::DestinyFirstLookAlpha
+            | DestinyVersion::DestinyTheTakenKing
+            | DestinyVersion::DestinyRiseOfIron => (8, 21),
+            DestinyVersion::Destiny2Beta
+            | DestinyVersion::Destiny2Forsaken
+            | DestinyVersion::Destiny2Shadowkeep => (26, 6),
+            DestinyVersion::Destiny2BeyondLight
+            | DestinyVersion::Destiny2WitchQueen
+            | DestinyVersion::Destiny2Lightfall
+            | DestinyVersion::Destiny2TheFinalShape => (26, 7),
+        },
+        _ => unimplemented!(),
     }
 }
 
 pub fn wwise_bank_type() -> (u8, u8) {
     match package_manager().version {
-        GameVersion::DestinyInternalAlpha => (0, 15),
-        GameVersion::DestinyTheTakenKing => (0, 20),
-        GameVersion::DestinyRiseOfIron => (0, 20),
-        GameVersion::Destiny2Beta
-        | GameVersion::Destiny2Forsaken
-        | GameVersion::Destiny2Shadowkeep => (26, 5),
-        GameVersion::Destiny2BeyondLight
-        | GameVersion::Destiny2WitchQueen
-        | GameVersion::Destiny2Lightfall
-        | GameVersion::Destiny2TheFinalShape => (26, 6),
+        GameVersion::Destiny(v) => match v {
+            DestinyVersion::DestinyInternalAlpha => (0, 15),
+            DestinyVersion::DestinyTheTakenKing
+            | DestinyVersion::DestinyFirstLookAlpha
+            | DestinyVersion::DestinyRiseOfIron => (0, 20),
+            DestinyVersion::Destiny2Beta
+            | DestinyVersion::Destiny2Forsaken
+            | DestinyVersion::Destiny2Shadowkeep => (26, 5),
+            DestinyVersion::Destiny2BeyondLight
+            | DestinyVersion::Destiny2WitchQueen
+            | DestinyVersion::Destiny2Lightfall
+            | DestinyVersion::Destiny2TheFinalShape => (26, 6),
+        },
+        _ => unimplemented!(),
     }
 }
 

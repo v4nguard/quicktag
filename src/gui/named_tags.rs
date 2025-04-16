@@ -1,4 +1,4 @@
-use destiny_pkg::{package::UEntryHeader, PackageNamedTagEntry};
+use tiger_pkg::{package::UEntryHeader, PackageNamedTagEntry};
 use eframe::egui::{self, RichText};
 
 use crate::{package_manager::package_manager, tagtypes::TagType};
