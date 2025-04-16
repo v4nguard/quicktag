@@ -293,9 +293,13 @@ pub fn scanner_progress() -> ScanStatus {
     *SCANNER_PROGRESS.read()
 }
 
-pub fn load_tag_cache() -> TagCache {
+pub fn cache_path() -> PathBuf {
     let cache_name = format!("tags_{}.cache", package_manager().cache_key());
-    let cache_file_path = exe_relative_path(&cache_name);
+    exe_relative_path(&cache_name)
+}
+
+pub fn load_tag_cache() -> TagCache {
+    let cache_file_path = cache_path();
 
     if let Ok(CacheLoadResult::Loaded(cache)) = TagCache::load(&cache_file_path) {
         return cache;

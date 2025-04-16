@@ -76,6 +76,7 @@ lazy_static! {
 pub struct QuickTagApp {
     scanner_context: ScannerContext,
     cache_load: Option<Promise<TagCache>>,
+    reload_cache: bool,
     cache: Arc<TagCache>,
     tag_history: Rc<RefCell<TagHistory>>,
     strings: Arc<StringCache>,
@@ -143,9 +144,8 @@ impl QuickTagApp {
         QuickTagApp {
             scanner_context: ScannerContext::create(&package_manager())
                 .expect("Failed to create scanner context"),
-            cache_load: Some(Promise::spawn_thread("load_cache", move || {
-                load_tag_cache()
-            })),
+            cache_load: None,
+            reload_cache: true,
             tag_history: Rc::new(RefCell::new(TagHistory::default())),
             cache: Default::default(),
             tag_view: None,
@@ -189,6 +189,13 @@ impl QuickTagApp {
 
 impl eframe::App for QuickTagApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        if self.reload_cache {
+            self.cache_load = Some(Promise::spawn_thread("load_cache", move || {
+                load_tag_cache()
+            }));
+            self.reload_cache = false;
+        }
+
         if self.schemafile_update_rx.try_recv().is_ok() {
             quicktag_core::classes::load_schemafile();
             info!("Reloaded schema file");
@@ -346,6 +353,18 @@ impl eframe::App for QuickTagApp {
                                 self.open_panel = Panel::ExternalFile;
                             }
 
+                            ui.close_menu();
+                        }
+
+                        if ui.button("Regenerate Cache").clicked() {
+                            if let Err(e) = std::fs::remove_file(quicktag_scanner::cache_path()) {
+                                log::error!("Failed to remove cache file: {}", e);
+                            } else {
+                                self.tag_view = None;
+                                self.open_panel = Panel::Tag;
+
+                                self.reload_cache = true;
+                            }
                             ui.close_menu();
                         }
                     });
