@@ -59,9 +59,14 @@ pub enum Panel {
     #[cfg(feature = "audio")]
     Audio,
     Strings,
-    RawStrings,
-    RawStringHashes,
     ExternalFile,
+}
+
+#[derive(PartialEq)]
+pub enum StringsPanel {
+    Localized,
+    Raw,
+    Hashes,
 }
 
 lazy_static! {
@@ -84,6 +89,7 @@ pub struct QuickTagApp {
     tag_split_input: (String, String),
 
     open_panel: Panel,
+    strings_panel: StringsPanel,
 
     tag_view: Option<TagView>,
     external_file_view: Option<ExternalFileScanView>,
@@ -151,6 +157,8 @@ impl QuickTagApp {
             texture_cache: texture_cache.clone(),
 
             open_panel: Panel::Tag,
+            strings_panel: StringsPanel::Localized,
+
             named_tags_view: NamedTagView::new(),
             packages_view: PackagesView::new(texture_cache.clone()),
             textures_view: TexturesView::new(texture_cache),
@@ -437,12 +445,6 @@ impl eframe::App for QuickTagApp {
                     #[cfg(feature = "audio")]
                     ui.selectable_value(&mut self.open_panel, Panel::Audio, "Audio");
                     ui.selectable_value(&mut self.open_panel, Panel::Strings, "Strings");
-                    ui.selectable_value(&mut self.open_panel, Panel::RawStrings, "Raw Strings");
-                    ui.selectable_value(
-                        &mut self.open_panel,
-                        Panel::RawStringHashes,
-                        "Wordlist Hashes",
-                    );
                     if let Some(external_file_view) = &self.external_file_view {
                         ui.selectable_value(
                             &mut self.open_panel,
@@ -453,6 +455,15 @@ impl eframe::App for QuickTagApp {
                 });
 
                 ui.separator();
+
+                if self.open_panel == Panel::Strings {
+                    ui.horizontal(|ui| {
+                        ui.selectable_value(&mut self.strings_panel, StringsPanel::Localized, "Localized");
+                        ui.selectable_value(&mut self.strings_panel, StringsPanel::Raw, "Raw Strings");
+                        ui.selectable_value(&mut self.strings_panel, StringsPanel::Hashes, "Hashes");
+                    });
+                    ui.separator();
+                }
 
                 let action = match self.open_panel {
                     Panel::Tag => {
@@ -468,9 +479,11 @@ impl eframe::App for QuickTagApp {
                     Panel::Textures => self.textures_view.view(ctx, ui),
                     #[cfg(feature = "audio")]
                     Panel::Audio => self.audio_view.view(ctx, ui),
-                    Panel::Strings => self.strings_view.view(ctx, ui),
-                    Panel::RawStrings => self.raw_strings_view.view(ctx, ui),
-                    Panel::RawStringHashes => self.raw_string_hashes_view.view(ctx, ui),
+                    Panel::Strings => match self.strings_panel {
+                        StringsPanel::Localized => self.strings_view.view(ctx, ui),
+                        StringsPanel::Raw => self.raw_strings_view.view(ctx, ui),
+                        StringsPanel::Hashes => self.raw_string_hashes_view.view(ctx, ui),
+                    },
                     Panel::ExternalFile => {
                         if let Some(external_file_view) = &mut self.external_file_view {
                             external_file_view.view(ctx, ui, &self.texture_cache)

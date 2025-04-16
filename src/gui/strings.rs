@@ -95,6 +95,10 @@ impl View for StringsView {
         _ctx: &eframe::egui::Context,
         ui: &mut eframe::egui::Ui,
     ) -> Option<super::ViewAction> {
+        if self.variant == StringViewVariant::RawWordlist {
+            ui.weak("Tip: Additional strings can be added to `local_wordlist.txt`. This requires your tag cache to be regenerated (File > Regenerate Cache).");
+        }
+
         let devstr_regex = regex::Regex::new(r"^str[0-9]*").unwrap();
         egui::SidePanel::left("strings_left_panel")
             .resizable(true)
