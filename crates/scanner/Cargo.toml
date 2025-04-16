@@ -4,3 +4,20 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+quicktag-core = { path = "../core" }
+quicktag-strings = { path = "../strings" }
+
+anyhow.workspace = true
+bincode = "2"
+binrw.workspace = true
+chrono = "0.4.31"
+itertools.workspace = true
+lazy_static = "1.4.0"
+log.workspace = true
+native-dialog = "0.7.0"
+parking_lot.workspace = true
+profiling.workspace = true
+rayon = "1"
+rustc-hash.workspace = true
+tiger-pkg.workspace = true
+zstd = { version = "0.13.0", features = ["zstdmt"] }

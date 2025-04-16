@@ -1,12 +1,7 @@
-mod classes;
 mod gui;
 mod panic_handler;
-mod scanner;
-mod tagtypes;
-mod text;
 mod texture;
 mod util;
-mod wordlist;
 
 use std::sync::Arc;
 
@@ -19,7 +14,6 @@ use game_detector::InstalledGame;
 use log::info;
 use tiger_pkg::{package_manager, DestinyVersion, GameVersion, PackageManager, Version};
 
-use crate::classes::initialize_reference_names;
 use crate::gui::QuickTagApp;
 
 #[derive(clap::Parser, Debug)]
@@ -73,7 +67,7 @@ fn main() -> eframe::Result<()> {
 
     tiger_pkg::initialize(&Arc::new(pm));
 
-    initialize_reference_names();
+    quicktag_core::classes::initialize_reference_names();
 
     let native_options = eframe::NativeOptions {
         renderer: eframe::Renderer::Wgpu,

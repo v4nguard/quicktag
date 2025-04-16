@@ -18,19 +18,9 @@ use super::{
     },
     View, ViewAction,
 };
-use crate::classes::get_class_by_id;
 use crate::gui::hexview::TagHexView;
-use crate::scanner::ScannedHash;
 use crate::util::ui_image_rotated;
-use crate::{
-    scanner::read_raw_string_blob, text::RawStringHashCache, texture::Texture,
-    texture::TextureCache,
-};
-use crate::{
-    scanner::{ScanResult, TagCache},
-    tagtypes::TagType,
-    text::StringCache,
-};
+use crate::{texture::Texture, texture::TextureCache};
 use anyhow::Context;
 use binrw::{binread, BinReaderExt, Endian};
 use eframe::egui::Sense;
@@ -46,6 +36,10 @@ use egui_extras::syntax_highlighting::CodeTheme;
 use itertools::Itertools;
 use log::error;
 use poll_promise::Promise;
+use quicktag_core::classes::get_class_by_id;
+use quicktag_core::tagtypes::TagType;
+use quicktag_scanner::{read_raw_string_blob, ScanResult, ScannedHash, TagCache};
+use quicktag_strings::localized::{RawStringHashCache, StringCache};
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::fmt::Write;
 use std::hash::{Hash, Hasher};
@@ -77,7 +71,7 @@ pub struct TagView {
     texture: anyhow::Result<(Texture, TextureId)>,
 
     tag: TagHash,
-    tag64: Option<TagHash64>,
+    _tag64: Option<TagHash64>,
     tag_entry: UEntryHeader,
     tag_type: TagType,
     tag_data: Vec<u8>,
@@ -297,7 +291,7 @@ impl TagView {
             string_hashes,
             raw_string_hashes,
             tag,
-            tag64,
+            _tag64: tag64,
             tag_type,
             tag_entry,
             tag_data,
@@ -713,7 +707,7 @@ impl TagView {
                 &self.cache,
                 self.tag,
                 self.search_tagtype,
-                self.search_reference,
+                // self.search_reference,
                 self.search_depth_limit,
                 self.search_min_depth,
             );
@@ -1772,7 +1766,7 @@ fn perform_tagsearch(
     cache: &TagCache,
     start_tag: TagHash,
     tagtype: TagType,
-    reference: u32,
+    // reference: u32,
     max_depth: usize,
     min_depth: usize,
 ) -> Vec<(TagHash, UEntryHeader)> {
@@ -1780,7 +1774,7 @@ fn perform_tagsearch(
         cache,
         start_tag,
         tagtype,
-        reference,
+        // reference,
         0,
         max_depth,
         &mut FastHashSet::default(),
@@ -1800,7 +1794,7 @@ fn search_for_tag(
     cache: &TagCache,
     tag: TagHash,
     target_tagtype: TagType,
-    target_reference: u32,
+    // target_reference: u32,
     depth: usize,
     max_depth: usize,
     seen: &mut FastHashSet<TagHash>,
@@ -1839,7 +1833,7 @@ fn search_for_tag(
                         cache,
                         r.hash,
                         target_tagtype,
-                        target_reference,
+                        // target_reference,
                         depth + 1,
                         max_depth,
                         seen,

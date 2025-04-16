@@ -8,13 +8,13 @@ use binrw::BinReaderExt;
 
 use eframe::egui::{self, RichText};
 use itertools::Itertools;
+use quicktag_core::tagtypes::TagType;
+use quicktag_scanner::TagCache;
 use rustc_hash::FxHashMap;
 use tiger_pkg::{package_manager, DestinyVersion, GameVersion, TagHash};
 
-use crate::{
-    scanner::TagCache,
-    tagtypes::TagType,
-    text::{decode_text, StringCache, StringCacheVec, StringContainer, StringData, StringPart},
+use quicktag_strings::localized::{
+    decode_text, StringCache, StringCacheVec, StringContainer, StringData, StringPart,
 };
 
 use super::{common::ResponseExt, tag::format_tag_entry, View, ViewAction};

@@ -1,7 +1,6 @@
 use eframe::egui::{self, RichText};
+use quicktag_core::tagtypes::TagType;
 use tiger_pkg::{package::UEntryHeader, package_manager, PackageNamedTagEntry};
-
-use crate::tagtypes::TagType;
 
 use super::{common::ResponseExt, tag::format_tag_entry, View, ViewAction};
 

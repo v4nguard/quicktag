@@ -5,11 +5,11 @@ use eframe::egui::RichText;
 use image::{DynamicImage, GenericImage, ImageFormat};
 use lazy_static::lazy_static;
 use log::{error, info, warn};
+use quicktag_core::tagtypes::TagType;
 use std::io::{Cursor, Write};
 use std::num::NonZeroU32;
 use tiger_pkg::{package_manager, TagHash};
 
-use crate::tagtypes::TagType;
 use crate::texture::{Texture, TextureCache};
 
 use super::TOASTS;
@@ -229,8 +229,6 @@ pub fn tag_context(ui: &mut egui::Ui, tag: TagHash) {
     }
 
     if let Some(entry) = package_manager().get_entry(tag) {
-        let shift = ui.input(|i| i.modifiers.shift);
-
         if ui
             .selectable_label(false, format!("📋 Copy reference tag{flipped_postfix}"))
             .clicked()

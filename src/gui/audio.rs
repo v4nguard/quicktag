@@ -37,7 +37,7 @@ pub struct PlayingFile {
 
 pub struct AudioPlayer {
     cache: Arc<RwLock<AudioCacheMap>>,
-    output: (rodio::OutputStream, rodio::OutputStreamHandle),
+    _output: (rodio::OutputStream, rodio::OutputStreamHandle),
     sink: rodio::Sink,
 
     playing: RwLock<Option<PlayingFile>>,
@@ -58,7 +58,7 @@ impl AudioPlayer {
         Self {
             cache: Arc::new(RwLock::new(AudioCacheMap::default())),
             sink,
-            output,
+            _output: output,
             playing: RwLock::new(None),
         }
     }

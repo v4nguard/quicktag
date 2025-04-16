@@ -1,9 +1,19 @@
 [workspace]
-members = [ "crates/scanner", "crates/strings"]
+members = [
+    "crates/core",
+    "crates/scanner",
+    "crates/strings"
+]
 
 [workspace.dependencies]
-anyhow = "1.0.75"
-parking_lot = "0.12.1"
+anyhow = "1"
+binrw = "0.13.3"
+epaint = "0.28.1"
+itertools = "0.14"
+log = "0.4"
+parking_lot = "0.12"
+profiling = { version = "1", features = [] }
+rustc-hash = "2.0.0"
 tiger-pkg = { version = "0.18.2", features = ["global_manager_instance"] }
 
 [package]
@@ -12,6 +22,10 @@ version = "0.8.0"
 edition = "2021"
 
 [dependencies]
+quicktag-core = { path = "./crates/core" }
+quicktag-scanner = { path = "./crates/scanner" }
+quicktag-strings = { path = "./crates/strings" }
+
 # General
 anyhow.workspace = true
 bytemuck = "1.14.1"
@@ -20,14 +34,15 @@ clap = { version = "4.3.11", features = ["derive"] }
 env_logger = "0.11.3"
 game-detector = "0.1.4"
 hlsldecompiler = { git = "https://github.com/cohaereo/hlsldecompiler-rs" }
-itertools = "0.13"
 indexmap = "2.2.6"
+itertools.workspace = true
 lazy_static = "1.4.0"
 linked-hash-map = "0.5.6"
-log = "0.4.20"
+log.workspace = true
+notify = "7.0.0"
 parking_lot.workspace = true
-profiling = { version = "1.0.15", features = [] }
-rustc-hash = "2.0.0"
+profiling.workspace = true
+rustc-hash.workspace = true
 
 # UI
 eframe = { version = "0.28.1", default-features = false, features = [
@@ -59,12 +74,9 @@ tiger-pkg.workspace = true
 tokio = { version = "1.37.0", features = ["rt", "macros"] }
 vgmstream = { git = "https://github.com/cohaereo/vgmstream-rs/", version = "0.1.5", optional = true }
 wav = "1.0.0"
-zstd = { version = "0.13.0", features = ["zstdmt"] }
 
 # tiger-parse structure crates
 # alkahest-data = { git = "https://github.com/cohaereo/alkahest.git" }
-arc-swap = "1.7.1"
-notify = "7.0.0"
 #cryptarch-data = { git = "https://github.com/v4nguard/cryptarch.git" }
 #dawn-data = { git = "https://github.com/cohaereo/dawn.git" }
 

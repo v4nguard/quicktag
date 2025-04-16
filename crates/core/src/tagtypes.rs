@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
-use eframe::epaint::Color32;
-use tiger_pkg::{package_manager, DestinyVersion, GameVersion};
+use epaint::Color32;
+use tiger_pkg::{DestinyVersion, GameVersion, package_manager};
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum TagType {

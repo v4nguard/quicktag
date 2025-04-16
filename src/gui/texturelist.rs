@@ -1,12 +1,10 @@
 use eframe::egui::{self, pos2, vec2, Color32, RichText, Stroke, Widget};
+use quicktag_core::tagtypes::TagType;
 use std::fmt::{Display, Formatter};
 use tiger_pkg::{manager::PackagePath, package_manager, TagHash};
 
+use crate::texture::{Texture, TextureCache, TextureDesc};
 use crate::util::ui_image_rotated;
-use crate::{
-    tagtypes::TagType,
-    texture::{Texture, TextureCache, TextureDesc},
-};
 
 use super::{common::ResponseExt, View, ViewAction};
 

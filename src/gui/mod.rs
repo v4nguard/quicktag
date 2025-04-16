@@ -32,6 +32,11 @@ use log::info;
 use notify::Watcher;
 use parking_lot::Mutex;
 use poll_promise::Promise;
+use quicktag_core::util::fnv1;
+use quicktag_scanner::{
+    create_scanner_context, load_tag_cache, scanner_progress, ScanStatus, ScannerContext, TagCache,
+};
+use quicktag_strings::localized::{create_stringmap, RawStringHashCache, StringCache};
 use rustc_hash::FxHashSet;
 use strings::StringViewVariant;
 use tiger_pkg::{package_manager, TagHash};
@@ -44,15 +49,7 @@ use self::tag::TagView;
 use self::texturelist::TexturesView;
 use crate::gui::external_file::ExternalFileScanView;
 use crate::gui::tag::TagHistory;
-use crate::scanner::{fnv1, ScannerContext};
-use crate::text::RawStringHashCache;
 use crate::texture::TextureCache;
-use crate::{classes, wordlist};
-use crate::{
-    scanner,
-    scanner::{load_tag_cache, scanner_progress, ScanStatus, TagCache},
-    text::{create_stringmap, StringCache},
-};
 
 #[derive(PartialEq)]
 pub enum Panel {
@@ -101,7 +98,7 @@ pub struct QuickTagApp {
     raw_strings_view: RawStringsView,
     raw_string_hashes_view: StringsView,
 
-    schemafile_watcher: notify::RecommendedWatcher,
+    _schemafile_watcher: notify::RecommendedWatcher,
     schemafile_update_rx: Receiver<Result<notify::Event, notify::Error>>,
 
     pub wgpu_state: RenderState,
@@ -136,10 +133,10 @@ impl QuickTagApp {
             .watch(Path::new("schema.txt"), notify::RecursiveMode::NonRecursive)
             .unwrap();
 
-        classes::load_schemafile();
+        quicktag_core::classes::load_schemafile();
 
         QuickTagApp {
-            scanner_context: scanner::create_scanner_context(&package_manager())
+            scanner_context: create_scanner_context(&package_manager())
                 .expect("Failed to create scanner context"),
             cache_load: Some(Promise::spawn_thread("load_cache", move || {
                 load_tag_cache()
@@ -175,7 +172,7 @@ impl QuickTagApp {
             strings,
             raw_strings: Default::default(),
 
-            schemafile_watcher,
+            _schemafile_watcher: schemafile_watcher,
             schemafile_update_rx: rx,
 
             wgpu_state: cc.wgpu_render_state.clone().unwrap(),
@@ -186,7 +183,7 @@ impl QuickTagApp {
 impl eframe::App for QuickTagApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         if self.schemafile_update_rx.try_recv().is_ok() {
-            classes::load_schemafile();
+            quicktag_core::classes::load_schemafile();
             info!("Reloaded schema file");
         }
 
@@ -264,7 +261,7 @@ impl eframe::App for QuickTagApp {
                 entry.push((s, false));
             }
 
-            wordlist::load_wordlist(|s, h| {
+            quicktag_strings::wordlist::load_wordlist(|s, h| {
                 let entry = new_rsh_cache.entry(h).or_default();
                 if entry.iter().any(|(s2, _)| s2 == s) {
                     return;

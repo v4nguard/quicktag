@@ -8,7 +8,7 @@ use std::slice::Iter;
 use binrw::{BinRead, BinReaderExt, BinResult, Endian, VecArgs};
 use log::error;
 use rustc_hash::{FxHashMap, FxHashSet};
-use tiger_pkg::{package_manager, DestinyVersion, GameVersion, TagHash};
+use tiger_pkg::{DestinyVersion, GameVersion, TagHash, package_manager};
 
 pub type TablePointer32<T> = _TablePointer<i32, u32, T>;
 pub type TablePointer64<T> = _TablePointer<i64, u64, T>;
@@ -74,6 +74,7 @@ impl<O: Into<i64> + Copy, C: Into<u64> + Copy, T: BinRead> _TablePointer<O, C, T
         self.data.iter()
     }
 
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         self.data.len()
     }

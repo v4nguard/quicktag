@@ -1,4 +1,5 @@
 use eframe::egui::{self, RichText};
+use quicktag_core::tagtypes::TagType;
 use tiger_pkg::{manager::PackagePath, package::UEntryHeader, package_manager, TagHash, Version};
 
 use super::{
@@ -7,7 +8,6 @@ use super::{
     View, ViewAction,
 };
 use crate::gui::common::open_audio_file_in_default_application;
-use crate::tagtypes::TagType;
 use crate::texture::TextureCache;
 use crate::util::format_file_size;
 
