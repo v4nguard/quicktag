@@ -20,7 +20,7 @@ use super::{
 };
 use crate::gui::hexview::TagHexView;
 use crate::util::ui_image_rotated;
-use crate::{texture::Texture, texture::TextureCache};
+use crate::{texture::cache::TextureCache, texture::Texture};
 use anyhow::Context;
 use binrw::{binread, BinReaderExt, Endian};
 use eframe::egui::Sense;

@@ -3,7 +3,7 @@ use quicktag_core::tagtypes::TagType;
 use std::fmt::{Display, Formatter};
 use tiger_pkg::{manager::PackagePath, package_manager, TagHash};
 
-use crate::texture::{Texture, TextureCache, TextureDesc};
+use crate::texture::{cache::TextureCache, Texture, TextureDesc};
 use crate::util::ui_image_rotated;
 
 use super::{common::ResponseExt, View, ViewAction};

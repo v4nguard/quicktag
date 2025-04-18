@@ -48,7 +48,7 @@ use self::tag::TagView;
 use self::texturelist::TexturesView;
 use crate::gui::external_file::ExternalFileScanView;
 use crate::gui::tag::TagHistory;
-use crate::texture::TextureCache;
+use crate::texture::cache::TextureCache;
 
 #[derive(PartialEq)]
 pub enum Panel {

@@ -3,7 +3,7 @@ use crate::gui::tag::{
     format_tag_entry, ExtendedScanResult, ExtendedTagHash, ScannedHashWithEntry,
 };
 use crate::gui::ViewAction;
-use crate::texture::TextureCache;
+use crate::texture::cache::TextureCache;
 use eframe::egui;
 use quicktag_core::tagtypes::TagType;
 use quicktag_scanner::{context::ScannerContext, ScannerMode};

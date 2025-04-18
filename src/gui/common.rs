@@ -10,7 +10,7 @@ use std::io::{Cursor, Write};
 use std::num::NonZeroU32;
 use tiger_pkg::{package_manager, TagHash};
 
-use crate::texture::{Texture, TextureCache};
+use crate::texture::{cache::TextureCache, Texture};
 
 use super::TOASTS;
 
