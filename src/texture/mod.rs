@@ -5,11 +5,11 @@ mod headers_xbox;
 mod swizzle;
 
 use crate::texture::texture_capture::capture_texture;
-use crate::util::ui_image_rotated;
+use crate::util::{ui_image_rotated, UiExt};
 use anyhow::Context;
 use binrw::BinReaderExt;
 use dxgi::{GcmSurfaceFormat, GcnSurfaceFormat};
-use eframe::egui::Sense;
+use eframe::egui::{Color32, Sense};
 use eframe::egui_wgpu::RenderState;
 use eframe::epaint::mutex::RwLock;
 use eframe::epaint::{vec2, TextureId};
@@ -118,6 +118,16 @@ impl TextureDesc {
             "{}x{}x{} {:?}{cubemap}",
             self.width, self.height, self.depth, self.format
         )
+    }
+
+    pub fn kind(&self) -> TextureType {
+        if self.array_size == 6 {
+            TextureType::TextureCube
+        } else if self.depth > 1 {
+            TextureType::Texture3D
+        } else {
+            TextureType::Texture2D
+        }
     }
 }
 
@@ -827,6 +837,13 @@ impl Texture {
     }
 }
 
+#[derive(PartialEq)]
+pub enum TextureType {
+    Texture2D,
+    Texture3D,
+    TextureCube,
+}
+
 pub type LoadedTexture = (Arc<Texture>, TextureId);
 
 type TextureCacheMap = LinkedHashMap<
@@ -950,11 +967,23 @@ impl TextureCache {
                 egui_tex,
                 response.rect,
                 // Rotate the image if it's a cubemap
-                if tex.desc.array_size == 6 { 90. } else { 0. },
-                tex.desc.array_size == 6,
+                if tex.desc.kind() == TextureType::TextureCube {
+                    90.
+                } else {
+                    0.
+                },
+                tex.desc.kind() == TextureType::TextureCube,
             );
 
-            ui.label(tex.desc.info());
+            ui.horizontal(|ui| {
+                match tex.desc.kind() {
+                    TextureType::Texture2D => ui.chip("2D", Color32::YELLOW, Color32::BLACK),
+                    TextureType::TextureCube => ui.chip("Cube", Color32::BLUE, Color32::WHITE),
+                    TextureType::Texture3D => ui.chip("3D", Color32::GREEN, Color32::BLACK),
+                };
+
+                ui.label(tex.desc.info());
+            });
         }
     }
 }
