@@ -18,9 +18,7 @@ use std::path::Path;
 use std::rc::Rc;
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
-use std::time::Instant;
 
-use tiger_pkg::TagHash;
 use eframe::egui::{PointerButton, TextEdit, Widget};
 use eframe::egui_wgpu::RenderState;
 use eframe::{
@@ -34,8 +32,13 @@ use log::info;
 use notify::Watcher;
 use parking_lot::Mutex;
 use poll_promise::Promise;
+use quicktag_core::util::fnv1;
+use quicktag_scanner::context::ScannerContext;
+use quicktag_scanner::{load_tag_cache, scanner_progress, ScanStatus, TagCache};
+use quicktag_strings::localized::{create_stringmap, RawStringHashCache, StringCache};
 use rustc_hash::FxHashSet;
 use strings::StringViewVariant;
+use tiger_pkg::{package_manager, TagHash};
 
 use self::named_tags::NamedTagView;
 use self::packages::PackagesView;
@@ -45,16 +48,7 @@ use self::tag::TagView;
 use self::texturelist::TexturesView;
 use crate::gui::external_file::ExternalFileScanView;
 use crate::gui::tag::TagHistory;
-use crate::scanner::{fnv1, ScannerContext};
-use crate::text::RawStringHashCache;
-use crate::texture::TextureCache;
-use crate::{classes, wordlist};
-use crate::{
-    package_manager::package_manager,
-    scanner,
-    scanner::{load_tag_cache, scanner_progress, ScanStatus, TagCache},
-    text::{create_stringmap, StringCache},
-};
+use crate::texture::cache::TextureCache;
 
 #[derive(PartialEq)]
 pub enum Panel {
@@ -65,9 +59,14 @@ pub enum Panel {
     #[cfg(feature = "audio")]
     Audio,
     Strings,
-    RawStrings,
-    RawStringHashes,
     ExternalFile,
+}
+
+#[derive(PartialEq)]
+pub enum StringsPanel {
+    Localized,
+    Raw,
+    Hashes,
 }
 
 lazy_static! {
@@ -77,6 +76,7 @@ lazy_static! {
 pub struct QuickTagApp {
     scanner_context: ScannerContext,
     cache_load: Option<Promise<TagCache>>,
+    reload_cache: bool,
     cache: Arc<TagCache>,
     tag_history: Rc<RefCell<TagHistory>>,
     strings: Arc<StringCache>,
@@ -90,6 +90,7 @@ pub struct QuickTagApp {
     tag_split_input: (String, String),
 
     open_panel: Panel,
+    strings_panel: StringsPanel,
 
     tag_view: Option<TagView>,
     external_file_view: Option<ExternalFileScanView>,
@@ -103,7 +104,7 @@ pub struct QuickTagApp {
     raw_strings_view: RawStringsView,
     raw_string_hashes_view: StringsView,
 
-    schemafile_watcher: notify::RecommendedWatcher,
+    _schemafile_watcher: notify::RecommendedWatcher,
     schemafile_update_rx: Receiver<Result<notify::Event, notify::Error>>,
 
     pub wgpu_state: RenderState,
@@ -138,14 +139,13 @@ impl QuickTagApp {
             .watch(Path::new("schema.txt"), notify::RecursiveMode::NonRecursive)
             .unwrap();
 
-        classes::load_schemafile();
+        quicktag_core::classes::load_schemafile();
 
         QuickTagApp {
-            scanner_context: scanner::create_scanner_context(&package_manager())
+            scanner_context: ScannerContext::create(&package_manager())
                 .expect("Failed to create scanner context"),
-            cache_load: Some(Promise::spawn_thread("load_cache", move || {
-                load_tag_cache()
-            })),
+            cache_load: None,
+            reload_cache: true,
             tag_history: Rc::new(RefCell::new(TagHistory::default())),
             cache: Default::default(),
             tag_view: None,
@@ -157,6 +157,8 @@ impl QuickTagApp {
             texture_cache: texture_cache.clone(),
 
             open_panel: Panel::Tag,
+            strings_panel: StringsPanel::Localized,
+
             named_tags_view: NamedTagView::new(),
             packages_view: PackagesView::new(texture_cache.clone()),
             textures_view: TexturesView::new(texture_cache),
@@ -177,7 +179,7 @@ impl QuickTagApp {
             strings,
             raw_strings: Default::default(),
 
-            schemafile_watcher,
+            _schemafile_watcher: schemafile_watcher,
             schemafile_update_rx: rx,
 
             wgpu_state: cc.wgpu_render_state.clone().unwrap(),
@@ -187,8 +189,15 @@ impl QuickTagApp {
 
 impl eframe::App for QuickTagApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        if self.reload_cache {
+            self.cache_load = Some(Promise::spawn_thread("load_cache", move || {
+                load_tag_cache()
+            }));
+            self.reload_cache = false;
+        }
+
         if self.schemafile_update_rx.try_recv().is_ok() {
-            classes::load_schemafile();
+            quicktag_core::classes::load_schemafile();
             info!("Reloaded schema file");
         }
 
@@ -266,7 +275,7 @@ impl eframe::App for QuickTagApp {
                 entry.push((s, false));
             }
 
-            wordlist::load_wordlist(|s, h| {
+            quicktag_strings::wordlist::load_wordlist(|s, h| {
                 let entry = new_rsh_cache.entry(h).or_default();
                 if entry.iter().any(|(s2, _)| s2 == s) {
                     return;
@@ -344,6 +353,18 @@ impl eframe::App for QuickTagApp {
                                 self.open_panel = Panel::ExternalFile;
                             }
 
+                            ui.close_menu();
+                        }
+
+                        if ui.button("Regenerate Cache").clicked() {
+                            if let Err(e) = std::fs::remove_file(quicktag_scanner::cache_path()) {
+                                log::error!("Failed to remove cache file: {}", e);
+                            } else {
+                                self.tag_view = None;
+                                self.open_panel = Panel::Tag;
+
+                                self.reload_cache = true;
+                            }
                             ui.close_menu();
                         }
                     });
@@ -443,12 +464,6 @@ impl eframe::App for QuickTagApp {
                     #[cfg(feature = "audio")]
                     ui.selectable_value(&mut self.open_panel, Panel::Audio, "Audio");
                     ui.selectable_value(&mut self.open_panel, Panel::Strings, "Strings");
-                    ui.selectable_value(&mut self.open_panel, Panel::RawStrings, "Raw Strings");
-                    ui.selectable_value(
-                        &mut self.open_panel,
-                        Panel::RawStringHashes,
-                        "Wordlist Hashes",
-                    );
                     if let Some(external_file_view) = &self.external_file_view {
                         ui.selectable_value(
                             &mut self.open_panel,
@@ -459,6 +474,15 @@ impl eframe::App for QuickTagApp {
                 });
 
                 ui.separator();
+
+                if self.open_panel == Panel::Strings {
+                    ui.horizontal(|ui| {
+                        ui.selectable_value(&mut self.strings_panel, StringsPanel::Localized, "Localized");
+                        ui.selectable_value(&mut self.strings_panel, StringsPanel::Raw, "Raw Strings");
+                        ui.selectable_value(&mut self.strings_panel, StringsPanel::Hashes, "Hashes");
+                    });
+                    ui.separator();
+                }
 
                 let action = match self.open_panel {
                     Panel::Tag => {
@@ -474,9 +498,11 @@ impl eframe::App for QuickTagApp {
                     Panel::Textures => self.textures_view.view(ctx, ui),
                     #[cfg(feature = "audio")]
                     Panel::Audio => self.audio_view.view(ctx, ui),
-                    Panel::Strings => self.strings_view.view(ctx, ui),
-                    Panel::RawStrings => self.raw_strings_view.view(ctx, ui),
-                    Panel::RawStringHashes => self.raw_string_hashes_view.view(ctx, ui),
+                    Panel::Strings => match self.strings_panel {
+                        StringsPanel::Localized => self.strings_view.view(ctx, ui),
+                        StringsPanel::Raw => self.raw_strings_view.view(ctx, ui),
+                        StringsPanel::Hashes => self.raw_string_hashes_view.view(ctx, ui),
+                    },
                     Panel::ExternalFile => {
                         if let Some(external_file_view) = &mut self.external_file_view {
                             external_file_view.view(ctx, ui, &self.texture_cache)

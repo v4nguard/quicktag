@@ -1,9 +1,7 @@
 use std::cell::RefCell;
-use std::env::{current_dir, temp_dir};
 use std::fs::File;
 use std::io::Write as _;
 use std::path::PathBuf;
-use std::process::Command;
 use std::{
     collections::HashSet,
     fmt::Display,
@@ -20,21 +18,9 @@ use super::{
     },
     View, ViewAction,
 };
-use crate::classes::get_class_by_id;
 use crate::gui::hexview::TagHexView;
-use crate::package_manager::get_hash64;
-use crate::scanner::ScannedHash;
 use crate::util::ui_image_rotated;
-use crate::{
-    package_manager::package_manager,
-    scanner::{ScanResult, TagCache},
-    tagtypes::TagType,
-    text::StringCache,
-};
-use crate::{
-    scanner::read_raw_string_blob, text::RawStringHashCache, texture::Texture,
-    texture::TextureCache,
-};
+use crate::{texture::cache::TextureCache, texture::Texture};
 use anyhow::Context;
 use binrw::{binread, BinReaderExt, Endian};
 use eframe::egui::Sense;
@@ -50,15 +36,16 @@ use egui_extras::syntax_highlighting::CodeTheme;
 use itertools::Itertools;
 use log::error;
 use poll_promise::Promise;
+use quicktag_core::classes::get_class_by_id;
+use quicktag_core::tagtypes::TagType;
+use quicktag_scanner::{read_raw_string_blob, ScanResult, ScannedHash, TagCache};
+use quicktag_strings::localized::{RawStringHashCache, StringCache};
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::fmt::Write;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
-use tiger_pkg::{
-    manager::path_cache::exe_directory, package::UEntryHeader, GameVersion, PackagePlatform,
-    TagHash, TagHash64,
-};
-use tiger_pkg::{DestinyVersion, Version};
+use tiger_pkg::{package::UEntryHeader, GameVersion, PackagePlatform, TagHash, TagHash64};
+use tiger_pkg::{package_manager, DestinyVersion, Version};
 
 #[derive(Copy, Clone, PartialEq)]
 enum TagViewMode {
@@ -84,7 +71,7 @@ pub struct TagView {
     texture: anyhow::Result<(Texture, TextureId)>,
 
     tag: TagHash,
-    tag64: Option<TagHash64>,
+    _tag64: Option<TagHash64>,
     tag_entry: UEntryHeader,
     tag_type: TagType,
     tag_data: Vec<u8>,
@@ -173,7 +160,8 @@ impl TagView {
                 0x80809fbd | // Pre-BL
                 0x80809fb8 | // Post-BL
                 0x80800184 |
-                0x80800142
+                0x80800142 |
+                0x8080bfcd // Marathon
             ) {
                 array_offsets.push(offset + 4);
             }
@@ -304,7 +292,7 @@ impl TagView {
             string_hashes,
             raw_string_hashes,
             tag,
-            tag64,
+            _tag64: tag64,
             tag_type,
             tag_entry,
             tag_data,
@@ -628,7 +616,7 @@ impl TagView {
                             egui_extras::syntax_highlighting::code_view_ui(
                                 ui,
                                 &CodeTheme::dark(),
-                                &d,
+                                d,
                                 "cpp",
                             )
                         });
@@ -720,7 +708,7 @@ impl TagView {
                 &self.cache,
                 self.tag,
                 self.search_tagtype,
-                self.search_reference,
+                // self.search_reference,
                 self.search_depth_limit,
                 self.search_min_depth,
             );
@@ -1687,7 +1675,7 @@ pub fn format_tag_entry(tag: TagHash, entry: Option<&UEntryHeader>) -> String {
 
         format!(
             "{}{named_tag}{tag} {}{ref_label} ({}+{}, ref {:08X})",
-            if get_hash64(tag).is_some() {
+            if package_manager().get_tag64_for_tag32(tag).is_some() {
                 "★ "
             } else {
                 ""
@@ -1779,7 +1767,7 @@ fn perform_tagsearch(
     cache: &TagCache,
     start_tag: TagHash,
     tagtype: TagType,
-    reference: u32,
+    // reference: u32,
     max_depth: usize,
     min_depth: usize,
 ) -> Vec<(TagHash, UEntryHeader)> {
@@ -1787,7 +1775,7 @@ fn perform_tagsearch(
         cache,
         start_tag,
         tagtype,
-        reference,
+        // reference,
         0,
         max_depth,
         &mut FastHashSet::default(),
@@ -1807,7 +1795,7 @@ fn search_for_tag(
     cache: &TagCache,
     tag: TagHash,
     target_tagtype: TagType,
-    target_reference: u32,
+    // target_reference: u32,
     depth: usize,
     max_depth: usize,
     seen: &mut FastHashSet<TagHash>,
@@ -1846,7 +1834,7 @@ fn search_for_tag(
                         cache,
                         r.hash,
                         target_tagtype,
-                        target_reference,
+                        // target_reference,
                         depth + 1,
                         max_depth,
                         seen,

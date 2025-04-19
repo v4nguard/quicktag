@@ -1,16 +1,11 @@
 use std::time::Instant;
 
 use log::info;
+use quicktag_core::util::{FNV1_BASE, fnv1};
 
-use crate::scanner::fnv1;
+const WORDLIST: &str = include_str!("../../../wordlist.txt");
 
-#[cfg(feature = "wordlist")]
-const WORDLIST: &str = include_str!("../wordlist.txt");
-
-#[cfg(feature = "wordlist")]
 pub fn load_wordlist<F: FnMut(&str, u32)>(mut callback: F) {
-    use crate::scanner::FNV1_BASE;
-
     let load_start = Instant::now();
     for s in WORDLIST.lines() {
         let s = s.to_string();
@@ -47,9 +42,4 @@ pub fn load_wordlist<F: FnMut(&str, u32)>(mut callback: F) {
         wordlist_disk.lines().count(),
         load_start.elapsed().as_millis()
     );
-}
-
-#[cfg(not(feature = "wordlist"))]
-pub fn load_wordlist<F: FnMut(&str, u32)>(_callback: F) {
-    // No-op
 }

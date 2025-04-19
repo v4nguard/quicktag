@@ -3,11 +3,10 @@ use crate::gui::tag::{
     format_tag_entry, ExtendedScanResult, ExtendedTagHash, ScannedHashWithEntry,
 };
 use crate::gui::ViewAction;
-use crate::scanner::ScannerContext;
-use crate::scanner::{self, ScannerMode};
-use crate::tagtypes::TagType;
-use crate::texture::TextureCache;
+use crate::texture::cache::TextureCache;
 use eframe::egui;
+use quicktag_core::tagtypes::TagType;
+use quicktag_scanner::{context::ScannerContext, ScannerMode};
 
 pub struct ExternalFileScanView {
     pub filename: String,
@@ -16,7 +15,7 @@ pub struct ExternalFileScanView {
 
 impl ExternalFileScanView {
     pub fn new(filename: String, scancontext: &ScannerContext, data: &[u8]) -> Self {
-        let scanresult = scanner::scan_file(scancontext, data, ScannerMode::Tags);
+        let scanresult = quicktag_scanner::scan_file(scancontext, data, ScannerMode::Tags);
         let scanresult_ext = ExtendedScanResult::from_scanresult(scanresult);
 
         Self {

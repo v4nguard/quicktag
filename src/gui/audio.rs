@@ -1,6 +1,4 @@
-use crate::package_manager::package_manager;
 use binrw::BinReaderExt;
-use tiger_pkg::TagHash;
 use eframe::egui::mutex::RwLock;
 use either::{Either, Left, Right};
 use lazy_static::lazy_static;
@@ -13,6 +11,8 @@ use std::hash::BuildHasherDefault;
 use std::io::{Cursor, Seek, SeekFrom};
 use std::sync::Arc;
 use std::time::Instant;
+use tiger_pkg::package_manager;
+use tiger_pkg::TagHash;
 use vgmstream::info::VgmstreamInfo;
 
 pub enum AudioPlayerState {
@@ -37,7 +37,7 @@ pub struct PlayingFile {
 
 pub struct AudioPlayer {
     cache: Arc<RwLock<AudioCacheMap>>,
-    output: (rodio::OutputStream, rodio::OutputStreamHandle),
+    _output: (rodio::OutputStream, rodio::OutputStreamHandle),
     sink: rodio::Sink,
 
     playing: RwLock<Option<PlayingFile>>,
@@ -58,7 +58,7 @@ impl AudioPlayer {
         Self {
             cache: Arc::new(RwLock::new(AudioCacheMap::default())),
             sink,
-            output,
+            _output: output,
             playing: RwLock::new(None),
         }
     }

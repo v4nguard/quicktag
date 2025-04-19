@@ -1,7 +1,6 @@
 use crate::gui::audio::AudioPlayer;
 use crate::gui::common::tag_context;
 use crate::gui::{audio, View, ViewAction};
-use crate::package_manager::package_manager;
 use eframe::egui;
 use eframe::egui::{Key, Widget};
 use eframe::wgpu::naga::FastIndexMap;
@@ -10,6 +9,7 @@ use itertools::Itertools;
 use std::time::{Duration, Instant};
 use tiger_pkg::DestinyVersion;
 use tiger_pkg::{manager::PackagePath, GameVersion, TagHash};
+use tiger_pkg::{package_manager, MarathonVersion};
 
 struct PackageAudio {
     pub streams: Vec<(TagHash, f32)>,
@@ -52,7 +52,8 @@ fn wwise_stream_type() -> (u8, u8) {
             | DestinyVersion::Destiny2Lightfall
             | DestinyVersion::Destiny2TheFinalShape => (26, 7),
         },
-        _ => unimplemented!(),
+        // Same as post-BeyondLight
+        GameVersion::Marathon(MarathonVersion::MarathonAlpha) => (26, 7),
     }
 }
 
@@ -71,7 +72,8 @@ pub fn wwise_bank_type() -> (u8, u8) {
             | DestinyVersion::Destiny2Lightfall
             | DestinyVersion::Destiny2TheFinalShape => (26, 6),
         },
-        _ => unimplemented!(),
+        // Same as post-BeyondLight
+        GameVersion::Marathon(MarathonVersion::MarathonAlpha) => (26, 6),
     }
 }
 

@@ -1,9 +1,6 @@
-use crate::classes::{self, get_class_by_id};
 use crate::gui::common::ResponseExt;
 use crate::gui::tag::{format_tag_entry, ExtendedScanResult};
-use crate::package_manager::package_manager;
 use crate::swap_to_ne;
-use crate::tagtypes::TagType;
 use binrw::{binread, BinReaderExt, Endian};
 use eframe::egui;
 use eframe::egui::{
@@ -12,7 +9,10 @@ use eframe::egui::{
 };
 use itertools::Itertools;
 use log::warn;
+use quicktag_core::classes::get_class_by_id;
+use quicktag_core::tagtypes::TagType;
 use std::io::{Cursor, Seek, SeekFrom};
+use tiger_pkg::package_manager;
 use tiger_pkg::{DestinyVersion, GameVersion, TagHash, Version};
 
 pub struct TagHexView {
@@ -20,8 +20,8 @@ pub struct TagHexView {
     rows: Vec<DataRow>,
     array_ranges: Vec<ArrayRange>,
 
-    mode: DataViewMode,
-    detect_floats: bool,
+    // mode: DataViewMode,
+    // detect_floats: bool,
     split_arrays: bool,
     raw_array_data: bool,
 }
@@ -41,8 +41,8 @@ impl TagHexView {
                 .collect(),
             array_ranges: find_all_array_ranges(&data),
             data,
-            mode: DataViewMode::Auto,
-            detect_floats: true,
+            // mode: DataViewMode::Auto,
+            // detect_floats: true,
             split_arrays: true,
             raw_array_data: false,
         }
@@ -54,7 +54,7 @@ impl TagHexView {
             return None;
         }
 
-        if classes::was_schemafile_refreshed() {
+        if quicktag_core::classes::was_schemafile_refreshed() {
             self.array_ranges = find_all_array_ranges(&self.data);
         }
 
@@ -258,13 +258,13 @@ impl TagHexView {
     }
 }
 
-#[derive(Copy, Clone)]
-enum DataViewMode {
-    Auto,
-    Raw,
-    Float,
-    U32,
-}
+// #[derive(Copy, Clone)]
+// enum DataViewMode {
+//     Auto,
+//     Raw,
+//     Float,
+//     U32,
+// }
 
 #[derive(Clone, Copy)]
 enum DataRow {
@@ -358,7 +358,8 @@ fn find_all_array_ranges(data: &[u8]) -> Vec<ArrayRange> {
             0x80809fbd | // Pre-BL
             0x80809fb8 | // Post-BL
             0x80800184 |
-            0x80800142
+            0x80800142 |
+            0x8080bfcd // Marathon
         ) {
             array_offsets.push(offset + 4);
         }

@@ -1,0 +1,14 @@
+[package]
+name = "quicktag-strings"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+quicktag-core = { path = "../core" }
+
+anyhow.workspace = true
+binrw.workspace = true
+bytemuck = "1"
+log.workspace = true
+rustc-hash.workspace = true
+tiger-pkg.workspace = true

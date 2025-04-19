@@ -1,0 +1,14 @@
+[package]
+name = "quicktag-core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+arc-swap = "1.7.1"
+anyhow.workspace = true
+bytemuck = "1"
+lazy_static = "1"
+log.workspace = true
+epaint.workspace = true
+tiger-pkg.workspace = true
+rustc-hash.workspace = true

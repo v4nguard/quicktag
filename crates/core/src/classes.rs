@@ -1,19 +1,15 @@
 use std::{
     borrow::Cow,
     fmt::{Debug, Display, UpperHex},
-    sync::{atomic::AtomicBool, Arc},
+    sync::{Arc, atomic::AtomicBool},
 };
 
 use anyhow::Context;
 use arc_swap::ArcSwap;
-use binrw::Endian;
 use bytemuck::{Pod, Zeroable};
 use rustc_hash::FxHashMap;
-use tiger_pkg::{DestinyVersion, GameVersion, TagHash};
-
-use crate::{
-    package_manager::{package_manager, package_manager_checked},
-    util::u32_from_endian,
+use tiger_pkg::{
+    DestinyVersion, Endian, GameVersion, TagHash, package_manager, package_manager_checked,
 };
 
 #[derive(Clone)]
@@ -86,7 +82,7 @@ pub const CLASSES_BASE: &[TagClass] = &[
     class!(0x80800009 byte @size(1) @parse(parse_raw_hex::<u8>) @block_tags),
     class!(0x8080000A u16 @size(2) @parse(parse_raw_hex::<u16>) @block_tags),
     class!(0x80800014 taghash @size(4) @parse(parse_taghash)),
-    class!(0x80800070 f32 @size(4) @parse(parse_raw::<f32>) @block_tags),
+    class!(0x80800070 unknown4 @size(4) @parse(parse_raw::<u32>) @block_tags),
     class!(0x80800090 vec4 @size(16) @parse(parse_vec4) @block_tags),
 ];
 
@@ -235,7 +231,7 @@ pub const CLASSES_DESTINY_BL: &[TagClass] = &[
     class!(0x80809B06 s_entity_resource),
     class!(0x8080BFE6 s_unk_music_8080bfe6),
     class!(0x8080BFE8 s_unk_music_8080bfe8),
-    class!(0x80806920 s_gpu_particle_system),
+    class!(0x80806920 s_particle_system),
     // huge array in the umbra tome tags
     class!(0x80806E89 s_unk_80806e89 @size(16) @block_tags),
     class!(0x80806C65 s_light_collection),
@@ -243,6 +239,8 @@ pub const CLASSES_DESTINY_BL: &[TagClass] = &[
     class!(0x80806AA7 s_sky_objects),
     class!(0x8080695B s_map_decals),
 ];
+
+pub const CLASSES_MARATHON: &[TagClass] = &[];
 
 // TODO(cohae): User-defined references
 lazy_static::lazy_static! {
@@ -329,7 +327,7 @@ pub fn initialize_reference_names() {
         | GameVersion::Destiny(DestinyVersion::Destiny2WitchQueen)
         | GameVersion::Destiny(DestinyVersion::Destiny2Lightfall)
         | GameVersion::Destiny(DestinyVersion::Destiny2TheFinalShape) => CLASSES_DESTINY_BL,
-        _ => unimplemented!(),
+        GameVersion::Marathon(_) => CLASSES_MARATHON,
     };
 
     new_classes.extend(version_specific.iter().map(|c| (c.id, c.clone())));
@@ -384,7 +382,11 @@ fn parse_raw_hex<T: Sized + Pod + UpperHex>(data: &[u8], endian: Endian) -> Stri
 }
 
 fn parse_taghash(data: &[u8], endian: Endian) -> String {
-    let taghash = TagHash(u32_from_endian(endian, data.try_into().unwrap()));
+    let v = match endian {
+        Endian::Big => u32::from_be_bytes(data.try_into().unwrap()),
+        Endian::Little => u32::from_le_bytes(data.try_into().unwrap()),
+    };
+    let taghash = TagHash(v);
     format!("tag({taghash})")
 }
 

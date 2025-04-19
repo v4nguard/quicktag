@@ -1,18 +1,14 @@
-use tiger_pkg::{manager::PackagePath, TagHash};
-use eframe::egui::{self, pos2, vec2, Color32, Pos2, RichText, Stroke, Ui, Vec2, Widget};
-use eframe::emath::Rot2;
+use eframe::egui::{self, pos2, vec2, Color32, RichText, Stroke, Widget};
+use quicktag_core::tagtypes::TagType;
 use std::fmt::{Display, Formatter};
+use tiger_pkg::{manager::PackagePath, package_manager, TagHash};
 
+use crate::texture::{cache::TextureCache, Texture, TextureDesc};
 use crate::util::ui_image_rotated;
-use crate::{
-    package_manager::package_manager,
-    tagtypes::TagType,
-    texture::{Texture, TextureCache, TextureDesc},
-};
 
 use super::{common::ResponseExt, View, ViewAction};
 
-const DESC_FILTER_PRESETS: &[(&'static str, &'static str)] = &[
+const DESC_FILTER_PRESETS: &[(&str, &str)] = &[
     ("(De)buff Icons", "75x75x1 Rgb"),
     ("Items/medals/perks", "96x96x1 Rgb"),
     ("Ability Icons", "54x54x1 Rgb"),

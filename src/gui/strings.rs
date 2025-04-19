@@ -8,19 +8,16 @@ use binrw::BinReaderExt;
 
 use eframe::egui::{self, RichText};
 use itertools::Itertools;
+use quicktag_core::tagtypes::TagType;
+use quicktag_scanner::TagCache;
 use rustc_hash::FxHashMap;
-use tiger_pkg::{DestinyVersion, GameVersion, TagHash};
+use tiger_pkg::{package_manager, DestinyVersion, GameVersion, TagHash};
 
-use crate::{
-    package_manager::package_manager,
-    scanner::TagCache,
-    tagtypes::TagType,
-    text::{decode_text, StringCache, StringCacheVec, StringContainer, StringData, StringPart},
+use quicktag_strings::localized::{
+    decode_text, StringCache, StringCacheVec, StringContainer, StringData, StringPart,
 };
 
-use super::{
-    audio_list::wwise_bank_type, common::ResponseExt, tag::format_tag_entry, View, ViewAction,
-};
+use super::{common::ResponseExt, tag::format_tag_entry, View, ViewAction};
 
 pub struct StringsView {
     cache: Arc<TagCache>,
@@ -98,6 +95,10 @@ impl View for StringsView {
         _ctx: &eframe::egui::Context,
         ui: &mut eframe::egui::Ui,
     ) -> Option<super::ViewAction> {
+        if self.variant == StringViewVariant::RawWordlist {
+            ui.weak("Tip: Additional strings can be added to `local_wordlist.txt`. This requires your tag cache to be regenerated (File > Regenerate Cache).");
+        }
+
         let devstr_regex = regex::Regex::new(r"^str[0-9]*").unwrap();
         egui::SidePanel::left("strings_left_panel")
             .resizable(true)
@@ -322,8 +323,7 @@ fn dump_all_languages() -> anyhow::Result<()> {
             };
             let mut cur = Cursor::new(&data);
             let text_data: StringData = cur.read_le_args((
-                version.is_prebl(),
-                version == DestinyVersion::Destiny2BeyondLight,
+                version.is_prebl() || version == DestinyVersion::Destiny2BeyondLight,
             ))?;
 
             for (combination, hash) in text_data

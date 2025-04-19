@@ -1,3 +1,8 @@
+pub mod cache;
+pub mod context;
+
+pub use cache::TagCache;
+
 use std::{
     fmt::Display,
     fs::File,
@@ -7,53 +12,23 @@ use std::{
     time::SystemTime,
 };
 
-use binrw::{BinReaderExt, Endian};
-use eframe::epaint::mutex::RwLock;
+use binrw::BinReaderExt;
+use cache::CacheLoadResult;
+use context::ScannerContext;
 use itertools::Itertools;
-use log::{error, info, warn};
+use log::{error, info};
+use parking_lot::RwLock;
+use quicktag_core::{
+    classes::get_class_by_id,
+    tagtypes::TagType,
+    util::{u32_from_endian, u64_from_endian},
+};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use rustc_hash::FxHashMap;
 use tiger_pkg::{
-    package::UEntryHeader, DestinyVersion, GameVersion, PackageManager, TagHash, TagHash64, Version,
+    DestinyVersion, GameVersion, TagHash, TagHash64, Version, package::UEntryHeader,
+    package_manager,
 };
-
-use crate::{
-    classes::get_class_by_id,
-    package_manager::package_manager,
-    tagtypes::TagType,
-    text::{create_stringmap, StringCache},
-    util::{u32_from_endian, u64_from_endian},
-    wordlist,
-};
-
-#[derive(bincode::Encode, bincode::Decode)]
-pub struct TagCache {
-    /// Timestamp of the packages directory
-    pub timestamp: u64,
-
-    pub version: u32,
-
-    pub hashes: FxHashMap<TagHash, ScanResult>,
-}
-
-impl Default for TagCache {
-    fn default() -> Self {
-        Self {
-            timestamp: 0,
-            version: 7,
-            hashes: Default::default(),
-        }
-    }
-}
-
-// Shareable read-only context
-pub struct ScannerContext {
-    pub valid_file_hashes: Vec<TagHash>,
-    pub valid_file_hashes64: Vec<TagHash64>,
-    pub known_string_hashes: Vec<u32>,
-    pub known_wordlist_hashes: Vec<u32>,
-    pub endian: Endian,
-}
 
 #[derive(Clone, bincode::Encode, bincode::Decode, Debug)]
 pub struct ScanResult {
@@ -85,24 +60,15 @@ impl Default for ScanResult {
 }
 
 #[derive(Clone, bincode::Encode, bincode::Decode, Debug)]
-pub struct ScannedHash<T: Sized + bincode::Encode + bincode::Decode> {
+pub struct ScannedHash<T: Sized + bincode::Encode + bincode::Decode<()>> {
     pub offset: u64,
     pub hash: T,
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
 pub struct ScannedArray {
     pub offset: u64,
     pub count: usize,
     pub class: u32,
-}
-
-pub const FNV1_BASE: u32 = 0x811c9dc5;
-pub const FNV1_PRIME: u32 = 0x01000193;
-pub fn fnv1(data: &[u8]) -> u32 {
-    data.iter().fold(FNV1_BASE, |acc, b| {
-        acc.wrapping_mul(FNV1_PRIME) ^ (*b as u32)
-    })
 }
 
 pub fn scan_file(context: &ScannerContext, data: &[u8], mode: ScannerMode) -> ScanResult {
@@ -127,7 +93,8 @@ pub fn scan_file(context: &ScannerContext, data: &[u8], mode: ScannerMode) -> Sc
             0x80809fbd | // Pre-BL
             0x80809fb8 | // Post-BL
             0x80800184 |
-            0x80800142
+            0x80800142 |
+            0x8080bfcd // Marathon
         ) {
             let array_offset = offset as u64 + 4;
             let array: Option<(u64, u32)> = (|| {
@@ -281,56 +248,6 @@ pub fn read_raw_string_blob(data: &[u8], offset: u64) -> Vec<(u64, String)> {
     strings
 }
 
-pub fn create_scanner_context(package_manager: &PackageManager) -> anyhow::Result<ScannerContext> {
-    info!("Creating scanner context");
-
-    // TODO(cohae): TTK PS4 is little endian
-    let endian = package_manager.version.endian();
-
-    let stringmap = create_stringmap()?;
-
-    let mut wordlist = StringCache::default();
-    wordlist::load_wordlist(|s, h| {
-        let entry = wordlist.entry(h).or_default();
-        if entry.iter().any(|s2| s2 == s) {
-            return;
-        }
-
-        entry.push(s.to_string());
-    });
-
-    let mut res = ScannerContext {
-        valid_file_hashes: package_manager
-            .lookup
-            .tag32_entries_by_pkg
-            .iter()
-            .flat_map(|(pkg_id, entries)| {
-                entries
-                    .iter()
-                    .enumerate()
-                    .map(|(entry_id, _)| TagHash::new(*pkg_id, entry_id as _))
-                    .collect_vec()
-            })
-            .collect(),
-        valid_file_hashes64: package_manager
-            .lookup
-            .tag64_entries
-            .keys()
-            .map(|&v| TagHash64(v))
-            .collect(),
-        known_string_hashes: stringmap.keys().cloned().collect(),
-        known_wordlist_hashes: wordlist.keys().cloned().collect(),
-        endian,
-    };
-
-    res.valid_file_hashes.sort_unstable();
-    res.valid_file_hashes64.sort_unstable();
-    res.known_string_hashes.sort_unstable();
-    res.known_wordlist_hashes.sort_unstable();
-
-    Ok(res)
-}
-
 #[derive(Copy, Clone)]
 pub enum ScanStatus {
     None,
@@ -377,94 +294,21 @@ pub fn scanner_progress() -> ScanStatus {
     *SCANNER_PROGRESS.read()
 }
 
-pub fn load_tag_cache() -> TagCache {
+pub fn cache_path() -> PathBuf {
     let cache_name = format!("tags_{}.cache", package_manager().cache_key());
-    let cache_file_path = exe_relative_path(&cache_name);
+    exe_relative_path(&cache_name)
+}
 
-    if let Ok(cache_file) = File::open(&cache_file_path) {
-        info!("Existing cache file found, loading");
-        *SCANNER_PROGRESS.write() = ScanStatus::LoadingCache;
+pub fn load_tag_cache() -> TagCache {
+    let cache_file_path = cache_path();
 
-        let cache_data = zstd::Decoder::new(cache_file).and_then(|mut r| {
-            let mut buf = vec![];
-            r.read_to_end(&mut buf)?;
-            Ok(buf)
-        });
-
-        match cache_data {
-            Ok(cache_data) => {
-                if let Ok((cache, _)) = bincode::decode_from_slice::<TagCache, _>(
-                    &cache_data,
-                    bincode::config::standard(),
-                ) {
-                    match cache.version.cmp(&TagCache::default().version) {
-                        std::cmp::Ordering::Equal => {
-                            let current_pkg_timestamp =
-                                std::fs::metadata(&package_manager().package_dir)
-                                    .ok()
-                                    .and_then(|m| {
-                                        Some(
-                                            m.modified()
-                                                .ok()?
-                                                .duration_since(SystemTime::UNIX_EPOCH)
-                                                .ok()?
-                                                .as_secs(),
-                                        )
-                                    })
-                                    .unwrap_or(0);
-
-                            if cache.timestamp < current_pkg_timestamp {
-                                info!(
-                                    "Cache is out of date, rebuilding (cache: {}, package dir: {})",
-                                    chrono::DateTime::from_timestamp(cache.timestamp as i64, 0)
-                                        .unwrap()
-                                        .format("%Y-%m-%d"),
-                                    chrono::DateTime::from_timestamp(
-                                        current_pkg_timestamp as i64,
-                                        0
-                                    )
-                                    .unwrap()
-                                    .format("%Y-%m-%d"),
-                                );
-                            } else {
-                                *SCANNER_PROGRESS.write() = ScanStatus::None;
-                                return cache;
-                            }
-                        }
-                        std::cmp::Ordering::Less => {
-                            info!(
-                                "Cache is out of date, rebuilding (cache: {}, quicktag: {})",
-                                cache.version,
-                                TagCache::default().version
-                            );
-                        }
-                        std::cmp::Ordering::Greater => {
-                            error!("Tried to open a future version cache with an old quicktag version (cache: {}, quicktag: {})",
-                                cache.version,
-                                TagCache::default().version
-                            );
-
-                            native_dialog::MessageDialog::new()
-                                .set_type(native_dialog::MessageType::Error)
-                                .set_title("Future cache")
-                                .set_text(&format!("Your cache file ({cache_name}) is newer than this build of quicktag\n\nCache version: v{}\nExpected version: v{}", cache.version, TagCache::default().version))
-                                .show_alert()
-                                .unwrap();
-
-                            std::process::exit(21);
-                        }
-                    }
-                } else {
-                    warn!("Cache file is invalid, creating a new one");
-                }
-            }
-            Err(e) => error!("Cache file is invalid: {e}"),
-        }
+    if let Ok(CacheLoadResult::Loaded(cache)) = TagCache::load(&cache_file_path) {
+        return cache;
     }
 
     *SCANNER_PROGRESS.write() = ScanStatus::CreatingScanner;
     let scanner_context = Arc::new(
-        create_scanner_context(&package_manager()).expect("Failed to create scanner context"),
+        ScannerContext::create(&package_manager()).expect("Failed to create scanner context"),
     );
 
     let all_pkgs = package_manager()
@@ -548,13 +392,14 @@ pub fn load_tag_cache() -> TagCache {
                     }
                 };
 
-                let scanner_mode;
-                match TagType::from_type_subtype_for_version(version, e.file_type, e.file_subtype) {
-                    TagType::WwiseInitBank | TagType::WwiseBank => {
-                        scanner_mode = ScannerMode::Hashes
-                    }
-                    _ => scanner_mode = ScannerMode::Both,
-                }
+                let scanner_mode = match TagType::from_type_subtype_for_version(
+                    version,
+                    e.file_type,
+                    e.file_subtype,
+                ) {
+                    TagType::WwiseInitBank | TagType::WwiseBank => ScannerMode::Hashes,
+                    _ => ScannerMode::Both,
+                };
 
                 let mut scan_result = scan_file(context, &data, scanner_mode);
                 if let GameVersion::Destiny(v) = version {
@@ -595,10 +440,10 @@ pub fn load_tag_cache() -> TagCache {
 }
 
 /// Transforms the tag cache to include reference lookup tables
-fn transform_tag_cache(cache: FxHashMap<TagHash, ScanResult>) -> TagCache {
+fn transform_tag_cache(cache: FxHashMap<TagHash, ScanResult>) -> cache::TagCache {
     info!("Transforming tag cache...");
 
-    let mut new_cache: TagCache = Default::default();
+    let mut new_cache: cache::TagCache = Default::default();
 
     *SCANNER_PROGRESS.write() = ScanStatus::TransformGathering;
     info!("\t- Gathering references");

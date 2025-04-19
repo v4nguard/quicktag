@@ -1,23 +1,19 @@
+pub mod cache;
+mod capture;
 mod dxgi;
 mod headers_pc;
 mod headers_ps;
 mod headers_xbox;
 mod swizzle;
+pub use capture::capture_texture;
 
-use crate::package_manager::package_manager;
-use crate::texture::texture_capture::capture_texture;
-use crate::util::ui_image_rotated;
 use anyhow::Context;
 use binrw::BinReaderExt;
 use dxgi::{GcmSurfaceFormat, GcnSurfaceFormat};
-use eframe::egui::Sense;
 use eframe::egui_wgpu::RenderState;
-use eframe::epaint::mutex::RwLock;
-use eframe::epaint::{vec2, TextureId};
 use eframe::wgpu;
 use eframe::wgpu::util::DeviceExt;
 use eframe::wgpu::TextureDimension;
-use either::Either::{self, Left};
 use headers_pc::TextureHeaderPC;
 use headers_ps::{TextureHeaderD2Ps4, TextureHeaderPs3, TextureHeaderRoiPs4};
 use headers_xbox::{TextureHeaderDevAlphaX360, TextureHeaderRoiXbox};
@@ -25,16 +21,8 @@ use image::{DynamicImage, GenericImageView};
 use swizzle::swizzle_ps::{GcmDeswizzler, GcnDeswizzler};
 use swizzle::swizzle_xbox::XenosDetiler;
 use swizzle::Deswizzler;
-use tiger_pkg::DestinyVersion;
 use tiger_pkg::{package::PackagePlatform, GameVersion, TagHash};
-
-use linked_hash_map::LinkedHashMap;
-use poll_promise::Promise;
-use rustc_hash::FxHasher;
-use std::hash::BuildHasherDefault;
-
-use std::rc::Rc;
-use std::sync::Arc;
+use tiger_pkg::{package_manager, DestinyVersion, MarathonVersion};
 
 #[derive(Debug)]
 pub struct TextureHeaderGeneric {
@@ -120,6 +108,16 @@ impl TextureDesc {
             self.width, self.height, self.depth, self.format
         )
     }
+
+    pub fn kind(&self) -> TextureType {
+        if self.array_size == 6 {
+            TextureType::TextureCube
+        } else if self.depth > 1 {
+            TextureType::Texture3D
+        } else {
+            TextureType::Texture2D
+        }
+    }
 }
 
 impl Texture {
@@ -136,18 +134,16 @@ impl Texture {
             .read_tag(hash)
             .context("Failed to read texture header")?;
 
-        let GameVersion::Destiny(version) = package_manager().version else {
-            return Err(anyhow::anyhow!("unsupported version"));
-        };
+        let is_prebl = matches!(package_manager().version, GameVersion::Destiny(v) if v.is_prebl());
 
         let mut cur = std::io::Cursor::new(header_data);
         let texture: TextureHeaderGeneric = match package_manager().platform {
             PackagePlatform::PS4 => {
-                let texheader: TextureHeaderD2Ps4 = cur.read_le_args((version.is_prebl(),))?;
+                let texheader: TextureHeaderD2Ps4 = cur.read_le_args((is_prebl,))?;
                 TextureHeaderGeneric::try_from(texheader)?
             }
             PackagePlatform::Win64 => {
-                let texheader: TextureHeaderPC = cur.read_le_args((version.is_prebl(),))?;
+                let texheader: TextureHeaderPC = cur.read_le_args((is_prebl,))?;
                 TextureHeaderGeneric::try_from(texheader)?
             }
             _ => unreachable!("Unsupported platform for D2 textures"),
@@ -465,79 +461,81 @@ impl Texture {
 
     pub fn load_desc(hash: TagHash) -> anyhow::Result<TextureDesc> {
         match package_manager().version {
-            GameVersion::Destiny(v) => match v {
-                DestinyVersion::DestinyInternalAlpha | DestinyVersion::DestinyTheTakenKing => {
-                    match package_manager().platform {
-                        PackagePlatform::X360 => {
-                            let texture: TextureHeaderDevAlphaX360 =
-                                package_manager().read_tag_binrw(hash)?;
-                            Ok(TextureDesc {
-                                format: texture.format.to_wgpu()?,
-                                width: texture.width as u32,
-                                height: texture.height as u32,
-                                array_size: texture.array_size as u32,
-                                depth: texture.depth as u32,
-                                premultiply_alpha: false,
-                            })
-                        }
-                        PackagePlatform::PS3 => {
-                            let texture: TextureHeaderPs3 =
-                                package_manager().read_tag_binrw(hash)?;
-                            Ok(TextureDesc {
-                                format: texture.format.to_wgpu()?,
-                                width: texture.width as u32,
-                                height: texture.height as u32,
-                                array_size: texture.array_size as u32,
-                                depth: texture.depth as u32,
-                                premultiply_alpha: false,
-                            })
-                        }
-                        _ => unreachable!("Unsupported platform for legacy D1 textures"),
-                    }
+            GameVersion::Destiny(
+                DestinyVersion::DestinyInternalAlpha | DestinyVersion::DestinyTheTakenKing,
+            ) => match package_manager().platform {
+                PackagePlatform::X360 => {
+                    let texture: TextureHeaderDevAlphaX360 =
+                        package_manager().read_tag_binrw(hash)?;
+                    Ok(TextureDesc {
+                        format: texture.format.to_wgpu()?,
+                        width: texture.width as u32,
+                        height: texture.height as u32,
+                        array_size: texture.array_size as u32,
+                        depth: texture.depth as u32,
+                        premultiply_alpha: false,
+                    })
                 }
-                DestinyVersion::DestinyFirstLookAlpha | DestinyVersion::DestinyRiseOfIron => {
-                    match package_manager().platform {
-                        PackagePlatform::PS4 => {
-                            let texture: TextureHeaderRoiPs4 =
-                                package_manager().read_tag_binrw(hash)?;
-                            Ok(TextureDesc {
-                                format: texture.format.to_wgpu()?,
-                                width: texture.width as u32,
-                                height: texture.height as u32,
-                                array_size: texture.array_size as u32,
-                                depth: texture.depth as u32,
-                                premultiply_alpha: false,
-                            })
-                        }
-                        PackagePlatform::XboxOne => {
-                            let texture: TextureHeaderRoiXbox =
-                                package_manager().read_tag_binrw(hash)?;
-                            Ok(TextureDesc {
-                                format: texture.format.to_wgpu()?,
-                                width: texture.width as u32,
-                                height: texture.height as u32,
-                                array_size: texture.array_size as u32,
-                                depth: texture.depth as u32,
-                                premultiply_alpha: false,
-                            })
-                        }
-                        _ => unreachable!("Unsupported platform for RoI textures"),
-                    }
+                PackagePlatform::PS3 => {
+                    let texture: TextureHeaderPs3 = package_manager().read_tag_binrw(hash)?;
+                    Ok(TextureDesc {
+                        format: texture.format.to_wgpu()?,
+                        width: texture.width as u32,
+                        height: texture.height as u32,
+                        array_size: texture.array_size as u32,
+                        depth: texture.depth as u32,
+                        premultiply_alpha: false,
+                    })
                 }
+                _ => unreachable!("Unsupported platform for legacy D1 textures"),
+            },
+            GameVersion::Destiny(
+                DestinyVersion::DestinyFirstLookAlpha | DestinyVersion::DestinyRiseOfIron,
+            ) => match package_manager().platform {
+                PackagePlatform::PS4 => {
+                    let texture: TextureHeaderRoiPs4 = package_manager().read_tag_binrw(hash)?;
+                    Ok(TextureDesc {
+                        format: texture.format.to_wgpu()?,
+                        width: texture.width as u32,
+                        height: texture.height as u32,
+                        array_size: texture.array_size as u32,
+                        depth: texture.depth as u32,
+                        premultiply_alpha: false,
+                    })
+                }
+                PackagePlatform::XboxOne => {
+                    let texture: TextureHeaderRoiXbox = package_manager().read_tag_binrw(hash)?;
+                    Ok(TextureDesc {
+                        format: texture.format.to_wgpu()?,
+                        width: texture.width as u32,
+                        height: texture.height as u32,
+                        array_size: texture.array_size as u32,
+                        depth: texture.depth as u32,
+                        premultiply_alpha: false,
+                    })
+                }
+                _ => unreachable!("Unsupported platform for RoI textures"),
+            },
+            GameVersion::Destiny(
                 DestinyVersion::Destiny2Beta
                 | DestinyVersion::Destiny2Forsaken
                 | DestinyVersion::Destiny2Shadowkeep
                 | DestinyVersion::Destiny2BeyondLight
                 | DestinyVersion::Destiny2WitchQueen
                 | DestinyVersion::Destiny2Lightfall
-                | DestinyVersion::Destiny2TheFinalShape => match package_manager().platform {
+                | DestinyVersion::Destiny2TheFinalShape,
+            )
+            | GameVersion::Marathon(MarathonVersion::MarathonAlpha) => {
+                let is_prebl =
+                    matches!(package_manager().version, GameVersion::Destiny(v) if v.is_prebl());
+                match package_manager().platform {
                     PackagePlatform::PS4 => {
                         let header_data = package_manager()
                             .read_tag(hash)
                             .context("Failed to read texture header")?;
 
                         let mut cur = std::io::Cursor::new(header_data);
-                        let texture: TextureHeaderD2Ps4 = cur.read_le_args((v.is_prebl(),))?;
+                        let texture: TextureHeaderD2Ps4 = cur.read_le_args((is_prebl,))?;
 
                         Ok(TextureDesc {
                             format: texture.format.to_wgpu()?,
@@ -554,7 +552,7 @@ impl Texture {
                             .context("Failed to read texture header")?;
 
                         let mut cur = std::io::Cursor::new(header_data);
-                        let texture: TextureHeaderPC = cur.read_le_args((v.is_prebl(),))?;
+                        let texture: TextureHeaderPC = cur.read_le_args((is_prebl,))?;
 
                         Ok(TextureDesc {
                             format: texture.format.to_wgpu()?,
@@ -566,9 +564,8 @@ impl Texture {
                         })
                     }
                     _ => unreachable!("Unsupported platform for D2 textures"),
-                },
-            },
-            _ => unimplemented!(),
+                }
+            }
         }
     }
 
@@ -578,103 +575,17 @@ impl Texture {
         premultiply_alpha: bool,
     ) -> anyhow::Result<Texture> {
         match package_manager().version {
-            GameVersion::Destiny(v) => match v {
-                DestinyVersion::DestinyInternalAlpha | DestinyVersion::DestinyTheTakenKing => {
-                    match package_manager().platform {
-                        PackagePlatform::X360 => {
-                            let (texture, texture_data, comment) =
-                                Self::load_data_devalpha_x360(hash, true)?;
-                            Self::create_texture(
-                                rs,
-                                hash,
-                                TextureDesc {
-                                    format: texture.format.to_wgpu()?,
-                                    width: texture.width as u32,
-                                    height: texture.height as u32,
-                                    depth: texture.depth as u32,
-                                    array_size: texture.array_size as u32,
-                                    premultiply_alpha,
-                                },
-                                texture_data,
-                                Some(comment),
-                            )
-                        }
-                        PackagePlatform::PS3 => {
-                            let (texture, texture_data, comment) =
-                                Self::load_data_ps3_ttk(hash, true)?;
-                            Self::create_texture(
-                                rs,
-                                hash,
-                                TextureDesc {
-                                    format: texture.format.to_wgpu()?,
-                                    width: texture.width as u32,
-                                    height: texture.height as u32,
-                                    depth: texture.depth as u32,
-                                    array_size: texture.array_size as u32,
-                                    premultiply_alpha,
-                                },
-                                texture_data,
-                                Some(comment),
-                            )
-                        }
-                        _ => anyhow::bail!("Unsupported platform for legacy D1 textures"),
-                    }
-                }
-                DestinyVersion::DestinyFirstLookAlpha | DestinyVersion::DestinyRiseOfIron => {
-                    match package_manager().platform {
-                        PackagePlatform::PS4 => {
-                            let (texture, texture_data, comment) =
-                                Self::load_data_roi_ps4(hash, true)?;
-                            Self::create_texture(
-                                rs,
-                                hash,
-                                TextureDesc {
-                                    format: texture.format.to_wgpu()?,
-                                    width: texture.width as u32,
-                                    height: texture.height as u32,
-                                    depth: texture.depth as u32,
-                                    array_size: texture.array_size as u32,
-                                    premultiply_alpha,
-                                },
-                                texture_data,
-                                Some(comment),
-                            )
-                        }
-                        PackagePlatform::XboxOne => {
-                            // anyhow::bail!("Xbox One textures are not supported yet");
-                            let (texture, texture_data, comment) =
-                                Self::load_data_roi_xone(hash, true)?;
-                            Self::create_texture(
-                                rs,
-                                hash,
-                                TextureDesc {
-                                    format: texture.format.to_wgpu()?,
-                                    width: texture.width as u32,
-                                    height: texture.height as u32,
-                                    depth: texture.depth as u32,
-                                    array_size: texture.array_size as u32,
-                                    premultiply_alpha,
-                                },
-                                texture_data,
-                                Some(comment),
-                            )
-                        }
-                        _ => unreachable!("Unsupported platform for RoI textures"),
-                    }
-                }
-                DestinyVersion::Destiny2Beta
-                | DestinyVersion::Destiny2Forsaken
-                | DestinyVersion::Destiny2Shadowkeep
-                | DestinyVersion::Destiny2BeyondLight
-                | DestinyVersion::Destiny2WitchQueen
-                | DestinyVersion::Destiny2Lightfall
-                | DestinyVersion::Destiny2TheFinalShape => {
-                    let (texture, texture_data, comment) = Self::load_data_d2(hash, true)?;
+            GameVersion::Destiny(
+                DestinyVersion::DestinyInternalAlpha | DestinyVersion::DestinyTheTakenKing,
+            ) => match package_manager().platform {
+                PackagePlatform::X360 => {
+                    let (texture, texture_data, comment) =
+                        Self::load_data_devalpha_x360(hash, true)?;
                     Self::create_texture(
                         rs,
                         hash,
                         TextureDesc {
-                            format: texture.format,
+                            format: texture.format.to_wgpu()?,
                             width: texture.width as u32,
                             height: texture.height as u32,
                             depth: texture.depth as u32,
@@ -685,8 +596,94 @@ impl Texture {
                         Some(comment),
                     )
                 }
+                PackagePlatform::PS3 => {
+                    let (texture, texture_data, comment) = Self::load_data_ps3_ttk(hash, true)?;
+                    Self::create_texture(
+                        rs,
+                        hash,
+                        TextureDesc {
+                            format: texture.format.to_wgpu()?,
+                            width: texture.width as u32,
+                            height: texture.height as u32,
+                            depth: texture.depth as u32,
+                            array_size: texture.array_size as u32,
+                            premultiply_alpha,
+                        },
+                        texture_data,
+                        Some(comment),
+                    )
+                }
+                _ => anyhow::bail!("Unsupported platform for legacy D1 textures"),
             },
-            _ => unimplemented!(),
+            GameVersion::Destiny(
+                DestinyVersion::DestinyFirstLookAlpha | DestinyVersion::DestinyRiseOfIron,
+            ) => {
+                match package_manager().platform {
+                    PackagePlatform::PS4 => {
+                        let (texture, texture_data, comment) = Self::load_data_roi_ps4(hash, true)?;
+                        Self::create_texture(
+                            rs,
+                            hash,
+                            TextureDesc {
+                                format: texture.format.to_wgpu()?,
+                                width: texture.width as u32,
+                                height: texture.height as u32,
+                                depth: texture.depth as u32,
+                                array_size: texture.array_size as u32,
+                                premultiply_alpha,
+                            },
+                            texture_data,
+                            Some(comment),
+                        )
+                    }
+                    PackagePlatform::XboxOne => {
+                        // anyhow::bail!("Xbox One textures are not supported yet");
+                        let (texture, texture_data, comment) =
+                            Self::load_data_roi_xone(hash, true)?;
+                        Self::create_texture(
+                            rs,
+                            hash,
+                            TextureDesc {
+                                format: texture.format.to_wgpu()?,
+                                width: texture.width as u32,
+                                height: texture.height as u32,
+                                depth: texture.depth as u32,
+                                array_size: texture.array_size as u32,
+                                premultiply_alpha,
+                            },
+                            texture_data,
+                            Some(comment),
+                        )
+                    }
+                    _ => unreachable!("Unsupported platform for RoI textures"),
+                }
+            }
+            GameVersion::Destiny(
+                DestinyVersion::Destiny2Beta
+                | DestinyVersion::Destiny2Forsaken
+                | DestinyVersion::Destiny2Shadowkeep
+                | DestinyVersion::Destiny2BeyondLight
+                | DestinyVersion::Destiny2WitchQueen
+                | DestinyVersion::Destiny2Lightfall
+                | DestinyVersion::Destiny2TheFinalShape,
+            )
+            | GameVersion::Marathon(MarathonVersion::MarathonAlpha) => {
+                let (texture, texture_data, comment) = Self::load_data_d2(hash, true)?;
+                Self::create_texture(
+                    rs,
+                    hash,
+                    TextureDesc {
+                        format: texture.format,
+                        width: texture.width as u32,
+                        height: texture.height as u32,
+                        depth: texture.depth as u32,
+                        array_size: texture.array_size as u32,
+                        premultiply_alpha,
+                    },
+                    texture_data,
+                    Some(comment),
+                )
+            }
         }
     }
 
@@ -828,374 +825,9 @@ impl Texture {
     }
 }
 
-pub type LoadedTexture = (Arc<Texture>, TextureId);
-
-type TextureCacheMap = LinkedHashMap<
-    TagHash,
-    Either<Option<LoadedTexture>, Promise<Option<LoadedTexture>>>,
-    BuildHasherDefault<FxHasher>,
->;
-
-#[derive(Clone)]
-pub struct TextureCache {
-    pub render_state: RenderState,
-    cache: Rc<RwLock<TextureCacheMap>>,
-    loading_placeholder: LoadedTexture,
-}
-
-impl TextureCache {
-    pub fn new(render_state: RenderState) -> Self {
-        let loading_placeholder =
-            Texture::load_png(&render_state, include_bytes!("../../loading.png")).unwrap();
-
-        let loading_placeholder_id = render_state.renderer.write().register_native_texture(
-            &render_state.device,
-            &loading_placeholder.view,
-            wgpu::FilterMode::Linear,
-        );
-
-        Self {
-            render_state,
-            cache: Rc::new(RwLock::new(TextureCacheMap::default())),
-            loading_placeholder: (Arc::new(loading_placeholder), loading_placeholder_id),
-        }
-    }
-
-    pub fn is_loading_textures(&self) -> bool {
-        self.cache
-            .read()
-            .iter()
-            .any(|(_, v)| matches!(v, Either::Right(_)))
-    }
-
-    pub fn get_or_default(&self, hash: TagHash) -> LoadedTexture {
-        self.get_or_load(hash)
-            .unwrap_or_else(|| self.loading_placeholder.clone())
-    }
-
-    pub fn get_or_load(&self, hash: TagHash) -> Option<LoadedTexture> {
-        let mut cache = self.cache.write();
-
-        let c = cache.remove(&hash);
-
-        let texture = if let Some(Either::Left(r)) = c {
-            cache.insert(hash, Left(r.clone()));
-            r.clone()
-        } else if let Some(Either::Right(p)) = c {
-            if let std::task::Poll::Ready(r) = p.poll() {
-                cache.insert(hash, Left(r.clone()));
-                return r.clone();
-            } else {
-                cache.insert(hash, Either::Right(p));
-                None
-            }
-        } else if c.is_none() {
-            cache.insert(
-                hash,
-                Either::Right(Promise::spawn_async(Self::load_texture_task(
-                    self.render_state.clone(),
-                    hash,
-                ))),
-            );
-
-            None
-        } else {
-            None
-        };
-
-        drop(cache);
-        self.truncate();
-
-        texture
-    }
-
-    async fn load_texture_task(render_state: RenderState, hash: TagHash) -> Option<LoadedTexture> {
-        let texture = match Texture::load(&render_state, hash, true) {
-            Ok(t) => t,
-            Err(e) => {
-                log::error!("Failed to load texture {hash}: {e}");
-                return None;
-            }
-        };
-
-        let id = render_state.renderer.write().register_native_texture(
-            &render_state.device,
-            &texture.view,
-            wgpu::FilterMode::Linear,
-        );
-        Some((Arc::new(texture), id))
-    }
-
-    pub fn texture_preview(&self, hash: TagHash, ui: &mut eframe::egui::Ui) {
-        if let Some((tex, egui_tex)) = self.get_or_load(hash) {
-            let screen_size = ui.ctx().screen_rect().size();
-            let screen_aspect_ratio = screen_size.x / screen_size.y;
-            let texture_aspect_ratio = tex.aspect_ratio;
-
-            let max_size = if ui.input(|i| i.modifiers.ctrl) {
-                screen_size * 0.70
-            } else {
-                ui.label("ℹ Hold ctrl to enlarge");
-                screen_size * 0.30
-            };
-
-            let tex_size = if texture_aspect_ratio > screen_aspect_ratio {
-                vec2(max_size.x, max_size.x / texture_aspect_ratio)
-            } else {
-                vec2(max_size.y * texture_aspect_ratio, max_size.y)
-            };
-
-            let (response, painter) = ui.allocate_painter(tex_size, Sense::hover());
-            ui_image_rotated(
-                &painter,
-                egui_tex,
-                response.rect,
-                // Rotate the image if it's a cubemap
-                if tex.desc.array_size == 6 { 90. } else { 0. },
-                tex.desc.array_size == 6,
-            );
-
-            ui.label(tex.desc.info());
-        }
-    }
-}
-
-impl TextureCache {
-    const MAX_TEXTURES: usize = 2048;
-    fn truncate(&self) {
-        let mut cache = self.cache.write();
-        while cache.len() > Self::MAX_TEXTURES {
-            if let Some((_, Either::Left(Some((_, tid))))) = cache.pop_front() {
-                self.render_state.renderer.write().free_texture(&tid);
-            }
-        }
-    }
-}
-
-mod texture_capture {
-    /// Capture a texture to a raw RGBA buffer
-    pub fn capture_texture(
-        rs: &super::RenderState,
-        texture: &super::Texture,
-        layer: u32,
-    ) -> anyhow::Result<(Vec<u8>, u32, u32)> {
-        use eframe::wgpu::*;
-
-        // anyhow::ensure!(
-        //     texture.handle.dimension() == TextureDimension::D2,
-        //     "Texture capture only supports 2D textures right now"
-        // );
-
-        let super::RenderState { device, queue, .. } = rs;
-
-        let texture_wgpu = device.create_texture(&TextureDescriptor {
-            label: None,
-            size: Extent3d {
-                width: texture.desc.width,
-                height: texture.desc.height,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: TextureDimension::D2,
-            format: TextureFormat::Rgba8UnormSrgb,
-            usage: TextureUsages::COPY_SRC | TextureUsages::RENDER_ATTACHMENT,
-            view_formats: &[TextureFormat::Rgba8UnormSrgb],
-        });
-
-        let texture_view_wgpu = texture_wgpu.create_view(&TextureViewDescriptor {
-            label: None,
-            format: Some(TextureFormat::Rgba8UnormSrgb),
-            dimension: Some(TextureViewDimension::D2),
-            aspect: TextureAspect::All,
-            base_mip_level: 0,
-            mip_level_count: None,
-            base_array_layer: 0,
-            array_layer_count: None,
-        });
-
-        // Create a buffer to hold the result of copying the texture to CPU memory
-        let padded_width = (256.0 * (texture.desc.width as f32 / 256.0).ceil()) as u32;
-        let padded_height = (256.0 * (texture.desc.height as f32 / 256.0).ceil()) as u32;
-        let buffer_size = (padded_width * padded_height * 4) as usize;
-        let buffer = device.create_buffer(&BufferDescriptor {
-            label: Some("Output Buffer"),
-            size: buffer_size as BufferAddress,
-            usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-
-        let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: Some("Bind Group Layout"),
-            entries: &[
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        sample_type: TextureSampleType::Float { filterable: true },
-                        view_dimension: TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                    count: None,
-                },
-            ],
-        });
-
-        // Create a render pipeline to copy the texture to an RGBA8 texture
-        let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
-            label: Some("Render Pipeline Layout"),
-            bind_group_layouts: &[&bind_group_layout],
-            push_constant_ranges: &[],
-        });
-
-        let view = if let Some(ref full_cubemap) = texture.full_cubemap_texture {
-            &full_cubemap.create_view(&TextureViewDescriptor {
-                base_array_layer: layer,
-                array_layer_count: Some(1),
-                dimension: Some(TextureViewDimension::D2),
-                ..Default::default()
-            })
-        } else {
-            &texture.view
-        };
-
-        let bind_group = device.create_bind_group(&BindGroupDescriptor {
-            label: Some("Bind Group"),
-            layout: &bind_group_layout,
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: BindingResource::TextureView(view),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::Sampler(&device.create_sampler(
-                        &SamplerDescriptor {
-                            label: Some("Sampler"),
-                            address_mode_u: AddressMode::ClampToEdge,
-                            address_mode_v: AddressMode::ClampToEdge,
-                            address_mode_w: AddressMode::ClampToEdge,
-                            mag_filter: FilterMode::Nearest,
-                            min_filter: FilterMode::Nearest,
-                            mipmap_filter: FilterMode::Nearest,
-                            ..Default::default()
-                        },
-                    )),
-                },
-            ],
-        });
-
-        let copy_shader = device.create_shader_module(include_wgsl!("../gui/shaders/copy.wgsl"));
-
-        let render_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
-            layout: Some(&pipeline_layout),
-            multiview: None,
-            vertex: VertexState {
-                module: &copy_shader,
-                entry_point: "vs_main",
-                buffers: &[],
-                compilation_options: Default::default(),
-            },
-            fragment: Some(FragmentState {
-                module: &copy_shader,
-                entry_point: "fs_main",
-                targets: &[Some(ColorTargetState {
-                    format: TextureFormat::Rgba8UnormSrgb,
-                    blend: Some(BlendState::PREMULTIPLIED_ALPHA_BLENDING),
-                    write_mask: ColorWrites::all(),
-                })],
-                compilation_options: Default::default(),
-            }),
-            primitive: PrimitiveState {
-                topology: PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: FrontFace::Cw,
-                cull_mode: Some(Face::Back),
-                polygon_mode: PolygonMode::Fill,
-                conservative: false,
-                unclipped_depth: false,
-            },
-            depth_stencil: None,
-            multisample: MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
-        });
-
-        // Copy the original texture to the RGBA8 texture using the render pipeline
-        let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor { label: None });
-        {
-            let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
-                label: Some("Render Pass"),
-                color_attachments: &[Some(RenderPassColorAttachment {
-                    view: &texture_view_wgpu,
-                    resolve_target: None,
-                    ops: Operations {
-                        load: LoadOp::Load,
-                        store: StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: None,
-                occlusion_query_set: None,
-                timestamp_writes: None,
-            });
-            render_pass.set_pipeline(&render_pipeline);
-            render_pass.set_bind_group(0, &bind_group, &[]);
-            // Draw a full-screen quad to trigger the fragment shader
-            render_pass.draw(0..3, 0..1);
-        }
-
-        // Submit commands
-        queue.submit(Some(encoder.finish()));
-
-        // Copy the texture data to the CPU-accessible buffer
-        let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor { label: None });
-        {
-            encoder.copy_texture_to_buffer(
-                ImageCopyTexture {
-                    aspect: TextureAspect::All,
-                    texture: &texture_wgpu,
-                    mip_level: 0,
-                    origin: Origin3d::ZERO,
-                },
-                ImageCopyBuffer {
-                    buffer: &buffer,
-                    layout: ImageDataLayout {
-                        offset: 0,
-                        bytes_per_row: Some(4 * padded_width),
-                        rows_per_image: Some(padded_height),
-                    },
-                },
-                Extent3d {
-                    width: texture.desc.width,
-                    height: texture.desc.height,
-                    depth_or_array_layers: 1,
-                },
-            );
-        }
-
-        // Submit commands
-        queue.submit(Some(encoder.finish()));
-
-        // Wait for the copy operation to complete
-        device.poll(Maintain::Wait);
-
-        let buffer_slice = buffer.slice(..);
-        buffer_slice.map_async(MapMode::Read, |_| {});
-        device.poll(Maintain::Wait);
-        let buffer_view = buffer_slice.get_mapped_range();
-        let buffer_data = buffer_view.to_vec();
-        // let final_size = (texture.width * texture.height * 4) as usize;
-        // buffer_data.truncate(final_size);
-
-        Ok((buffer_data, padded_width, padded_height))
-    }
+#[derive(PartialEq)]
+pub enum TextureType {
+    Texture2D,
+    Texture3D,
+    TextureCube,
 }

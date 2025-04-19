@@ -1,15 +1,11 @@
 use std::{fs::File, io::Write as _, sync::Arc};
 
-use tiger_pkg::TagHash;
 use eframe::egui::{self, RichText};
 use itertools::Itertools;
+use quicktag_core::{tagtypes::TagType, util::fnv1};
+use quicktag_scanner::TagCache;
 use rustc_hash::FxHashMap;
-
-use crate::{
-    package_manager::package_manager,
-    scanner::{fnv1, TagCache},
-    tagtypes::TagType,
-};
+use tiger_pkg::{package_manager, TagHash};
 
 use super::{common::ResponseExt, tag::format_tag_entry, View, ViewAction};
 

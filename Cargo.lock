@@ -325,19 +325,20 @@ dependencies = [
 
 [[package]]
 name = "bincode"
-version = "2.0.0-rc.3"
+version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f11ea1a0346b94ef188834a65c068a03aec181c94896d481d7a0a40d85b0ce95"
+checksum = "36eaf5d7b090263e8150820482d5d93cd964a81e4019913c972f4edcc6edb740"
 dependencies = [
  "bincode_derive",
  "serde",
+ "unty",
 ]
 
 [[package]]
 name = "bincode_derive"
-version = "2.0.0-rc.3"
+version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e30759b3b99a1b802a7a3aa21c85c3ded5c28e1c83170d82d70f08bbf7f3e4c"
+checksum = "bf95709a440f45e986983918d0e8a1f30a9b1df04918fc828670606804ac3c09"
 dependencies = [
  "virtue",
 ]
@@ -1930,6 +1931,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2887,9 +2897,8 @@ name = "quicktag"
 version = "0.8.0"
 dependencies = [
  "anyhow",
- "arc-swap",
  "base64 0.22.1",
- "bincode 2.0.0-rc.3",
+ "bincode 2.0.1",
  "binrw",
  "bytemuck",
  "chrono",
@@ -2904,7 +2913,7 @@ dependencies = [
  "hlsldecompiler",
  "image",
  "indexmap",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "lazy_static",
  "linked-hash-map",
  "log",
@@ -2914,6 +2923,9 @@ dependencies = [
  "parking_lot",
  "poll-promise",
  "profiling",
+ "quicktag-core",
+ "quicktag-scanner",
+ "quicktag-strings",
  "rayon",
  "regex",
  "rodio",
@@ -2924,7 +2936,55 @@ dependencies = [
  "tokio",
  "vgmstream",
  "wav",
+]
+
+[[package]]
+name = "quicktag-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "arc-swap",
+ "bytemuck",
+ "epaint",
+ "lazy_static",
+ "log",
+ "rustc-hash 2.1.0",
+ "tiger-pkg",
+]
+
+[[package]]
+name = "quicktag-scanner"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bincode 2.0.1",
+ "binrw",
+ "chrono",
+ "itertools 0.14.0",
+ "lazy_static",
+ "log",
+ "native-dialog",
+ "parking_lot",
+ "profiling",
+ "quicktag-core",
+ "quicktag-strings",
+ "rayon",
+ "rustc-hash 2.1.0",
+ "tiger-pkg",
  "zstd",
+]
+
+[[package]]
+name = "quicktag-strings"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "binrw",
+ "bytemuck",
+ "log",
+ "quicktag-core",
+ "rustc-hash 2.1.0",
+ "tiger-pkg",
 ]
 
 [[package]]
@@ -3474,14 +3534,14 @@ dependencies = [
 
 [[package]]
 name = "tiger-pkg"
-version = "0.18.0"
+version = "0.18.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73a9aadc12ea37e39229b6b71d57c9b6c66c5295f33d1f8ae2de30ae957345a0"
+checksum = "35f33c975a7c8e5a5dcda57ba6efdf645d918bd7655a4a034ca97a10bb39d12c"
 dependencies = [
  "aes",
  "aes-gcm",
  "anyhow",
- "bincode 2.0.0-rc.3",
+ "bincode 2.0.1",
  "binrw",
  "clap",
  "clap-num",
@@ -3692,6 +3752,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "unty"
+version = "0.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6d49784317cd0d1ee7ec5c716dd598ec5b4483ea832a2dced265471cc0f690ae"
+
+[[package]]
 name = "url"
 version = "2.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3752,9 +3818,9 @@ source = "git+https://github.com/cohaereo/vgmstream-rs/#3575deb148c145b55db5820d
 
 [[package]]
 name = "virtue"
-version = "0.0.13"
+version = "0.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9dcc60c0624df774c82a0ef104151231d37da4962957d691c011c852b2473314"
+checksum = "051eb1abcf10076295e815102942cc58f9d5e3b4560e46e53c21e8ff6f3af7b1"
 
 [[package]]
 name = "walkdir"
@@ -4690,27 +4756,27 @@ dependencies = [
 
 [[package]]
 name = "zstd"
-version = "0.13.2"
+version = "0.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fcf2b778a664581e31e389454a7072dab1647606d44f7feea22cd5abb9c9f3f9"
+checksum = "e91ee311a569c327171651566e07972200e76fcfe2242a4fa446149a3881c08a"
 dependencies = [
  "zstd-safe",
 ]
 
 [[package]]
 name = "zstd-safe"
-version = "7.2.1"
+version = "7.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54a3ab4db68cea366acc5c897c7b4d4d1b8994a9cd6e6f841f8964566a419059"
+checksum = "8f49c4d5f0abb602a93fb8736af2a4f4dd9512e36f7f570d66e65ff867ed3b9d"
 dependencies = [
  "zstd-sys",
 ]
 
 [[package]]
 name = "zstd-sys"
-version = "2.0.13+zstd.1.5.6"
+version = "2.0.15+zstd.1.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "38ff0f21cfee8f97d94cef41359e0c89aa6113028ab0291aa8ca0038995a95aa"
+checksum = "eb81183ddd97d0c74cedf1d50d85c8d08c1b8b68ee863bdee9e706eedba1a237"
 dependencies = [
  "cc",
  "pkg-config",

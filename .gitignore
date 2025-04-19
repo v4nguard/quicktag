@@ -14,9 +14,10 @@ package_cache.json
 raw_strings_filtered.txt
 keys.txt
 wwise_info_*.txt
-dump/
-textures/
-strings/
+/dump
+/textures
+/strings
+/misc
 # Wordlist source filest
 wordlist_*.txt
 wordlist_src/
