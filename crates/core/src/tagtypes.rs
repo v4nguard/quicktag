@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use epaint::Color32;
-use tiger_pkg::{DestinyVersion, GameVersion, package_manager};
+use tiger_pkg::{DestinyVersion, GameVersion, MarathonVersion, package_manager};
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum TagType {
@@ -222,10 +222,10 @@ impl TagType {
             GameVersion::Destiny(DestinyVersion::Destiny2BeyondLight)
             | GameVersion::Destiny(DestinyVersion::Destiny2WitchQueen)
             | GameVersion::Destiny(DestinyVersion::Destiny2Lightfall)
-            | GameVersion::Destiny(DestinyVersion::Destiny2TheFinalShape) => {
+            | GameVersion::Destiny(DestinyVersion::Destiny2TheFinalShape)
+            | GameVersion::Marathon(MarathonVersion::MarathonAlpha) => {
                 Self::from_type_subtype_lf(t, st)
             }
-            _ => unimplemented!(),
         }
     }
 

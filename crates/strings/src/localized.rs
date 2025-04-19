@@ -8,7 +8,7 @@ use std::slice::Iter;
 use binrw::{BinRead, BinReaderExt, BinResult, Endian, VecArgs};
 use log::error;
 use rustc_hash::{FxHashMap, FxHashSet};
-use tiger_pkg::{DestinyVersion, GameVersion, TagHash, package_manager};
+use tiger_pkg::{DestinyVersion, GameVersion, MarathonVersion, TagHash, package_manager};
 
 pub type TablePointer32<T> = _TablePointer<i32, u32, T>;
 pub type TablePointer64<T> = _TablePointer<i64, u64, T>;
@@ -234,11 +234,11 @@ impl StringContainer {
 }
 
 #[derive(BinRead, Debug)]
-#[br(import(prebl: bool, bl: bool))]
+#[br(import(old_format: bool))]
 pub struct StringData {
     pub file_size: u64,
     pub string_parts: TablePointer<StringPart>,
-    #[br(if(prebl || bl))]
+    #[br(if(old_format))]
     pub _unk1: (u64, u64),
     pub _unk2: TablePointer<()>,
     pub string_data: TablePointer<u8>,
@@ -395,40 +395,52 @@ pub fn decode_text(data: &[u8], cipher: u16) -> String {
 pub fn create_stringmap() -> anyhow::Result<StringCache> {
     // TODO: Change this match to use ordered version checking after destiny-pkg 0.11
     match package_manager().version {
-        GameVersion::Destiny(DestinyVersion::Destiny2Beta)
+        // cohae: Rise of Iron uses the same string format as D2
+        GameVersion::Destiny(DestinyVersion::DestinyRiseOfIron)
+        | GameVersion::Destiny(DestinyVersion::Destiny2Beta)
         | GameVersion::Destiny(DestinyVersion::Destiny2Forsaken)
         | GameVersion::Destiny(DestinyVersion::Destiny2Shadowkeep)
         | GameVersion::Destiny(DestinyVersion::Destiny2BeyondLight)
         | GameVersion::Destiny(DestinyVersion::Destiny2WitchQueen)
         | GameVersion::Destiny(DestinyVersion::Destiny2Lightfall)
         | GameVersion::Destiny(DestinyVersion::Destiny2TheFinalShape)
-        // cohae: Rise of Iron uses the same string format as D2
-        | GameVersion::Destiny(DestinyVersion::DestinyRiseOfIron) => create_stringmap_d2(),
-        GameVersion::Destiny(DestinyVersion::DestinyFirstLookAlpha) => create_stringmap_d1_firstlook(),
+        | GameVersion::Marathon(MarathonVersion::MarathonAlpha) => create_stringmap_d2(),
+        GameVersion::Destiny(DestinyVersion::DestinyFirstLookAlpha) => {
+            create_stringmap_d1_firstlook()
+        }
         GameVersion::Destiny(DestinyVersion::DestinyTheTakenKing) => create_stringmap_d1(),
-        GameVersion::Destiny(DestinyVersion::DestinyInternalAlpha) => create_stringmap_d1_devalpha(),
-        _ => unimplemented!()
+        GameVersion::Destiny(DestinyVersion::DestinyInternalAlpha) => {
+            create_stringmap_d1_devalpha()
+        }
     }
 }
 
 pub fn create_stringmap_d2() -> anyhow::Result<StringCache> {
-    let GameVersion::Destiny(version) = package_manager().version else {
-        return Err(anyhow::anyhow!("unsupported version"));
+    let reference_type = match package_manager().version {
+        GameVersion::Destiny(v) => match v {
+            DestinyVersion::DestinyInternalAlpha
+            | DestinyVersion::DestinyFirstLookAlpha
+            | DestinyVersion::DestinyTheTakenKing
+            | DestinyVersion::DestinyRiseOfIron => 0x8080035A,
+            DestinyVersion::Destiny2Beta
+            | DestinyVersion::Destiny2Forsaken
+            | DestinyVersion::Destiny2Shadowkeep => 0x80809A88,
+            DestinyVersion::Destiny2BeyondLight
+            | DestinyVersion::Destiny2WitchQueen
+            | DestinyVersion::Destiny2Lightfall
+            | DestinyVersion::Destiny2TheFinalShape => 0x808099EF,
+        },
+        GameVersion::Marathon(MarathonVersion::MarathonAlpha) => {
+            error!("Marathon Alpha is not supported");
+            return Ok(StringCache::default());
+        }
     };
 
-    let prebl = version.is_prebl() | version.is_d1();
-    // Beyond Light still uses the same struct layout as prebl, was updated in WQ
-    let bl = version == DestinyVersion::Destiny2BeyondLight;
+    let old_format = matches!(package_manager().version, GameVersion::Destiny(v) if v <= DestinyVersion::Destiny2BeyondLight);
 
     let mut tmp_map: FxHashMap<u32, FxHashSet<String>> = Default::default();
     for (t, _) in package_manager()
-        .get_all_by_reference(if version.is_d1() {
-            0x8080035A
-        } else if prebl {
-            0x80809A88
-        } else {
-            0x808099EF
-        })
+        .get_all_by_reference(reference_type)
         .into_iter()
     {
         let Ok(textset_header) = package_manager().read_tag_binrw::<StringContainer>(t) else {
@@ -439,7 +451,7 @@ pub fn create_stringmap_d2() -> anyhow::Result<StringCache> {
             continue;
         };
         let mut cur = Cursor::new(&data);
-        let text_data: StringData = cur.read_le_args((prebl, bl))?;
+        let text_data: StringData = cur.read_le_args((old_format,))?;
 
         for (combination, hash) in text_data
             .string_combinations

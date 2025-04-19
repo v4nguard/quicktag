@@ -22,7 +22,7 @@ use swizzle::swizzle_ps::{GcmDeswizzler, GcnDeswizzler};
 use swizzle::swizzle_xbox::XenosDetiler;
 use swizzle::Deswizzler;
 use tiger_pkg::{package::PackagePlatform, GameVersion, TagHash};
-use tiger_pkg::{package_manager, DestinyVersion};
+use tiger_pkg::{package_manager, DestinyVersion, MarathonVersion};
 
 #[derive(Debug)]
 pub struct TextureHeaderGeneric {
@@ -134,18 +134,16 @@ impl Texture {
             .read_tag(hash)
             .context("Failed to read texture header")?;
 
-        let GameVersion::Destiny(version) = package_manager().version else {
-            return Err(anyhow::anyhow!("unsupported version"));
-        };
+        let is_prebl = matches!(package_manager().version, GameVersion::Destiny(v) if v.is_prebl());
 
         let mut cur = std::io::Cursor::new(header_data);
         let texture: TextureHeaderGeneric = match package_manager().platform {
             PackagePlatform::PS4 => {
-                let texheader: TextureHeaderD2Ps4 = cur.read_le_args((version.is_prebl(),))?;
+                let texheader: TextureHeaderD2Ps4 = cur.read_le_args((is_prebl,))?;
                 TextureHeaderGeneric::try_from(texheader)?
             }
             PackagePlatform::Win64 => {
-                let texheader: TextureHeaderPC = cur.read_le_args((version.is_prebl(),))?;
+                let texheader: TextureHeaderPC = cur.read_le_args((is_prebl,))?;
                 TextureHeaderGeneric::try_from(texheader)?
             }
             _ => unreachable!("Unsupported platform for D2 textures"),
@@ -463,79 +461,81 @@ impl Texture {
 
     pub fn load_desc(hash: TagHash) -> anyhow::Result<TextureDesc> {
         match package_manager().version {
-            GameVersion::Destiny(v) => match v {
-                DestinyVersion::DestinyInternalAlpha | DestinyVersion::DestinyTheTakenKing => {
-                    match package_manager().platform {
-                        PackagePlatform::X360 => {
-                            let texture: TextureHeaderDevAlphaX360 =
-                                package_manager().read_tag_binrw(hash)?;
-                            Ok(TextureDesc {
-                                format: texture.format.to_wgpu()?,
-                                width: texture.width as u32,
-                                height: texture.height as u32,
-                                array_size: texture.array_size as u32,
-                                depth: texture.depth as u32,
-                                premultiply_alpha: false,
-                            })
-                        }
-                        PackagePlatform::PS3 => {
-                            let texture: TextureHeaderPs3 =
-                                package_manager().read_tag_binrw(hash)?;
-                            Ok(TextureDesc {
-                                format: texture.format.to_wgpu()?,
-                                width: texture.width as u32,
-                                height: texture.height as u32,
-                                array_size: texture.array_size as u32,
-                                depth: texture.depth as u32,
-                                premultiply_alpha: false,
-                            })
-                        }
-                        _ => unreachable!("Unsupported platform for legacy D1 textures"),
-                    }
+            GameVersion::Destiny(
+                DestinyVersion::DestinyInternalAlpha | DestinyVersion::DestinyTheTakenKing,
+            ) => match package_manager().platform {
+                PackagePlatform::X360 => {
+                    let texture: TextureHeaderDevAlphaX360 =
+                        package_manager().read_tag_binrw(hash)?;
+                    Ok(TextureDesc {
+                        format: texture.format.to_wgpu()?,
+                        width: texture.width as u32,
+                        height: texture.height as u32,
+                        array_size: texture.array_size as u32,
+                        depth: texture.depth as u32,
+                        premultiply_alpha: false,
+                    })
                 }
-                DestinyVersion::DestinyFirstLookAlpha | DestinyVersion::DestinyRiseOfIron => {
-                    match package_manager().platform {
-                        PackagePlatform::PS4 => {
-                            let texture: TextureHeaderRoiPs4 =
-                                package_manager().read_tag_binrw(hash)?;
-                            Ok(TextureDesc {
-                                format: texture.format.to_wgpu()?,
-                                width: texture.width as u32,
-                                height: texture.height as u32,
-                                array_size: texture.array_size as u32,
-                                depth: texture.depth as u32,
-                                premultiply_alpha: false,
-                            })
-                        }
-                        PackagePlatform::XboxOne => {
-                            let texture: TextureHeaderRoiXbox =
-                                package_manager().read_tag_binrw(hash)?;
-                            Ok(TextureDesc {
-                                format: texture.format.to_wgpu()?,
-                                width: texture.width as u32,
-                                height: texture.height as u32,
-                                array_size: texture.array_size as u32,
-                                depth: texture.depth as u32,
-                                premultiply_alpha: false,
-                            })
-                        }
-                        _ => unreachable!("Unsupported platform for RoI textures"),
-                    }
+                PackagePlatform::PS3 => {
+                    let texture: TextureHeaderPs3 = package_manager().read_tag_binrw(hash)?;
+                    Ok(TextureDesc {
+                        format: texture.format.to_wgpu()?,
+                        width: texture.width as u32,
+                        height: texture.height as u32,
+                        array_size: texture.array_size as u32,
+                        depth: texture.depth as u32,
+                        premultiply_alpha: false,
+                    })
                 }
+                _ => unreachable!("Unsupported platform for legacy D1 textures"),
+            },
+            GameVersion::Destiny(
+                DestinyVersion::DestinyFirstLookAlpha | DestinyVersion::DestinyRiseOfIron,
+            ) => match package_manager().platform {
+                PackagePlatform::PS4 => {
+                    let texture: TextureHeaderRoiPs4 = package_manager().read_tag_binrw(hash)?;
+                    Ok(TextureDesc {
+                        format: texture.format.to_wgpu()?,
+                        width: texture.width as u32,
+                        height: texture.height as u32,
+                        array_size: texture.array_size as u32,
+                        depth: texture.depth as u32,
+                        premultiply_alpha: false,
+                    })
+                }
+                PackagePlatform::XboxOne => {
+                    let texture: TextureHeaderRoiXbox = package_manager().read_tag_binrw(hash)?;
+                    Ok(TextureDesc {
+                        format: texture.format.to_wgpu()?,
+                        width: texture.width as u32,
+                        height: texture.height as u32,
+                        array_size: texture.array_size as u32,
+                        depth: texture.depth as u32,
+                        premultiply_alpha: false,
+                    })
+                }
+                _ => unreachable!("Unsupported platform for RoI textures"),
+            },
+            GameVersion::Destiny(
                 DestinyVersion::Destiny2Beta
                 | DestinyVersion::Destiny2Forsaken
                 | DestinyVersion::Destiny2Shadowkeep
                 | DestinyVersion::Destiny2BeyondLight
                 | DestinyVersion::Destiny2WitchQueen
                 | DestinyVersion::Destiny2Lightfall
-                | DestinyVersion::Destiny2TheFinalShape => match package_manager().platform {
+                | DestinyVersion::Destiny2TheFinalShape,
+            )
+            | GameVersion::Marathon(MarathonVersion::MarathonAlpha) => {
+                let is_prebl =
+                    matches!(package_manager().version, GameVersion::Destiny(v) if v.is_prebl());
+                match package_manager().platform {
                     PackagePlatform::PS4 => {
                         let header_data = package_manager()
                             .read_tag(hash)
                             .context("Failed to read texture header")?;
 
                         let mut cur = std::io::Cursor::new(header_data);
-                        let texture: TextureHeaderD2Ps4 = cur.read_le_args((v.is_prebl(),))?;
+                        let texture: TextureHeaderD2Ps4 = cur.read_le_args((is_prebl,))?;
 
                         Ok(TextureDesc {
                             format: texture.format.to_wgpu()?,
@@ -552,7 +552,7 @@ impl Texture {
                             .context("Failed to read texture header")?;
 
                         let mut cur = std::io::Cursor::new(header_data);
-                        let texture: TextureHeaderPC = cur.read_le_args((v.is_prebl(),))?;
+                        let texture: TextureHeaderPC = cur.read_le_args((is_prebl,))?;
 
                         Ok(TextureDesc {
                             format: texture.format.to_wgpu()?,
@@ -564,9 +564,8 @@ impl Texture {
                         })
                     }
                     _ => unreachable!("Unsupported platform for D2 textures"),
-                },
-            },
-            _ => unimplemented!(),
+                }
+            }
         }
     }
 
@@ -576,103 +575,17 @@ impl Texture {
         premultiply_alpha: bool,
     ) -> anyhow::Result<Texture> {
         match package_manager().version {
-            GameVersion::Destiny(v) => match v {
-                DestinyVersion::DestinyInternalAlpha | DestinyVersion::DestinyTheTakenKing => {
-                    match package_manager().platform {
-                        PackagePlatform::X360 => {
-                            let (texture, texture_data, comment) =
-                                Self::load_data_devalpha_x360(hash, true)?;
-                            Self::create_texture(
-                                rs,
-                                hash,
-                                TextureDesc {
-                                    format: texture.format.to_wgpu()?,
-                                    width: texture.width as u32,
-                                    height: texture.height as u32,
-                                    depth: texture.depth as u32,
-                                    array_size: texture.array_size as u32,
-                                    premultiply_alpha,
-                                },
-                                texture_data,
-                                Some(comment),
-                            )
-                        }
-                        PackagePlatform::PS3 => {
-                            let (texture, texture_data, comment) =
-                                Self::load_data_ps3_ttk(hash, true)?;
-                            Self::create_texture(
-                                rs,
-                                hash,
-                                TextureDesc {
-                                    format: texture.format.to_wgpu()?,
-                                    width: texture.width as u32,
-                                    height: texture.height as u32,
-                                    depth: texture.depth as u32,
-                                    array_size: texture.array_size as u32,
-                                    premultiply_alpha,
-                                },
-                                texture_data,
-                                Some(comment),
-                            )
-                        }
-                        _ => anyhow::bail!("Unsupported platform for legacy D1 textures"),
-                    }
-                }
-                DestinyVersion::DestinyFirstLookAlpha | DestinyVersion::DestinyRiseOfIron => {
-                    match package_manager().platform {
-                        PackagePlatform::PS4 => {
-                            let (texture, texture_data, comment) =
-                                Self::load_data_roi_ps4(hash, true)?;
-                            Self::create_texture(
-                                rs,
-                                hash,
-                                TextureDesc {
-                                    format: texture.format.to_wgpu()?,
-                                    width: texture.width as u32,
-                                    height: texture.height as u32,
-                                    depth: texture.depth as u32,
-                                    array_size: texture.array_size as u32,
-                                    premultiply_alpha,
-                                },
-                                texture_data,
-                                Some(comment),
-                            )
-                        }
-                        PackagePlatform::XboxOne => {
-                            // anyhow::bail!("Xbox One textures are not supported yet");
-                            let (texture, texture_data, comment) =
-                                Self::load_data_roi_xone(hash, true)?;
-                            Self::create_texture(
-                                rs,
-                                hash,
-                                TextureDesc {
-                                    format: texture.format.to_wgpu()?,
-                                    width: texture.width as u32,
-                                    height: texture.height as u32,
-                                    depth: texture.depth as u32,
-                                    array_size: texture.array_size as u32,
-                                    premultiply_alpha,
-                                },
-                                texture_data,
-                                Some(comment),
-                            )
-                        }
-                        _ => unreachable!("Unsupported platform for RoI textures"),
-                    }
-                }
-                DestinyVersion::Destiny2Beta
-                | DestinyVersion::Destiny2Forsaken
-                | DestinyVersion::Destiny2Shadowkeep
-                | DestinyVersion::Destiny2BeyondLight
-                | DestinyVersion::Destiny2WitchQueen
-                | DestinyVersion::Destiny2Lightfall
-                | DestinyVersion::Destiny2TheFinalShape => {
-                    let (texture, texture_data, comment) = Self::load_data_d2(hash, true)?;
+            GameVersion::Destiny(
+                DestinyVersion::DestinyInternalAlpha | DestinyVersion::DestinyTheTakenKing,
+            ) => match package_manager().platform {
+                PackagePlatform::X360 => {
+                    let (texture, texture_data, comment) =
+                        Self::load_data_devalpha_x360(hash, true)?;
                     Self::create_texture(
                         rs,
                         hash,
                         TextureDesc {
-                            format: texture.format,
+                            format: texture.format.to_wgpu()?,
                             width: texture.width as u32,
                             height: texture.height as u32,
                             depth: texture.depth as u32,
@@ -683,8 +596,94 @@ impl Texture {
                         Some(comment),
                     )
                 }
+                PackagePlatform::PS3 => {
+                    let (texture, texture_data, comment) = Self::load_data_ps3_ttk(hash, true)?;
+                    Self::create_texture(
+                        rs,
+                        hash,
+                        TextureDesc {
+                            format: texture.format.to_wgpu()?,
+                            width: texture.width as u32,
+                            height: texture.height as u32,
+                            depth: texture.depth as u32,
+                            array_size: texture.array_size as u32,
+                            premultiply_alpha,
+                        },
+                        texture_data,
+                        Some(comment),
+                    )
+                }
+                _ => anyhow::bail!("Unsupported platform for legacy D1 textures"),
             },
-            _ => unimplemented!(),
+            GameVersion::Destiny(
+                DestinyVersion::DestinyFirstLookAlpha | DestinyVersion::DestinyRiseOfIron,
+            ) => {
+                match package_manager().platform {
+                    PackagePlatform::PS4 => {
+                        let (texture, texture_data, comment) = Self::load_data_roi_ps4(hash, true)?;
+                        Self::create_texture(
+                            rs,
+                            hash,
+                            TextureDesc {
+                                format: texture.format.to_wgpu()?,
+                                width: texture.width as u32,
+                                height: texture.height as u32,
+                                depth: texture.depth as u32,
+                                array_size: texture.array_size as u32,
+                                premultiply_alpha,
+                            },
+                            texture_data,
+                            Some(comment),
+                        )
+                    }
+                    PackagePlatform::XboxOne => {
+                        // anyhow::bail!("Xbox One textures are not supported yet");
+                        let (texture, texture_data, comment) =
+                            Self::load_data_roi_xone(hash, true)?;
+                        Self::create_texture(
+                            rs,
+                            hash,
+                            TextureDesc {
+                                format: texture.format.to_wgpu()?,
+                                width: texture.width as u32,
+                                height: texture.height as u32,
+                                depth: texture.depth as u32,
+                                array_size: texture.array_size as u32,
+                                premultiply_alpha,
+                            },
+                            texture_data,
+                            Some(comment),
+                        )
+                    }
+                    _ => unreachable!("Unsupported platform for RoI textures"),
+                }
+            }
+            GameVersion::Destiny(
+                DestinyVersion::Destiny2Beta
+                | DestinyVersion::Destiny2Forsaken
+                | DestinyVersion::Destiny2Shadowkeep
+                | DestinyVersion::Destiny2BeyondLight
+                | DestinyVersion::Destiny2WitchQueen
+                | DestinyVersion::Destiny2Lightfall
+                | DestinyVersion::Destiny2TheFinalShape,
+            )
+            | GameVersion::Marathon(MarathonVersion::MarathonAlpha) => {
+                let (texture, texture_data, comment) = Self::load_data_d2(hash, true)?;
+                Self::create_texture(
+                    rs,
+                    hash,
+                    TextureDesc {
+                        format: texture.format,
+                        width: texture.width as u32,
+                        height: texture.height as u32,
+                        depth: texture.depth as u32,
+                        array_size: texture.array_size as u32,
+                        premultiply_alpha,
+                    },
+                    texture_data,
+                    Some(comment),
+                )
+            }
         }
     }
 

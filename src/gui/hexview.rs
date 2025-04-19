@@ -358,7 +358,8 @@ fn find_all_array_ranges(data: &[u8]) -> Vec<ArrayRange> {
             0x80809fbd | // Pre-BL
             0x80809fb8 | // Post-BL
             0x80800184 |
-            0x80800142
+            0x80800142 |
+            0x8080bfcd // Marathon
         ) {
             array_offsets.push(offset + 4);
         }

@@ -208,6 +208,8 @@ pub const CLASSES_DESTINY_BL: &[TagClass] = &[
     class!(0x80806E89 s_unk_80806e89 @size(16) @block_tags),
 ];
 
+pub const CLASSES_MARATHON: &[TagClass] = &[];
+
 // TODO(cohae): User-defined references
 lazy_static::lazy_static! {
     static ref CLASS_MAP: ArcSwap<FxHashMap<u32, TagClass>> = ArcSwap::new(Default::default());
@@ -293,7 +295,7 @@ pub fn initialize_reference_names() {
         | GameVersion::Destiny(DestinyVersion::Destiny2WitchQueen)
         | GameVersion::Destiny(DestinyVersion::Destiny2Lightfall)
         | GameVersion::Destiny(DestinyVersion::Destiny2TheFinalShape) => CLASSES_DESTINY_BL,
-        _ => unimplemented!(),
+        GameVersion::Marathon(_) => CLASSES_MARATHON,
     };
 
     new_classes.extend(version_specific.iter().map(|c| (c.id, c.clone())));

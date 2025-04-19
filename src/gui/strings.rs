@@ -323,8 +323,7 @@ fn dump_all_languages() -> anyhow::Result<()> {
             };
             let mut cur = Cursor::new(&data);
             let text_data: StringData = cur.read_le_args((
-                version.is_prebl(),
-                version == DestinyVersion::Destiny2BeyondLight,
+                version.is_prebl() || version == DestinyVersion::Destiny2BeyondLight,
             ))?;
 
             for (combination, hash) in text_data

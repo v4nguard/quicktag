@@ -14,7 +14,7 @@ log = "0.4"
 parking_lot = "0.12"
 profiling = { version = "1", features = [] }
 rustc-hash = "2.0.0"
-tiger-pkg = { version = "0.18.2", features = ["global_manager_instance"] }
+tiger-pkg = { version = "0.18.4", features = ["global_manager_instance"] }
 
 [package]
 name = "quicktag"

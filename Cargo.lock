@@ -3534,9 +3534,9 @@ dependencies = [
 
 [[package]]
 name = "tiger-pkg"
-version = "0.18.2"
+version = "0.18.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b5bb5b467e0737e9e9dca1eb6997831bc8c61de757ea36e74943d38da766655"
+checksum = "35f33c975a7c8e5a5dcda57ba6efdf645d918bd7655a4a034ca97a10bb39d12c"
 dependencies = [
  "aes",
  "aes-gcm",

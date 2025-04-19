@@ -93,7 +93,8 @@ pub fn scan_file(context: &ScannerContext, data: &[u8], mode: ScannerMode) -> Sc
             0x80809fbd | // Pre-BL
             0x80809fb8 | // Post-BL
             0x80800184 |
-            0x80800142
+            0x80800142 |
+            0x8080bfcd // Marathon
         ) {
             let array_offset = offset as u64 + 4;
             let array: Option<(u64, u32)> = (|| {
