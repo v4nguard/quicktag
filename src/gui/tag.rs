@@ -1124,6 +1124,17 @@ impl View for TagView {
                         )
                         .default_open(true)
                         .show(ui, |ui| {
+                            if !self.raw_strings.is_empty() && ui.button("Copy all").clicked() {
+                                ui.output_mut(|o| {
+                                    o.copied_text = self
+                                        .raw_strings
+                                        .iter()
+                                        .map(|(_offset, string, _offsets)| string.clone())
+                                        .collect::<Vec<String>>()
+                                        .join("\n")
+                                });
+                            }
+
                             ui.group(|ui| {
                                 if self.raw_strings.is_empty() {
                                     ui.label(RichText::new("No raw strings found").italics());
