@@ -284,6 +284,9 @@ fn parse_schemafile(s: &str) -> anyhow::Result<FxHashMap<u32, TagClass>> {
     // 8080XXXX <name>
     // 8080XXXX <name> <size>
     for l in s.lines() {
+        if l.trim().is_empty() || l.starts_with("#") {
+            continue;
+        }
         let mut parts = l.split_whitespace();
         let id = u32::from_str_radix(parts.next().context("Missing class ID")?, 16)?;
         let name = parts.next().context("Missing name")?;

@@ -79,7 +79,7 @@ by `destiny-pkg`:
 
 ## Building
 
-Alkahest needs Rust 1.70 or newer to build. You can install Rust from [rustup.rs](https://rustup.rs/).
+QuickTag needs Rust 1.70 or newer to build. You can install Rust from [rustup.rs](https://rustup.rs/).
 
 QuickTag can then be built as follows:
 

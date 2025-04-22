@@ -19,6 +19,7 @@ pub struct TagHexView {
     data: Vec<u8>,
     rows: Vec<DataRow>,
     array_ranges: Vec<ArrayRange>,
+    refresh_collapsible_states: bool,
 
     // mode: DataViewMode,
     // detect_floats: bool,
@@ -40,6 +41,7 @@ impl TagHexView {
                 .map(|chunk| DataRow::from(<[u8; 16]>::try_from(chunk).unwrap()))
                 .collect(),
             array_ranges: find_all_array_ranges(&data),
+            refresh_collapsible_states: true,
             data,
             // mode: DataViewMode::Auto,
             // detect_floats: true,
@@ -52,6 +54,19 @@ impl TagHexView {
         if self.data.len() > 1024 * 1024 * 16 {
             ui.label("Data too large to display");
             return None;
+        }
+
+        if self.refresh_collapsible_states {
+            // Clear existing collapsible states
+            for i in 0..self.array_ranges.len() {
+                CollapsingState::load_with_default_open(
+                    ui.ctx(),
+                    egui::Id::new(format!("hexview_array_{i}",)),
+                    false,
+                )
+                .remove(ui.ctx());
+            }
+            self.refresh_collapsible_states = false;
         }
 
         if quicktag_core::classes::was_schemafile_refreshed() {
@@ -80,7 +95,7 @@ impl TagHexView {
                         CollapsingState::load_with_default_open(
                             ui.ctx(),
                             egui::Id::new(format!("hexview_array_{i}",)),
-                            array.length < 256,
+                            array.length < 512,
                         )
                         .show_header(ui, |ui| {
                             ui.horizontal(|ui| {
@@ -97,7 +112,9 @@ impl TagHexView {
                             });
                         })
                         .body_unindented(|ui| {
-                            if !self.raw_array_data && !array.pretty_rows.is_empty() {
+                            if array.length > 10_000 {
+                                ui.label("Array too large to display");
+                            } else if !self.raw_array_data && !array.pretty_rows.is_empty() {
                                 let class_size = get_class_by_id(array.class).and_then(|c| c.size);
                                 for (i, row) in array.pretty_rows.iter().enumerate() {
                                     ui.horizontal(|ui| {
