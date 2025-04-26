@@ -222,8 +222,14 @@ pub fn tag_context(ui: &mut egui::Ui, tag: TagHash) {
     }
 
     if let Some(tag64) = package_manager().get_tag64_for_tag32(tag) {
-        if ui.selectable_label(false, "📋 Copy 64-bit tag").clicked() {
-            ui.output_mut(|o| o.copied_text = tag64.to_string());
+        if ui.selectable_label(false, format!("📋 Copy 64-bit tag{flipped_postfix}")).clicked() {
+            ui.output_mut(|o| {
+                o.copied_text = if copy_flipped {
+                    format!("{:08X}", tag64.0.swap_bytes())
+                } else {
+                    format!("{:08X}", tag64.0)
+                }
+            });
             ui.close_menu();
         }
     }
