@@ -225,9 +225,9 @@ pub fn tag_context(ui: &mut egui::Ui, tag: TagHash) {
         if ui.selectable_label(false, format!("📋 Copy 64-bit tag{flipped_postfix}")).clicked() {
             ui.output_mut(|o| {
                 o.copied_text = if copy_flipped {
-                    format!("{:08X}", tag64.0.swap_bytes())
+                    format!("{:016X}", tag64.0.swap_bytes())
                 } else {
-                    format!("{:08X}", tag64.0)
+                    format!("{:16X}", tag64.0)
                 }
             });
             ui.close_menu();
