@@ -112,6 +112,25 @@ pub const CLASSES_DESTINY_ROI: &[TagClass] = &[
     class!(0x80801C47 s_scope),
     class!(0x80802732 sui_tab_list),
     class!(0x808033EB sui_simple_dialog),
+    class!(0x80800715 s_entity_resource),
+    class!(0x80800734 s_entity),
+    class!(0x80801B2E s_terrain),
+    class!(0x80801AEA s_map_data_resource),
+    class!(0x80801AC6 s_static_map_parent),
+    class!(0x808091E0 s_bubble_definition),
+    class!(0x80808A54 s_map_container),
+    class!(0x808009A2 s_map_data_table_entry),
+    class!(0x808008B4 s_static_map_data),
+    class!(0x80801B75 s_static_map_d1),
+    class!(0x80800583 s_mesh_instance_occlusion_bounds),
+    class!(0x80801A5B s_light_collection),
+    class!(0x80801BD9 s_expensive_light),
+    class!(0x80801C1F s_sky_objects),
+    class!(0x80801B40 s_map_decals),
+    class!(0x80801BBF s_entity_model_mesh),
+    class!(0x80801AB5 s_entity_model),
+    class!(0x808005A1 s_animation_clip),
+    class!(0x8080080A s_wwise_event),
 ];
 
 pub const CLASSES_DESTINY_SK: &[TagClass] = &[
@@ -154,6 +173,15 @@ pub const CLASSES_DESTINY_SK: &[TagClass] = &[
     class!(0x80809802 s_wwise_event),
     class!(0x80809A88 s_localized_strings),
     class!(0x80809A8A s_localized_strings_data),
+    class!(0x8080713A s_light_collection),
+    class!(0x80807140 s_expensive_light),
+    class!(0x80806F95 s_sky_objects),
+    class!(0x80806E68 s_map_decals),
+    class!(0x80807378 s_entity_model_mesh),
+    class!(0x808073A5 s_entity_model),
+    class!(0x80809C04 s_entity_resource),
+    class!(0x80809C0F s_entity),
+    class!(0x8080714F s_terrain),
 ];
 
 pub const CLASSES_DESTINY_BL: &[TagClass] = &[
@@ -206,6 +234,10 @@ pub const CLASSES_DESTINY_BL: &[TagClass] = &[
     class!(0x80806920 s_particle_system),
     // huge array in the umbra tome tags
     class!(0x80806E89 s_unk_80806e89 @size(16) @block_tags),
+    class!(0x80806C65 s_light_collection),
+    class!(0x80806C71 s_expensive_light),
+    class!(0x80806AA7 s_sky_objects),
+    class!(0x8080695B s_map_decals),
 ];
 
 pub const CLASSES_MARATHON: &[TagClass] = &[];
