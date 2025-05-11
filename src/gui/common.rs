@@ -227,7 +227,7 @@ pub fn tag_context(ui: &mut egui::Ui, tag: TagHash) {
                 o.copied_text = if copy_flipped {
                     format!("{:016X}", tag64.0.swap_bytes())
                 } else {
-                    format!("{:16X}", tag64.0)
+                    format!("{:016X}", tag64.0)
                 }
             });
             ui.close_menu();
