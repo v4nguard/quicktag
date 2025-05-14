@@ -65,7 +65,7 @@ fn main() -> eframe::Result<()> {
     )
     .unwrap();
 
-    tiger_pkg::initialize(&Arc::new(pm));
+    tiger_pkg::initialize_package_manager(&Arc::new(pm));
 
     quicktag_core::classes::initialize_reference_names();
 
