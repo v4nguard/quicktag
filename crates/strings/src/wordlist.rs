@@ -1,6 +1,6 @@
-use std::time::Instant;
+use std::{io::BufRead, time::Instant};
 
-use log::info;
+use log::{error, info};
 use quicktag_core::util::{FNV1_BASE, fnv1};
 
 const WORDLIST: &str = include_str!("../../../wordlist.txt");
@@ -23,23 +23,33 @@ pub fn load_wordlist<F: FnMut(&str, u32)>(mut callback: F) {
     );
 
     let load_start = Instant::now();
-    let Ok(wordlist_disk) = std::fs::read_to_string("local_wordlist.txt") else {
-        return;
+    let file = match std::fs::File::open("local_wordlist.txt") {
+        Ok(f) => f,
+        Err(e) => {
+            error!("Failed to load local wordlist: {}", e);
+            return;
+        }
     };
 
-    for s in wordlist_disk.lines() {
-        let s = s.to_string();
-        let h = fnv1(s.as_bytes());
+    let reader = std::io::BufReader::with_capacity(1024 * 1024 * 4, file);
+    let mut line_count = 0;
+    for line in reader.lines() {
+        let Ok(line) = line else {
+            break;
+        };
+
+        let h = fnv1(line.as_bytes());
         // Skip empty strings
         if h == FNV1_BASE {
             continue;
         }
-        callback(&s, h);
+        callback(&line, h);
+        line_count += 1;
     }
 
     info!(
         "Loaded {} strings from on-disk wordlist in {}ms",
-        wordlist_disk.lines().count(),
+        line_count,
         load_start.elapsed().as_millis()
     );
 }
