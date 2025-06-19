@@ -268,7 +268,7 @@ impl TagView {
             package_manager()
                 .read_tag(tag_entry.reference)
                 .ok()
-                .map(|data| TagHexView::new(data, &[]))
+                .map(|data| TagHexView::new(tag, data, &[]))
         } else {
             None
         };
@@ -284,7 +284,7 @@ impl TagView {
         };
 
         Some(Self {
-            hexview: TagHexView::new(tag_data.clone(), &arrays),
+            hexview: TagHexView::new(tag, tag_data.clone(), &arrays),
             hexview_referenced,
             mode: TagViewMode::Traversal,
 

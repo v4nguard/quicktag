@@ -19,6 +19,7 @@ use tiger_pkg::{DestinyVersion, GameVersion, TagHash, Version};
 use super::tag::TagArray;
 
 pub struct TagHexView {
+    tag: TagHash,
     data: Vec<u8>,
     rows: Vec<DataRow>,
     array_ranges: Vec<ArrayRange>,
@@ -32,7 +33,7 @@ pub struct TagHexView {
 }
 
 impl TagHexView {
-    pub fn new(mut data: Vec<u8>, arrays: &[(u64, TagArray)]) -> Self {
+    pub fn new(tag: TagHash, mut data: Vec<u8>, arrays: &[(u64, TagArray)]) -> Self {
         // Pad data to an alignment of 16 bytes
         let remainder = data.len() % 16;
         if remainder != 0 {
@@ -40,6 +41,7 @@ impl TagHexView {
         }
 
         Self {
+            tag,
             rows: data
                 .chunks_exact(16)
                 .map(|chunk| DataRow::from(<[u8; 16]>::try_from(chunk).unwrap()))
@@ -187,7 +189,11 @@ impl TagHexView {
                                 .or_else(|| self.array_offsets.get(&array_offset2));
 
                             let color = if hash.is_some() {
-                                Color32::GOLD
+                                if hash.map(|h| h.hash.hash32()) == Some(self.tag) {
+                                    Color32::GOLD.gamma_multiply(0.5)
+                                } else {
+                                    Color32::GOLD
+                                }
                             } else if array_ptr.is_some() {
                                 Color32::from_rgb(171, 95, 252)
                             } else {
@@ -203,22 +209,7 @@ impl TagHexView {
                             );
                             if let Some(e) = hash {
                                 let hash32 = e.hash.hash32();
-                                let tagline_color = e
-                                    .entry
-                                    .as_ref()
-                                    .map(|e| {
-                                        TagType::from_type_subtype(e.file_type, e.file_subtype)
-                                            .display_color()
-                                    })
-                                    .unwrap_or(Color32::GRAY);
-                                let response = response
-                                    .on_hover_text(
-                                        RichText::new(format_tag_entry(hash32, e.entry.as_ref()))
-                                            .color(tagline_color),
-                                    )
-                                    .tag_context(hash32)
-                                    .interact(Sense::click())
-                                    .on_hover_cursor(CursorIcon::PointingHand);
+                                let is_self_referential = hash32 == self.tag;
 
                                 if response.hovered() {
                                     ui.painter().rect(
@@ -229,8 +220,34 @@ impl TagHexView {
                                     );
                                 }
 
-                                if response.clicked() {
-                                    open_tag = Some(hash32);
+                                if !is_self_referential {
+                                    let tagline_color = e
+                                        .entry
+                                        .as_ref()
+                                        .map(|e| {
+                                            TagType::from_type_subtype(e.file_type, e.file_subtype)
+                                                .display_color()
+                                        })
+                                        .unwrap_or(Color32::GRAY);
+                                    let response = response
+                                        .on_hover_text(
+                                            RichText::new(format_tag_entry(
+                                                hash32,
+                                                e.entry.as_ref(),
+                                            ))
+                                            .color(tagline_color),
+                                        )
+                                        .tag_context(hash32)
+                                        .interact(Sense::click())
+                                        .on_hover_cursor(CursorIcon::PointingHand);
+
+                                    if response.clicked() {
+                                        open_tag = Some(hash32);
+                                    }
+                                } else {
+                                    let _ = response
+                                        .on_hover_text("Self-referential tag")
+                                        .interact(Sense::hover());
                                 }
                             } else if let Some((array_offset, array)) = array_ptr {
                                 let _ = response
