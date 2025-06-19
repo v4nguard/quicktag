@@ -62,8 +62,8 @@ pub struct TagView {
     string_cache: Arc<StringCache>,
     raw_string_hash_cache: Arc<RawStringHashCache>,
 
-    string_hashes: Vec<(u64, u32)>,
-    raw_string_hashes: Vec<(u64, u32)>,
+    pub(crate) string_hashes: Vec<(u64, u32)>,
+    pub(crate) raw_string_hashes: Vec<(u64, u32)>,
     raw_strings: Vec<(u64, String, Vec<u64>)>,
     arrays: Vec<(u64, TagArray)>,
 
@@ -268,7 +268,7 @@ impl TagView {
             package_manager()
                 .read_tag(tag_entry.reference)
                 .ok()
-                .map(|data| TagHexView::new(tag, data, &[]))
+                .map(|data| TagHexView::new(tag, data, &[], vec![]))
         } else {
             None
         };
@@ -283,8 +283,18 @@ impl TagView {
             Err("Not a shader".to_string())
         };
 
+        let mut string_hashes_hexview = string_hashes
+            .iter()
+            .map(|(offset, _hash)| (*offset, false))
+            .collect_vec();
+        string_hashes_hexview.extend(
+            raw_string_hashes
+                .iter()
+                .map(|(offset, _hash)| (*offset, true)),
+        );
+
         Some(Self {
-            hexview: TagHexView::new(tag, tag_data.clone(), &arrays),
+            hexview: TagHexView::new(tag, tag_data.clone(), &arrays, string_hashes_hexview),
             hexview_referenced,
             mode: TagViewMode::Traversal,
 

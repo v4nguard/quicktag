@@ -16,7 +16,7 @@ use std::io::{Cursor, Seek, SeekFrom};
 use tiger_pkg::package_manager;
 use tiger_pkg::{DestinyVersion, GameVersion, TagHash, Version};
 
-use super::tag::TagArray;
+use super::tag::{TagArray, TagView};
 
 pub struct TagHexView {
     tag: TagHash,
@@ -24,6 +24,7 @@ pub struct TagHexView {
     rows: Vec<DataRow>,
     array_ranges: Vec<ArrayRange>,
     array_offsets: HashMap<u64, (u64, TagArray)>,
+    string_hash_offsets: Vec<(u64, bool)>,
     refresh_collapsible_states: bool,
 
     // mode: DataViewMode,
@@ -33,7 +34,12 @@ pub struct TagHexView {
 }
 
 impl TagHexView {
-    pub fn new(tag: TagHash, mut data: Vec<u8>, arrays: &[(u64, TagArray)]) -> Self {
+    pub fn new(
+        tag: TagHash,
+        mut data: Vec<u8>,
+        arrays: &[(u64, TagArray)],
+        string_hash_offsets: Vec<(u64, bool)>,
+    ) -> Self {
         // Pad data to an alignment of 16 bytes
         let remainder = data.len() % 16;
         if remainder != 0 {
@@ -53,6 +59,7 @@ impl TagHexView {
                     Some((*array.references.first()?, (offset, array.clone())))
                 })
                 .collect(),
+            string_hash_offsets,
             refresh_collapsible_states: true,
             data,
             // mode: DataViewMode::Auto,
@@ -188,6 +195,11 @@ impl TagHexView {
                                 .get(&array_offset)
                                 .or_else(|| self.array_offsets.get(&array_offset2));
 
+                            let string_hash = self
+                                .string_hash_offsets
+                                .iter()
+                                .find(|(o, _)| *o == chunk_offset as u64);
+
                             let color = if hash.is_some() {
                                 if hash.map(|h| h.hash.hash32()) == Some(self.tag) {
                                     Color32::GOLD.gamma_multiply(0.5)
@@ -196,6 +208,12 @@ impl TagHexView {
                                 }
                             } else if array_ptr.is_some() {
                                 Color32::from_rgb(171, 95, 252)
+                            } else if let Some((_, is_wordlist)) = string_hash {
+                                if *is_wordlist {
+                                    Color32::from_rgb(0, 128, 255)
+                                } else {
+                                    Color32::from_rgb(100, 177, 255)
+                                }
                             } else {
                                 Color32::GRAY
                             };
