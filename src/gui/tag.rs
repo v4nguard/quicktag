@@ -268,7 +268,7 @@ impl TagView {
             package_manager()
                 .read_tag(tag_entry.reference)
                 .ok()
-                .map(TagHexView::new)
+                .map(|data| TagHexView::new(data, &[]))
         } else {
             None
         };
@@ -284,7 +284,7 @@ impl TagView {
         };
 
         Some(Self {
-            hexview: TagHexView::new(tag_data.clone()),
+            hexview: TagHexView::new(tag_data.clone(), &arrays),
             hexview_referenced,
             mode: TagViewMode::Traversal,
 
@@ -1702,6 +1702,7 @@ pub fn format_tag_entry(tag: TagHash, entry: Option<&UEntryHeader>) -> String {
 }
 
 #[binread]
+#[derive(Debug, Clone)]
 pub struct TagArray {
     pub count: u64,
     pub tagtype: u32,

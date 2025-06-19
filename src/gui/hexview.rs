@@ -3,6 +3,7 @@ use crate::gui::tag::{format_tag_entry, ExtendedScanResult};
 use crate::swap_to_ne;
 use binrw::{binread, BinReaderExt, Endian};
 use eframe::egui;
+use eframe::egui::ahash::HashMap;
 use eframe::egui::{
     collapsing_header::CollapsingState, vec2, Color32, CursorIcon, Rgba, RichText, ScrollArea,
     Sense, Stroke, Ui,
@@ -15,10 +16,13 @@ use std::io::{Cursor, Seek, SeekFrom};
 use tiger_pkg::package_manager;
 use tiger_pkg::{DestinyVersion, GameVersion, TagHash, Version};
 
+use super::tag::TagArray;
+
 pub struct TagHexView {
     data: Vec<u8>,
     rows: Vec<DataRow>,
     array_ranges: Vec<ArrayRange>,
+    array_offsets: HashMap<u64, (u64, TagArray)>,
     refresh_collapsible_states: bool,
 
     // mode: DataViewMode,
@@ -28,7 +32,7 @@ pub struct TagHexView {
 }
 
 impl TagHexView {
-    pub fn new(mut data: Vec<u8>) -> Self {
+    pub fn new(mut data: Vec<u8>, arrays: &[(u64, TagArray)]) -> Self {
         // Pad data to an alignment of 16 bytes
         let remainder = data.len() % 16;
         if remainder != 0 {
@@ -41,6 +45,12 @@ impl TagHexView {
                 .map(|chunk| DataRow::from(<[u8; 16]>::try_from(chunk).unwrap()))
                 .collect(),
             array_ranges: find_all_array_ranges(&data),
+            array_offsets: arrays
+                .iter()
+                .filter_map(|&(offset, ref array)| {
+                    Some((*array.references.first()?, (offset, array.clone())))
+                })
+                .collect(),
             refresh_collapsible_states: true,
             data,
             // mode: DataViewMode::Auto,
@@ -120,7 +130,7 @@ impl TagHexView {
                                     ui.horizontal(|ui| {
                                         if let Some(class_size) = class_size {
                                             let offset = array.data_start as usize + i * class_size;
-                                            ui.strong(format!("{:08X}:", offset));
+                                            ui.strong(format!("{offset:08X}:"));
                                         }
                                         ui.strong(format!("[{i}]"));
                                         ui.style_mut().spacing.item_spacing.x = 14.0;
@@ -168,8 +178,18 @@ impl TagHexView {
                                 .file_hashes
                                 .iter()
                                 .find(|v| v.offset == chunk_offset as u64);
+
+                            let array_offset = ((chunk_offset >> 3) << 3) as u64;
+                            let array_offset2 = array_offset.saturating_sub(8);
+                            let array_ptr = self
+                                .array_offsets
+                                .get(&array_offset)
+                                .or_else(|| self.array_offsets.get(&array_offset2));
+
                             let color = if hash.is_some() {
                                 Color32::GOLD
+                            } else if array_ptr.is_some() {
+                                Color32::from_rgb(171, 95, 252)
                             } else {
                                 Color32::GRAY
                             };
@@ -212,6 +232,13 @@ impl TagHexView {
                                 if response.clicked() {
                                     open_tag = Some(hash32);
                                 }
+                            } else if let Some((array_offset, array)) = array_ptr {
+                                let _ = response
+                                    .on_hover_text(format!(
+                                        "array type={:08X} length={} @ 0x{:X}",
+                                        array.tagtype, array.count, array_offset
+                                    ))
+                                    .interact(Sense::hover());
                             }
                         }
                     }
