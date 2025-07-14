@@ -470,19 +470,16 @@ impl TagView {
                     .clicked()
                 {
                     let tag = self.tag;
-                    let cache = self.cache.clone();
-                    let string_cache = self.raw_string_hash_cache.clone();
                     let depth_limit = self.traversal_depth_limit;
-                    let show_strings = self.traversal_show_strings;
+                    let options = TraversalOptions {
+                        cache: self.cache.clone(),
+                        raw_strings: self.raw_string_hash_cache.clone(),
+                        show_strings: self.traversal_show_strings,
+                        direction: TraversalDirection::Down,
+                        hide_already_traversed: self.hide_already_traversed,
+                    };
                     self.tag_traversal = Some(Promise::spawn_thread("traverse tags", move || {
-                        traverse_tags(
-                            tag,
-                            depth_limit,
-                            cache,
-                            string_cache,
-                            show_strings,
-                            TraversalDirection::Down,
-                        )
+                        traverse_tags(tag, depth_limit, &options)
                     }));
                 }
 
@@ -497,19 +494,16 @@ impl TagView {
                     .clicked()
                 {
                     let tag = self.tag;
-                    let cache = self.cache.clone();
-                    let string_cache = self.raw_string_hash_cache.clone();
                     let depth_limit = self.traversal_depth_limit;
-                    let show_strings = self.traversal_show_strings;
+                    let options = TraversalOptions {
+                        cache: self.cache.clone(),
+                        raw_strings: self.raw_string_hash_cache.clone(),
+                        show_strings: self.traversal_show_strings,
+                        direction: TraversalDirection::Up,
+                        hide_already_traversed: self.hide_already_traversed,
+                    };
                     self.tag_traversal = Some(Promise::spawn_thread("traverse tags", move || {
-                        traverse_tags(
-                            tag,
-                            depth_limit,
-                            cache,
-                            string_cache,
-                            show_strings,
-                            TraversalDirection::Up,
-                        )
+                        traverse_tags(tag, depth_limit, &options)
                     }));
                 }
 
@@ -1418,14 +1412,19 @@ enum TraversalDirection {
     Down,
 }
 
+struct TraversalOptions {
+    cache: Arc<TagCache>,
+    raw_strings: Arc<RawStringHashCache>,
+    show_strings: bool,
+    hide_already_traversed: bool,
+    direction: TraversalDirection,
+}
+
 /// Traverses down every tag to make a hierarchy of tags
 fn traverse_tags(
     starting_tag: TagHash,
     depth_limit: usize,
-    cache: Arc<TagCache>,
-    raw_strings: Arc<RawStringHashCache>,
-    show_strings: bool,
-    direction: TraversalDirection,
+    options: &TraversalOptions,
 ) -> (TraversedTag, String) {
     let mut result = String::new();
     let mut seen_tags = Default::default();
@@ -1439,10 +1438,7 @@ fn traverse_tags(
         &mut seen_tags,
         &mut pipe_stack,
         depth_limit,
-        cache,
-        raw_strings,
-        show_strings,
-        direction,
+        options,
     );
 
     (traversed, result)
@@ -1455,7 +1451,6 @@ pub struct TraversedTag {
     pub subtags: Vec<TraversedTag>,
 }
 
-#[allow(clippy::too_many_arguments)]
 fn traverse_tag(
     out: &mut String,
     tag: TagHash,
@@ -1464,10 +1459,7 @@ fn traverse_tag(
     seen_tags: &mut HashSet<TagHash>,
     pipe_stack: &mut Vec<char>,
     depth_limit: usize,
-    cache: Arc<TagCache>,
-    raw_strings_cache: Arc<RawStringHashCache>,
-    show_strings: bool,
-    direction: TraversalDirection,
+    options: &TraversalOptions,
 ) -> TraversedTag {
     let depth = pipe_stack.len();
 
@@ -1513,7 +1505,7 @@ fn traverse_tag(
         };
     }
 
-    let Some(scan_result) = cache.hashes.get(&tag).cloned() else {
+    let Some(scan_result) = options.cache.hashes.get(&tag).cloned() else {
         return TraversedTag {
             tag,
             entry,
@@ -1524,7 +1516,7 @@ fn traverse_tag(
 
     let scan = ExtendedScanResult::from_scanresult(scan_result);
 
-    let all_hashes = if direction == TraversalDirection::Down {
+    let all_hashes = if options.direction == TraversalDirection::Down {
         scan.file_hashes
             .iter()
             .map(|v| (v.hash.hash32(), v.offset))
@@ -1549,7 +1541,7 @@ fn traverse_tag(
         write!(line_header, "{s}   ").ok();
     }
 
-    if show_strings {
+    if options.show_strings {
         let tag_data = package_manager().read_tag(tag).unwrap();
         let mut raw_strings = vec![];
         let mut raw_string_hashes = vec![];
@@ -1557,7 +1549,7 @@ fn traverse_tag(
             let v: [u8; 4] = b.try_into().unwrap();
             let hash = u32::from_le_bytes(v);
 
-            if let Some(v) = raw_strings_cache.get(&hash) {
+            if let Some(v) = options.raw_strings.get(&hash) {
                 raw_string_hashes.push(v[0].clone());
             }
 
@@ -1637,7 +1629,7 @@ fn traverse_tag(
                 .ok();
             } else if *t == tag {
                 // We don't care about self references
-            } else {
+            } else if !options.hide_already_traversed {
                 writeln!(
                     out,
                     "{line_header}{branch}──{fancy_tag} @ {offset_label} (already traversed)"
@@ -1667,10 +1659,7 @@ fn traverse_tag(
                     seen_tags,
                     pipe_stack,
                     depth_limit,
-                    cache.clone(),
-                    raw_strings_cache.clone(),
-                    show_strings,
-                    direction,
+                    options,
                 );
 
                 subtags.push(traversed);
