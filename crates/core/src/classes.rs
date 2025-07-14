@@ -20,6 +20,8 @@ pub struct TagClass {
     pub pretty_parser: Option<fn(&[u8], Endian) -> String>,
     /// Should this type block tag scanning? Useful for eliminating false positives in byte/vec4 blobs
     pub block_tags: bool,
+    /// Should this tag be ignored while traversing the tag tree?
+    pub ignore: bool,
 }
 
 impl TagClass {
@@ -71,6 +73,7 @@ macro_rules! class_internal {
             size: $size,
             pretty_parser: $parsefn,
             block_tags: $block_tags,
+            ignore: false,
         }
     };
 }
@@ -290,21 +293,42 @@ fn parse_schemafile(s: &str) -> anyhow::Result<FxHashMap<u32, TagClass>> {
         let mut parts = l.split_whitespace();
         let id = u32::from_str_radix(parts.next().context("Missing class ID")?, 16)?;
         let name = parts.next().context("Missing name")?;
-        let size = parts
-            .next()
-            .map(|s| s.parse().context("Failed to parse size"))
-            .transpose()?;
 
-        schema.insert(
+        let part = parts.next();
+        let size = part
+            .map(|s| s.parse().context("Failed to parse size"))
+            .transpose()
+            .unwrap_or(None);
+        let mut remaining_parts = vec![];
+        if size.is_none() {
+            remaining_parts.extend(part);
+        }
+        remaining_parts.extend(parts);
+
+        let mut class = TagClass {
             id,
-            TagClass {
-                id,
-                name: Cow::Owned(name.to_string()),
-                size,
-                pretty_parser: Some(parse_hex),
-                block_tags: false,
-            },
-        );
+            name: Cow::Owned(name.to_string()),
+            size,
+            pretty_parser: Some(parse_hex),
+            block_tags: false,
+            ignore: false,
+        };
+
+        for part in remaining_parts {
+            match part {
+                "ignore" => {
+                    class.block_tags = true;
+                    class.ignore = true;
+                }
+                _ => {
+                    return Err(anyhow::anyhow!(
+                        "Unknown attribute in schema file: {part} for class {name} (ID: {id:X})"
+                    ));
+                }
+            }
+        }
+
+        schema.insert(id, class);
     }
 
     Ok(schema)

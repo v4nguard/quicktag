@@ -1480,8 +1480,11 @@ fn traverse_tag(
     writeln!(out, "{fancy_tag} @ 0x{offset:X}",).ok();
 
     if let Some(entry) = &entry {
+        let class = get_class_by_id(entry.reference);
         // ??? and localized string data
-        if matches!(entry.reference, 0x808099F1 | 0x80809A8A) {
+        if matches!(entry.reference, 0x808099F1 | 0x80809A8A)
+            || class.map(|c| c.block_tags).unwrap_or(false)
+        {
             return TraversedTag {
                 tag,
                 entry: Some(entry.clone()),
@@ -1650,22 +1653,28 @@ fn traverse_tag(
                 });
             }
         } else {
-            write!(out, "{line_header}{branch}──").ok();
-            let traversed = traverse_tag(
-                out,
-                *t,
-                tag,
-                *offset,
-                seen_tags,
-                pipe_stack,
-                depth_limit,
-                cache.clone(),
-                raw_strings_cache.clone(),
-                show_strings,
-                direction,
-            );
+            let entry = pm.get_entry(*t);
 
-            subtags.push(traversed);
+            let class = entry.and_then(|e| get_class_by_id(e.reference));
+
+            if class.map(|c| !c.ignore).unwrap_or(true) {
+                write!(out, "{line_header}{branch}──").ok();
+                let traversed = traverse_tag(
+                    out,
+                    *t,
+                    tag,
+                    *offset,
+                    seen_tags,
+                    pipe_stack,
+                    depth_limit,
+                    cache.clone(),
+                    raw_strings_cache.clone(),
+                    show_strings,
+                    direction,
+                );
+
+                subtags.push(traversed);
+            }
         }
         pipe_stack.pop();
     }

@@ -206,8 +206,14 @@ impl TagHexView {
                                 } else {
                                     Color32::GOLD
                                 }
-                            } else if array_ptr.is_some() {
-                                Color32::from_rgb(171, 95, 252)
+                            } else if let Some((_, array)) = array_ptr {
+                                // 0 - 16
+                                let distance_from_ptr = (chunk_offset as u64).saturating_sub(
+                                    array.references.first().copied().unwrap_or_default(),
+                                );
+                                let color_mul = 1.0 - (distance_from_ptr as f32 / 24.0);
+
+                                Color32::from_rgb(171, 95, 252).gamma_multiply(color_mul)
                             } else if let Some((_, is_wordlist)) = string_hash {
                                 if *is_wordlist {
                                     Color32::from_rgb(0, 128, 255)
