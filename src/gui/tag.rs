@@ -12,19 +12,19 @@ use std::{
 };
 
 use super::{
-    common::{
-        open_audio_file_in_default_application, open_tag_in_default_application, tag_context,
-        ResponseExt,
-    },
     View, ViewAction,
+    common::{
+        ResponseExt, open_audio_file_in_default_application, open_tag_in_default_application,
+        tag_context,
+    },
 };
 use crate::gui::hexview::TagHexView;
 use crate::util::ui_image_rotated;
-use crate::{texture::cache::TextureCache, texture::Texture};
+use crate::{texture::Texture, texture::cache::TextureCache};
 use anyhow::Context;
-use binrw::{binread, BinReaderExt, Endian};
+use binrw::{BinReaderExt, Endian, binread};
 use eframe::egui::Sense;
-use eframe::egui::{collapsing_header::CollapsingState, vec2, RichText, TextureId};
+use eframe::egui::{RichText, TextureId, collapsing_header::CollapsingState, vec2};
 use eframe::egui_wgpu::RenderState;
 use eframe::wgpu::naga::{FastHashSet, FastIndexMap};
 use eframe::{
@@ -38,14 +38,14 @@ use log::error;
 use poll_promise::Promise;
 use quicktag_core::classes::get_class_by_id;
 use quicktag_core::tagtypes::TagType;
-use quicktag_scanner::{read_raw_string_blob, ScanResult, ScannedHash, TagCache};
+use quicktag_scanner::{ScanResult, ScannedHash, TagCache, read_raw_string_blob};
 use quicktag_strings::localized::{RawStringHashCache, StringCache};
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::fmt::Write;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
-use tiger_pkg::{package::UEntryHeader, GameVersion, PackagePlatform, TagHash, TagHash64};
-use tiger_pkg::{package_manager, DestinyVersion, Version};
+use tiger_pkg::{DestinyVersion, Version, package_manager};
+use tiger_pkg::{GameVersion, PackagePlatform, TagHash, TagHash64, package::UEntryHeader};
 
 #[derive(Copy, Clone, PartialEq)]
 enum TagViewMode {
@@ -1688,9 +1688,26 @@ pub fn format_tag_entry(tag: TagHash, entry: Option<&UEntryHeader>) -> String {
             .map(|v| format!("{} ", v.name))
             .unwrap_or_default();
 
-        let ref_label = get_class_by_id(entry.reference)
-            .map(|c| format!(" ({})", c.name))
-            .unwrap_or_default();
+        let ref_label = if let Some(class) = get_class_by_id(entry.reference) {
+            let cache = crate::gui::CACHE.read();
+            if let Some(cache_entry) = cache.hashes.get(&tag)
+                && let Some(secondary_class) = cache_entry.secondary_class
+                && class.name == "s_pattern_component"
+            {
+                if let Some(secondary_class) = get_class_by_id(secondary_class) {
+                    format!(" ({} ({}))", secondary_class.name, class.name)
+                } else {
+                    format!(
+                        " (s_unk_component_{:08X} ({}))",
+                        secondary_class, class.name
+                    )
+                }
+            } else {
+                format!(" ({})", class.name)
+            }
+        } else {
+            String::new()
+        };
 
         format!(
             "{}{named_tag}{tag} {}{ref_label} ({}+{}, ref {:08X})",

@@ -1,12 +1,12 @@
+use crate::gui::ViewAction;
 use crate::gui::common::ResponseExt;
 use crate::gui::tag::{
-    format_tag_entry, ExtendedScanResult, ExtendedTagHash, ScannedHashWithEntry,
+    ExtendedScanResult, ExtendedTagHash, ScannedHashWithEntry, format_tag_entry,
 };
-use crate::gui::ViewAction;
 use crate::texture::cache::TextureCache;
 use eframe::egui;
 use quicktag_core::tagtypes::TagType;
-use quicktag_scanner::{context::ScannerContext, ScannerMode};
+use quicktag_scanner::{ScannerMode, context::ScannerContext};
 
 pub struct ExternalFileScanView {
     pub filename: String,
@@ -15,7 +15,7 @@ pub struct ExternalFileScanView {
 
 impl ExternalFileScanView {
     pub fn new(filename: String, scancontext: &ScannerContext, data: &[u8]) -> Self {
-        let scanresult = quicktag_scanner::scan_file(scancontext, data, ScannerMode::Tags);
+        let scanresult = quicktag_scanner::scan_file(scancontext, data, None, ScannerMode::Tags);
         let scanresult_ext = ExtendedScanResult::from_scanresult(scanresult);
 
         Self {

@@ -43,6 +43,8 @@ pub struct ScanResult {
 
     /// References from other files
     pub references: Vec<TagHash>,
+
+    pub secondary_class: Option<u32>,
 }
 
 impl Default for ScanResult {
@@ -55,6 +57,7 @@ impl Default for ScanResult {
             wordlist_hashes: Default::default(),
             raw_strings: Default::default(),
             references: Default::default(),
+            secondary_class: None,
         }
     }
 }
@@ -71,13 +74,33 @@ pub struct ScannedArray {
     pub class: u32,
 }
 
-pub fn scan_file(context: &ScannerContext, data: &[u8], mode: ScannerMode) -> ScanResult {
+pub fn scan_file(
+    context: &ScannerContext,
+    data: &[u8],
+    entry: Option<&UEntryHeader>,
+    mode: ScannerMode,
+) -> ScanResult {
     profiling::scope!(
         "scan_file",
         format!("data len = {} bytes", data.len()).as_str()
     );
 
     let mut r = ScanResult::default();
+
+    if let Some(entry) = entry
+        && let Some(class) = get_class_by_id(entry.reference)
+        && class.name == "s_pattern_component"
+        && data.len() > 32
+    {
+        let ptr_offset = u64_from_endian(context.endian, data[0x10..0x18].try_into().unwrap());
+        let offset = 0x10 + ptr_offset as usize;
+        if offset < data.len() && offset > 0x10 {
+            r.secondary_class = Some(u32_from_endian(
+                context.endian,
+                data[offset - 4..offset].try_into().unwrap(),
+            ));
+        }
+    }
 
     // Pass 1: find array ranges we should skip (classes marked with @block_tags)
     let mut blocked_ranges = vec![];
@@ -401,7 +424,7 @@ pub fn load_tag_cache() -> TagCache {
                     _ => ScannerMode::Both,
                 };
 
-                let mut scan_result = scan_file(context, &data, scanner_mode);
+                let mut scan_result = scan_file(context, &data, Some(&e), scanner_mode);
                 if let GameVersion::Destiny(v) = version {
                     if v.is_d1() {
                         if let Some(entry) = pkg.entry(t) {

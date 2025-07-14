@@ -30,7 +30,7 @@ use egui_notify::Toasts;
 use lazy_static::lazy_static;
 use log::info;
 use notify::Watcher;
-use parking_lot::Mutex;
+use parking_lot::{Mutex, RwLock};
 use poll_promise::Promise;
 use quicktag_core::util::fnv1;
 use quicktag_scanner::context::ScannerContext;
@@ -71,6 +71,7 @@ pub enum StringsPanel {
 
 lazy_static! {
     pub static ref TOASTS: Arc<Mutex<Toasts>> = Arc::new(Mutex::new(Toasts::new()));
+    pub static ref CACHE: RwLock<Arc<TagCache>> = RwLock::new(Arc::new(TagCache::default()));
 }
 
 pub struct QuickTagApp {
@@ -251,6 +252,7 @@ impl eframe::App for QuickTagApp {
             let c = self.cache_load.take().unwrap();
             let cache = c.try_take().unwrap_or_default();
             self.cache = Arc::new(cache);
+            *CACHE.write() = self.cache.clone();
 
             self.strings_view = StringsView::new(
                 self.strings.clone(),

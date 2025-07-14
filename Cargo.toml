@@ -19,7 +19,7 @@ tiger-pkg = { version = "0.18.4", features = ["global_manager_instance"] }
 [package]
 name = "quicktag"
 version = "0.8.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 quicktag-core = { path = "./crates/core" }

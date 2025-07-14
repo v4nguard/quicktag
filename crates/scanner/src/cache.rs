@@ -17,7 +17,7 @@ pub struct TagCache {
 }
 
 impl TagCache {
-    pub const VERSION: u32 = 7;
+    pub const VERSION: u32 = 8;
 
     pub fn load(path: impl AsRef<Path>) -> anyhow::Result<CacheLoadResult> {
         if let Ok(cache_file) = File::open(&path) {
