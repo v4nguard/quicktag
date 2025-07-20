@@ -162,7 +162,10 @@ pub fn scan_file(
         let value = u32_from_endian(context.endian, m);
         let hash = TagHash(value);
 
-        if hash.is_pkg_file() && context.valid_file_hashes.binary_search(&hash).is_ok() {
+        if hash.0 != 0x811C9DC5
+            && hash.is_pkg_file()
+            && context.valid_file_hashes.binary_search(&hash).is_ok()
+        {
             r.file_hashes.push(ScannedHash {
                 offset: offset as u64,
                 hash,
