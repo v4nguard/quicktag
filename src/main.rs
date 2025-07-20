@@ -12,7 +12,7 @@ use eframe::wgpu;
 use env_logger::Env;
 use game_detector::InstalledGame;
 use log::info;
-use tiger_pkg::{package_manager, DestinyVersion, GameVersion, PackageManager, Version};
+use tiger_pkg::{DestinyVersion, GameVersion, PackageManager, Version, package_manager};
 
 use crate::gui::QuickTagApp;
 
@@ -60,7 +60,7 @@ fn main() -> eframe::Result<()> {
     let pm = PackageManager::new(
         packages_path,
         args.version
-            .unwrap_or(GameVersion::Destiny(DestinyVersion::Destiny2TheFinalShape)),
+            .unwrap_or(GameVersion::Destiny(DestinyVersion::Destiny2TheEdgeOfFate)),
         None,
     )
     .unwrap();
