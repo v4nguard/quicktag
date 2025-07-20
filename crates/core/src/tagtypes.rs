@@ -223,6 +223,7 @@ impl TagType {
             | GameVersion::Destiny(DestinyVersion::Destiny2WitchQueen)
             | GameVersion::Destiny(DestinyVersion::Destiny2Lightfall)
             | GameVersion::Destiny(DestinyVersion::Destiny2TheFinalShape)
+            | GameVersion::Destiny(DestinyVersion::Destiny2TheEdgeOfFate)
             | GameVersion::Marathon(MarathonVersion::MarathonAlpha) => {
                 Self::from_type_subtype_lf(t, st)
             }

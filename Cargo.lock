@@ -2095,7 +2095,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc2f4eb4bc735547cfed7c0a4922cbd04a4655978c09b54f1f7b228750664c34"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -3534,9 +3534,9 @@ dependencies = [
 
 [[package]]
 name = "tiger-pkg"
-version = "0.18.6"
+version = "0.18.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c040bdce17fc912a25f9e53bdecca2c9151c843b138bf5cadf8ecb50e28cedcb"
+checksum = "b263dfde6c6afa63287ff9293d0e6e98438b2e5df0f0492b31b840799f86c2ea"
 dependencies = [
  "aes",
  "aes-gcm",

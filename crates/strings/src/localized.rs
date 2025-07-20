@@ -404,6 +404,7 @@ pub fn create_stringmap() -> anyhow::Result<StringCache> {
         | GameVersion::Destiny(DestinyVersion::Destiny2WitchQueen)
         | GameVersion::Destiny(DestinyVersion::Destiny2Lightfall)
         | GameVersion::Destiny(DestinyVersion::Destiny2TheFinalShape)
+        | GameVersion::Destiny(DestinyVersion::Destiny2TheEdgeOfFate)
         | GameVersion::Marathon(MarathonVersion::MarathonAlpha) => create_stringmap_d2(),
         GameVersion::Destiny(DestinyVersion::DestinyFirstLookAlpha) => {
             create_stringmap_d1_firstlook()
@@ -428,7 +429,8 @@ pub fn create_stringmap_d2() -> anyhow::Result<StringCache> {
             DestinyVersion::Destiny2BeyondLight
             | DestinyVersion::Destiny2WitchQueen
             | DestinyVersion::Destiny2Lightfall
-            | DestinyVersion::Destiny2TheFinalShape => 0x808099EF,
+            | DestinyVersion::Destiny2TheFinalShape
+            | DestinyVersion::Destiny2TheEdgeOfFate => 0x808099EF,
         },
         GameVersion::Marathon(MarathonVersion::MarathonAlpha) => {
             error!("Marathon Alpha is not supported");

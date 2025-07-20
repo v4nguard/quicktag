@@ -12,17 +12,17 @@ use binrw::BinReaderExt;
 use dxgi::{GcmSurfaceFormat, GcnSurfaceFormat};
 use eframe::egui_wgpu::RenderState;
 use eframe::wgpu;
-use eframe::wgpu::util::DeviceExt;
 use eframe::wgpu::TextureDimension;
+use eframe::wgpu::util::DeviceExt;
 use headers_pc::TextureHeaderPC;
 use headers_ps::{TextureHeaderD2Ps4, TextureHeaderPs3, TextureHeaderRoiPs4};
 use headers_xbox::{TextureHeaderDevAlphaX360, TextureHeaderRoiXbox};
 use image::{DynamicImage, GenericImageView};
+use swizzle::Deswizzler;
 use swizzle::swizzle_ps::{GcmDeswizzler, GcnDeswizzler};
 use swizzle::swizzle_xbox::XenosDetiler;
-use swizzle::Deswizzler;
-use tiger_pkg::{package::PackagePlatform, GameVersion, TagHash};
-use tiger_pkg::{package_manager, DestinyVersion, MarathonVersion};
+use tiger_pkg::{DestinyVersion, MarathonVersion, package_manager};
+use tiger_pkg::{GameVersion, TagHash, package::PackagePlatform};
 
 #[derive(Debug)]
 pub struct TextureHeaderGeneric {
@@ -182,7 +182,10 @@ impl Texture {
                 if texture_data.len() < expected_size {
                     anyhow::bail!(
                         "Texture data size mismatch for {hash} ({}x{}x{} {:?}): expected {expected_size}, got {}",
-                        texture.width, texture.height, texture.depth, texture.format,
+                        texture.width,
+                        texture.height,
+                        texture.depth,
+                        texture.format,
                         texture_data.len()
                     );
                 }
@@ -244,7 +247,10 @@ impl Texture {
         if texture_data.len() < expected_size {
             anyhow::bail!(
                 "Texture data size mismatch for {hash} ({}x{}x{} {:?}): expected {expected_size}, got {}",
-                texture.width, texture.height, texture.depth, texture.format,
+                texture.width,
+                texture.height,
+                texture.depth,
+                texture.format,
                 texture_data.len()
             );
         }
@@ -305,7 +311,10 @@ impl Texture {
         if texture_data.len() < expected_size {
             anyhow::bail!(
                 "Texture data size mismatch for {hash} ({}x{}x{} {:?}): expected {expected_size}, got {}",
-                texture.width, texture.height, texture.depth, texture.format,
+                texture.width,
+                texture.height,
+                texture.depth,
+                texture.format,
                 texture_data.len()
             );
         }
@@ -363,7 +372,10 @@ impl Texture {
         if texture_data.len() < expected_size {
             anyhow::bail!(
                 "Texture data size mismatch for {hash} ({}x{}x{} {:?}): expected {expected_size}, got {}",
-                texture.width, texture.height, texture.depth, texture.format,
+                texture.width,
+                texture.height,
+                texture.depth,
+                texture.format,
                 texture_data.len()
             );
         }
@@ -427,7 +439,10 @@ impl Texture {
         if texture_data.len() < expected_size {
             anyhow::bail!(
                 "Texture data size mismatch for {hash} ({}x{}x{} {:?}): expected {expected_size}, got {}",
-                texture.width, texture.height, texture.depth, texture.format,
+                texture.width,
+                texture.height,
+                texture.depth,
+                texture.format,
                 texture_data.len()
             );
         }
@@ -523,7 +538,8 @@ impl Texture {
                 | DestinyVersion::Destiny2BeyondLight
                 | DestinyVersion::Destiny2WitchQueen
                 | DestinyVersion::Destiny2Lightfall
-                | DestinyVersion::Destiny2TheFinalShape,
+                | DestinyVersion::Destiny2TheFinalShape
+                | DestinyVersion::Destiny2TheEdgeOfFate,
             )
             | GameVersion::Marathon(MarathonVersion::MarathonAlpha) => {
                 let is_prebl =
@@ -665,7 +681,8 @@ impl Texture {
                 | DestinyVersion::Destiny2BeyondLight
                 | DestinyVersion::Destiny2WitchQueen
                 | DestinyVersion::Destiny2Lightfall
-                | DestinyVersion::Destiny2TheFinalShape,
+                | DestinyVersion::Destiny2TheFinalShape
+                | DestinyVersion::Destiny2TheEdgeOfFate,
             )
             | GameVersion::Marathon(MarathonVersion::MarathonAlpha) => {
                 let (texture, texture_data, comment) = Self::load_data_d2(hash, true)?;

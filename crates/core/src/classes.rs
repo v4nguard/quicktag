@@ -353,7 +353,8 @@ pub fn initialize_reference_names() {
         GameVersion::Destiny(DestinyVersion::Destiny2BeyondLight)
         | GameVersion::Destiny(DestinyVersion::Destiny2WitchQueen)
         | GameVersion::Destiny(DestinyVersion::Destiny2Lightfall)
-        | GameVersion::Destiny(DestinyVersion::Destiny2TheFinalShape) => CLASSES_DESTINY_BL,
+        | GameVersion::Destiny(DestinyVersion::Destiny2TheFinalShape)
+        | GameVersion::Destiny(DestinyVersion::Destiny2TheEdgeOfFate) => CLASSES_DESTINY_BL,
         GameVersion::Marathon(_) => CLASSES_MARATHON,
     };
 

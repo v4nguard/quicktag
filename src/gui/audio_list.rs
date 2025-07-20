@@ -1,15 +1,14 @@
 use crate::gui::audio::AudioPlayer;
 use crate::gui::common::tag_context;
-use crate::gui::{audio, View, ViewAction};
+use crate::gui::{View, ViewAction, audio};
 use eframe::egui;
 use eframe::egui::{Key, Widget};
 use eframe::wgpu::naga::FastIndexMap;
 use egui_extras::{Column, TableBuilder};
-use itertools::Itertools;
 use std::time::{Duration, Instant};
 use tiger_pkg::DestinyVersion;
-use tiger_pkg::{manager::PackagePath, GameVersion, TagHash};
-use tiger_pkg::{package_manager, MarathonVersion};
+use tiger_pkg::{GameVersion, TagHash, manager::PackagePath};
+use tiger_pkg::{MarathonVersion, package_manager};
 
 struct PackageAudio {
     pub streams: Vec<(TagHash, f32)>,
@@ -50,7 +49,8 @@ fn wwise_stream_type() -> (u8, u8) {
             DestinyVersion::Destiny2BeyondLight
             | DestinyVersion::Destiny2WitchQueen
             | DestinyVersion::Destiny2Lightfall
-            | DestinyVersion::Destiny2TheFinalShape => (26, 7),
+            | DestinyVersion::Destiny2TheFinalShape
+            | DestinyVersion::Destiny2TheEdgeOfFate => (26, 7),
         },
         // Same as post-BeyondLight
         GameVersion::Marathon(MarathonVersion::MarathonAlpha) => (26, 7),
@@ -70,7 +70,8 @@ pub fn wwise_bank_type() -> (u8, u8) {
             DestinyVersion::Destiny2BeyondLight
             | DestinyVersion::Destiny2WitchQueen
             | DestinyVersion::Destiny2Lightfall
-            | DestinyVersion::Destiny2TheFinalShape => (26, 6),
+            | DestinyVersion::Destiny2TheFinalShape
+            | DestinyVersion::Destiny2TheEdgeOfFate => (26, 6),
         },
         // Same as post-BeyondLight
         GameVersion::Marathon(MarathonVersion::MarathonAlpha) => (26, 6),
