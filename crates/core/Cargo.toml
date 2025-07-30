@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 arc-swap = "1.7.1"
 anyhow.workspace = true
-bytemuck = "1"
+bytemuck = { version = "1", features = ["derive"] }
 lazy_static = "1"
 log.workspace = true
 epaint.workspace = true

@@ -645,7 +645,7 @@ pub fn create_stringmap_d1_firstlook() -> anyhow::Result<StringCache> {
                 cur.read_exact(&mut data)?;
 
                 // Alignment always seems to be off here
-                let data_u16: Vec<u16> = bytemuck::pod_collect_to_vec(&data);
+                let data_u16: Vec<u16> = bytemuck::cast_slice(&data).to_vec();
 
                 final_string += &String::from_utf16(&data_u16)?;
             }
