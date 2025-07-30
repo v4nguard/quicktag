@@ -108,6 +108,8 @@ pub struct QuickTagApp {
     _schemafile_watcher: notify::RecommendedWatcher,
     schemafile_update_rx: Receiver<Result<notify::Event, notify::Error>>,
 
+    cache_warning_message: Option<String>,
+
     pub wgpu_state: RenderState,
 }
 
@@ -142,10 +144,8 @@ impl QuickTagApp {
 
         quicktag_core::classes::load_schemafile();
 
-        // Check cache status and show warning if needed
-        if let Some(warning_msg) = check_cache_wordlist_status() {
-            TOASTS.lock().warning(warning_msg);
-        }
+        // Check cache status for warning display
+        let cache_warning_message = check_cache_wordlist_status();
 
         QuickTagApp {
             scanner_context: ScannerContext::create(&package_manager())
@@ -187,6 +187,8 @@ impl QuickTagApp {
 
             _schemafile_watcher: schemafile_watcher,
             schemafile_update_rx: rx,
+
+            cache_warning_message,
 
             wgpu_state: cc.wgpu_render_state.clone().unwrap(),
         }
@@ -338,6 +340,26 @@ impl eframe::App for QuickTagApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.add_enabled_ui(!is_loading_cache, |ui| {
+                // Display cache warning if present
+                if let Some(ref warning_msg) = self.cache_warning_message {
+                    ui.horizontal(|ui| {
+                        ui.visuals_mut().widgets.noninteractive.bg_fill = Color32::from_rgb(139, 69, 19);
+                        ui.visuals_mut().widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0, Color32::WHITE);
+                        
+                        let warning_response = ui.add(
+                            egui::Label::new(egui::RichText::new(format!("⚠ {}", warning_msg)).color(Color32::WHITE))
+                                .wrap(true)
+                        );
+                        
+                        if ui.button("✕").clicked() {
+                            self.cache_warning_message = None;
+                        }
+                        
+                        warning_response
+                    });
+                    ui.separator();
+                }
+                
                 egui::menu::bar(ui, |ui| {
                     ui.menu_button("File", |ui| {
                         if ui.button("Scan file").clicked() {
@@ -369,6 +391,7 @@ impl eframe::App for QuickTagApp {
                             } else {
                                 self.tag_view = None;
                                 self.open_panel = Panel::Tag;
+                                self.cache_warning_message = None; // Clear warning when regenerating cache
 
                                 self.reload_cache = true;
                             }

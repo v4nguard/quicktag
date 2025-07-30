@@ -331,7 +331,7 @@ pub fn check_cache_wordlist_status() -> Option<String> {
     let cache_file_path = cache_path();
     
     match TagCache::load(&cache_file_path) {
-        Ok(CacheLoadResult::WordlistChanged) => {
+        Ok(CacheLoadResult::WordlistChanged(_)) => {
             Some("Cache is outdated due to wordlist changes. Please regenerate cache (File > Regenerate Cache).".to_string())
         }
         Ok(CacheLoadResult::Rebuild) => {
@@ -349,8 +349,9 @@ pub fn load_tag_cache() -> TagCache {
 
     match TagCache::load(&cache_file_path) {
         Ok(CacheLoadResult::Loaded(cache)) => return cache,
-        Ok(CacheLoadResult::WordlistChanged) => {
-            info!("Cache needs rebuilding due to wordlist changes");
+        Ok(CacheLoadResult::WordlistChanged(cache)) => {
+            info!("Cache wordlist is outdated but using existing cache");
+            return cache;
         }
         Ok(CacheLoadResult::Rebuild) => {
             info!("Cache needs rebuilding");

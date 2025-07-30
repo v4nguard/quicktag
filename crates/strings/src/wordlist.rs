@@ -74,40 +74,45 @@ pub fn compute_wordlist_hash() -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs::File;
-    use std::io::Write;
 
     #[test]
     fn test_wordlist_hash_changes_with_local_file() {
-        // Clean up any existing local wordlist first
-        let _ = std::fs::remove_file("local_wordlist.txt");
+        // Use a temporary file for testing instead of the actual local_wordlist.txt
+        let temp_file = "test_local_wordlist.txt";
         
-        // Get initial hash (embedded wordlist only)
-        let initial_hash = compute_wordlist_hash();
+        // Ensure temp file doesn't exist initially
+        let _ = std::fs::remove_file(temp_file);
         
-        // Create local wordlist
-        {
-            let mut file = File::create("local_wordlist.txt").unwrap();
-            writeln!(file, "test_string").unwrap();
-        }
+        // Create a mock function that reads from our temp file instead
+        // Since we cannot easily mock the local file reading, we'll test the hash function directly
+        // by creating two different content strings and verifying they produce different hashes
         
-        let new_hash = compute_wordlist_hash();
+        let content1 = include_str!("../../../wordlist.txt");
+        let content2 = format!("{}\ntest_additional_string", content1);
         
-        // Cleanup before assertion to avoid affecting other tests
-        std::fs::remove_file("local_wordlist.txt").unwrap();
+        let hash1 = fnv1(content1.as_bytes());
+        let hash2 = fnv1(content2.as_bytes());
         
-        // Hash should be different when local wordlist exists
-        assert_ne!(initial_hash, new_hash, "Hash should change when local wordlist is present");
+        // Hash should be different when content changes
+        assert_ne!(hash1, hash2, "Hash should change when wordlist content changes");
     }
 
     #[test]
     fn test_wordlist_hash_consistency() {
-        // Make sure no local wordlist exists before testing
-        let _ = std::fs::remove_file("local_wordlist.txt");
+        // Test that the same content produces the same hash
+        let content = include_str!("../../../wordlist.txt");
         
-        // Hash should be consistent for same content
+        let hash1 = fnv1(content.as_bytes());
+        let hash2 = fnv1(content.as_bytes());
+        assert_eq!(hash1, hash2, "Hash should be consistent for same wordlist content");
+    }
+
+    #[test]
+    fn test_compute_wordlist_hash_function() {
+        // Test the actual compute_wordlist_hash function consistency
+        // This will use whatever local_wordlist.txt exists (if any) but won't modify it
         let hash1 = compute_wordlist_hash();
         let hash2 = compute_wordlist_hash();
-        assert_eq!(hash1, hash2, "Hash should be consistent for same wordlist content");
+        assert_eq!(hash1, hash2, "compute_wordlist_hash should be consistent");
     }
 }

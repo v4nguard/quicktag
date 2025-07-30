@@ -21,7 +21,7 @@ pub struct TagCache {
 }
 
 impl TagCache {
-    pub const VERSION: u32 = 8;
+    pub const VERSION: u32 = 9;
 
     pub fn load(path: impl AsRef<Path>) -> anyhow::Result<CacheLoadResult> {
         if let Ok(cache_file) = File::open(&path) {
@@ -75,11 +75,11 @@ impl TagCache {
                                     let current_wordlist_hash = compute_wordlist_hash();
                                     if cache.wordlist_hash != current_wordlist_hash {
                                         info!(
-                                            "Cache is out of date due to wordlist changes, rebuilding (cache hash: {:08x}, current hash: {:08x})",
+                                            "Cache is out of date due to wordlist changes, but will continue using existing cache (cache hash: {:08x}, current hash: {:08x})",
                                             cache.wordlist_hash,
                                             current_wordlist_hash
                                         );
-                                        Ok(CacheLoadResult::WordlistChanged)
+                                        Ok(CacheLoadResult::WordlistChanged(cache))
                                     } else {
                                         Ok(CacheLoadResult::Loaded(cache))
                                     }
@@ -140,5 +140,5 @@ impl Default for TagCache {
 pub enum CacheLoadResult {
     Loaded(TagCache),
     Rebuild,
-    WordlistChanged,
+    WordlistChanged(TagCache),
 }
