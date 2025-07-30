@@ -34,7 +34,7 @@ use parking_lot::{Mutex, RwLock};
 use poll_promise::Promise;
 use quicktag_core::util::fnv1;
 use quicktag_scanner::context::ScannerContext;
-use quicktag_scanner::{load_tag_cache, scanner_progress, ScanStatus, TagCache};
+use quicktag_scanner::{check_cache_wordlist_status, load_tag_cache, scanner_progress, ScanStatus, TagCache};
 use quicktag_strings::localized::{create_stringmap, RawStringHashCache, StringCache};
 use rustc_hash::FxHashSet;
 use strings::StringViewVariant;
@@ -141,6 +141,11 @@ impl QuickTagApp {
             .unwrap();
 
         quicktag_core::classes::load_schemafile();
+
+        // Check cache status and show warning if needed
+        if let Some(warning_msg) = check_cache_wordlist_status() {
+            TOASTS.lock().warning(warning_msg);
+        }
 
         QuickTagApp {
             scanner_context: ScannerContext::create(&package_manager())

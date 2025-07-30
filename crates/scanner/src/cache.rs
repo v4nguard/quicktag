@@ -5,6 +5,7 @@ use super::ScanResult;
 use log::{error, info, warn};
 use rustc_hash::FxHashMap;
 use tiger_pkg::{TagHash, package_manager};
+use quicktag_strings::wordlist::compute_wordlist_hash;
 
 #[derive(bincode::Encode, bincode::Decode)]
 pub struct TagCache {
@@ -12,6 +13,9 @@ pub struct TagCache {
     pub timestamp: u64,
 
     pub version: u32,
+
+    /// Combined hash of embedded and local wordlists
+    pub wordlist_hash: u32,
 
     pub hashes: FxHashMap<TagHash, ScanResult>,
 }
@@ -67,7 +71,18 @@ impl TagCache {
 
                                     Ok(CacheLoadResult::Rebuild)
                                 } else {
-                                    Ok(CacheLoadResult::Loaded(cache))
+                                    // Check if wordlist hash matches
+                                    let current_wordlist_hash = compute_wordlist_hash();
+                                    if cache.wordlist_hash != current_wordlist_hash {
+                                        info!(
+                                            "Cache is out of date due to wordlist changes, rebuilding (cache hash: {:08x}, current hash: {:08x})",
+                                            cache.wordlist_hash,
+                                            current_wordlist_hash
+                                        );
+                                        Ok(CacheLoadResult::WordlistChanged)
+                                    } else {
+                                        Ok(CacheLoadResult::Loaded(cache))
+                                    }
                                 }
                             }
                             std::cmp::Ordering::Less => {
@@ -116,6 +131,7 @@ impl Default for TagCache {
         Self {
             timestamp: 0,
             version: Self::VERSION,
+            wordlist_hash: 0,
             hashes: Default::default(),
         }
     }
@@ -124,4 +140,5 @@ impl Default for TagCache {
 pub enum CacheLoadResult {
     Loaded(TagCache),
     Rebuild,
+    WordlistChanged,
 }

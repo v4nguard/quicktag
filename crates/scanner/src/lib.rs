@@ -325,11 +325,39 @@ pub fn cache_path() -> PathBuf {
     exe_relative_path(&cache_name)
 }
 
+/// Checks if the current cache is outdated due to wordlist changes
+/// Returns Some(message) if cache should be regenerated, None if cache is up to date
+pub fn check_cache_wordlist_status() -> Option<String> {
+    let cache_file_path = cache_path();
+    
+    match TagCache::load(&cache_file_path) {
+        Ok(CacheLoadResult::WordlistChanged) => {
+            Some("Cache is outdated due to wordlist changes. Please regenerate cache (File > Regenerate Cache).".to_string())
+        }
+        Ok(CacheLoadResult::Rebuild) => {
+            Some("Cache needs rebuilding. Please regenerate cache (File > Regenerate Cache).".to_string())
+        }
+        Ok(CacheLoadResult::Loaded(_)) => None,
+        Err(_) => {
+            Some("Cache file is missing or corrupted. Please regenerate cache (File > Regenerate Cache).".to_string())
+        }
+    }
+}
+
 pub fn load_tag_cache() -> TagCache {
     let cache_file_path = cache_path();
 
-    if let Ok(CacheLoadResult::Loaded(cache)) = TagCache::load(&cache_file_path) {
-        return cache;
+    match TagCache::load(&cache_file_path) {
+        Ok(CacheLoadResult::Loaded(cache)) => return cache,
+        Ok(CacheLoadResult::WordlistChanged) => {
+            info!("Cache needs rebuilding due to wordlist changes");
+        }
+        Ok(CacheLoadResult::Rebuild) => {
+            info!("Cache needs rebuilding");
+        }
+        Err(e) => {
+            error!("Failed to load cache: {}", e);
+        }
     }
 
     *SCANNER_PROGRESS.write() = ScanStatus::CreatingScanner;
@@ -539,6 +567,7 @@ fn transform_tag_cache(cache: FxHashMap<TagHash, ScanResult>) -> cache::TagCache
         .unwrap_or(0);
 
     new_cache.timestamp = timestamp;
+    new_cache.wordlist_hash = quicktag_strings::wordlist::compute_wordlist_hash();
 
     new_cache
 }

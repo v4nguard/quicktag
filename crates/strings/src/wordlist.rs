@@ -53,3 +53,20 @@ pub fn load_wordlist<F: FnMut(&str, u32)>(mut callback: F) {
         load_start.elapsed().as_millis()
     );
 }
+
+/// Computes a combined hash of the embedded wordlist and local wordlist
+/// This hash can be used to detect when wordlists have changed and cache needs regeneration
+pub fn compute_wordlist_hash() -> u32 {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    use std::hash::{Hash, Hasher};
+    
+    // Hash the embedded wordlist content
+    WORDLIST.hash(&mut hasher);
+    
+    // Hash local wordlist if it exists
+    if let Ok(local_content) = std::fs::read_to_string("local_wordlist.txt") {
+        local_content.hash(&mut hasher);
+    }
+    
+    hasher.finish() as u32
+}
