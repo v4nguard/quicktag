@@ -16,8 +16,8 @@ mod texturelist;
 use std::cell::RefCell;
 use std::path::Path;
 use std::rc::Rc;
-use std::sync::mpsc::Receiver;
 use std::sync::Arc;
+use std::sync::mpsc::Receiver;
 
 use eframe::egui::{PointerButton, TextEdit, Widget};
 use eframe::egui_wgpu::RenderState;
@@ -34,11 +34,11 @@ use parking_lot::{Mutex, RwLock};
 use poll_promise::Promise;
 use quicktag_core::util::fnv1;
 use quicktag_scanner::context::ScannerContext;
-use quicktag_scanner::{load_tag_cache, scanner_progress, ScanStatus, TagCache};
-use quicktag_strings::localized::{create_stringmap, RawStringHashCache, StringCache};
+use quicktag_scanner::{ScanStatus, TagCache, load_tag_cache, scanner_progress};
+use quicktag_strings::localized::{RawStringHashCache, StringCache, create_stringmap};
 use rustc_hash::FxHashSet;
 use strings::StringViewVariant;
-use tiger_pkg::{package_manager, TagHash};
+use tiger_pkg::{TagHash, package_manager};
 
 use self::named_tags::NamedTagView;
 use self::packages::PackagesView;
@@ -235,6 +235,7 @@ impl eframe::App for QuickTagApp {
                                 .animate(true)
                                 .text(scanner_progress().to_string()),
                         );
+                        ctx.request_repaint();
                     });
 
                 // 
