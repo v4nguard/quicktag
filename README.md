@@ -26,7 +26,7 @@ note that this is not the hash of the string itself, but rather the hash of a lo
 be multiple strings with the same hash, but different text. QuickTag will collapse these into a single entry, showing
 any strings that use this hash, as well as the tags that reference them.
 
-> [!IMPORTANT]  
+> [!IMPORTANT]
 > Note that due to the nature of FNV hashes, there will be a lot of false positives and overlapping strings in some
 > cases.
 
@@ -64,6 +64,7 @@ Where `<version>` is the version of the game used by the given packages. These c
 by `destiny-pkg`:
 
 <!-- - `d2_horizon` Destiny 2 Horizon Tools -->
+
 - `d1_devalpha` Destiny 2013 Internal Alpha
 - `d1_ttk` "Legacy" version of Destiny (The Taken King)
 - `d1_roi` The latest version of Destiny (Rise of Iron)
@@ -73,8 +74,10 @@ by `destiny-pkg`:
 - `d2_wq` Destiny 2 (Witch Queen/Season of the Seraph)
 - `d2_lf` Destiny 2 (Lightfall)
 - `d2_tfs` Destiny 2 (The Final Shape)
+- `d2_eof` Destiny 2 (The Edge of Fate)
+- `ma_alpha` Marathon Alpha
 
-> [!WARNING]  
+> [!WARNING]
 > `d1_ttk` and `d1_devalpha` support is WIP
 
 ## Building
@@ -90,5 +93,6 @@ cargo build --release
 ```
 
 The resulting binary will be located at `target/release/quicktag.exe`.
-> [!IMPORTANT]  
+
+> [!IMPORTANT]
 > For performance reasons, it is recommended to only build QuickTag in release mode.
