@@ -14,12 +14,13 @@ mod tag;
 mod texturelist;
 
 use std::cell::RefCell;
+use std::hash::{DefaultHasher, Hasher};
 use std::path::Path;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::mpsc::Receiver;
 
-use eframe::egui::{PointerButton, TextEdit, Widget};
+use eframe::egui::{PointerButton, RichText, TextEdit, Widget};
 use eframe::egui_wgpu::RenderState;
 use eframe::{
     egui::{self},
@@ -79,6 +80,7 @@ pub struct QuickTagApp {
     cache_load: Option<Promise<TagCache>>,
     reload_cache: bool,
     cache: Arc<TagCache>,
+    current_wordlist_hash: u64,
     tag_history: Rc<RefCell<TagHistory>>,
     strings: Arc<StringCache>,
     raw_strings: Arc<RawStringHashCache>,
@@ -149,6 +151,7 @@ impl QuickTagApp {
             reload_cache: true,
             tag_history: Rc::new(RefCell::new(TagHistory::default())),
             cache: Default::default(),
+            current_wordlist_hash: 0,
             tag_view: None,
             external_file_view: None,
             tag_input: String::new(),
@@ -278,7 +281,9 @@ impl eframe::App for QuickTagApp {
                 entry.push((s, false));
             }
 
+            let mut wordlist_hasher = DefaultHasher::new();
             quicktag_strings::wordlist::load_wordlist(|s, h| {
+                wordlist_hasher.write(s.as_bytes());
                 let entry = new_rsh_cache.entry(h).or_default();
                 if entry.iter().any(|(s2, _)| s2 == s) {
                     return;
@@ -286,6 +291,7 @@ impl eframe::App for QuickTagApp {
 
                 entry.push((s.to_string(), true));
             });
+            self.current_wordlist_hash = wordlist_hasher.finish();
 
             let mut filtered_wordlist_hashes: StringCache = Default::default();
             let found_hashes: FxHashSet<u32> = self
@@ -360,21 +366,20 @@ impl eframe::App for QuickTagApp {
                         }
 
                         if ui.button("Regenerate Cache").clicked() {
-                            if let Err(e) = std::fs::remove_file(quicktag_scanner::cache_path()) {
-                                log::error!("Failed to remove cache file: {}", e);
-                            } else {
-                                self.tag_view = None;
-                                self.open_panel = Panel::Tag;
-
-                                self.reload_cache = true;
-                            }
+                            self.regenerate_cache();
                             ui.close_menu();
                         }
                     });
 
-                    // ui.with_layout(egui::Layout::right_to_left(egui::Align::Max), |ui| {
-                    //     egui::global_dark_light_mode_switch(ui);
-                    // });
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Max), |ui| {
+                        // egui::global_dark_light_mode_switch(ui);
+                        if self.current_wordlist_hash != self.cache.wordlist_hash {
+                            if ui.button(RichText::new("Wordlist changed, click here to regenerate your cache").color(Color32::YELLOW)).clicked() {
+                                self.regenerate_cache();
+                            }
+                        }
+                    });
+
                 });
                 ui.separator();
 
@@ -576,6 +581,17 @@ impl QuickTagApp {
 
         if push_history {
             self.tag_history.borrow_mut().push(tag);
+        }
+    }
+
+    fn regenerate_cache(&mut self) {
+        if let Err(e) = std::fs::remove_file(quicktag_scanner::cache_path()) {
+            log::error!("Failed to remove cache file: {}", e);
+        } else {
+            self.tag_view = None;
+            self.open_panel = Panel::Tag;
+
+            self.reload_cache = true;
         }
     }
 }

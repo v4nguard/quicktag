@@ -14,6 +14,7 @@ pub struct TagCache {
     pub version: u32,
 
     pub hashes: FxHashMap<TagHash, ScanResult>,
+    pub wordlist_hash: u64,
 }
 
 impl TagCache {
@@ -117,6 +118,7 @@ impl Default for TagCache {
             timestamp: 0,
             version: Self::VERSION,
             hashes: Default::default(),
+            wordlist_hash: 0,
         }
     }
 }

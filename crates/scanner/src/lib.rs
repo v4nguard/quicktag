@@ -347,7 +347,7 @@ pub fn load_tag_cache() -> TagCache {
     let package_count = all_pkgs.len();
     let cache: FxHashMap<TagHash, ScanResult> = all_pkgs
         .par_iter()
-        .map_with(scanner_context, |context, path| {
+        .map_with(scanner_context.clone(), |context, path| {
             profiling::scope!("scan_pkg", &path.path);
             let current_package = {
                 let mut p = SCANNER_PROGRESS.write();
@@ -452,7 +452,8 @@ pub fn load_tag_cache() -> TagCache {
         .flatten()
         .collect();
 
-    let cache = transform_tag_cache(cache);
+    let mut cache = transform_tag_cache(cache);
+    cache.wordlist_hash = scanner_context.wordlist_hash;
 
     *SCANNER_PROGRESS.write() = ScanStatus::WritingCache;
     info!("Compressing tag cache...");
