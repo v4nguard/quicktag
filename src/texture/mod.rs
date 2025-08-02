@@ -256,7 +256,7 @@ impl Texture {
         }
 
         let comment = format!("{texture:#X?}");
-        if (texture.flags1 & 0xc00) != 0x400 {
+        if (texture.flags1 & 0xF00) != 0x500 {
             let unswizzled = GcnDeswizzler
                 .deswizzle(
                     &texture_data,
