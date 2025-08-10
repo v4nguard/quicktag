@@ -1178,6 +1178,22 @@ impl View for TagView {
                         CollapsingHeader::new(egui::RichText::new("Raw String Hashes").strong())
                             .default_open(true)
                             .show(ui, |ui| {
+                                if !self.raw_string_hashes.is_empty()
+                                    && ui.button("Copy all").clicked()
+                                {
+                                    ui.output_mut(|o| {
+                                        let mut strs: Vec<String> = vec![];
+                                        for (_, hash) in &self.raw_string_hashes {
+                                            if let Some(str) = self.raw_string_hash_cache.get(hash)
+                                                && !str.is_empty()
+                                            {
+                                                strs.push(str[0].0.clone());
+                                            }
+                                        }
+
+                                        o.copied_text = strs.join("\n")
+                                    });
+                                }
                                 ui.group(|ui| {
                                     if self.raw_string_hashes.is_empty() {
                                         ui.label(
