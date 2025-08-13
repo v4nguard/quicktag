@@ -11,13 +11,13 @@ use itertools::Itertools;
 use quicktag_core::tagtypes::TagType;
 use quicktag_scanner::TagCache;
 use rustc_hash::FxHashMap;
-use tiger_pkg::{package_manager, DestinyVersion, GameVersion, TagHash};
+use tiger_pkg::{DestinyVersion, GameVersion, TagHash, package_manager};
 
 use quicktag_strings::localized::{
-    decode_text, StringCache, StringCacheVec, StringContainer, StringData, StringPart,
+    StringCache, StringCacheVec, StringContainer, StringData, StringPart, decode_text,
 };
 
-use super::{common::ResponseExt, tag::format_tag_entry, View, ViewAction};
+use super::{View, ViewAction, common::ResponseExt, tag::format_tag_entry};
 
 pub struct StringsView {
     cache: Arc<TagCache>,
@@ -337,10 +337,14 @@ fn dump_all_languages() -> anyhow::Result<()> {
                     cur.seek(combination.data.into())?;
                     cur.seek(SeekFrom::Current(ip * 0x20))?;
                     let part: StringPart = cur.read_le()?;
-                    cur.seek(part.data.into())?;
-                    let mut data = vec![0u8; part.byte_length as usize];
-                    cur.read_exact(&mut data)?;
-                    final_string += &decode_text(&data, part.cipher_shift);
+                    if part.variable_hash != 0x811c9dc5 {
+                        final_string += &format!("<{:08X}>", part.variable_hash);
+                    } else {
+                        cur.seek(part.data.into())?;
+                        let mut data = vec![0u8; part.byte_length as usize];
+                        cur.read_exact(&mut data)?;
+                        final_string += &decode_text(&data, part.cipher_shift);
+                    }
                 }
 
                 writeln!(f, "{t}:{hash:08x} : {final_string}")?;
