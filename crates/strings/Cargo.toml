@@ -9,6 +9,11 @@ quicktag-core = { path = "../core" }
 anyhow.workspace = true
 binrw.workspace = true
 bytemuck = "1"
+lazy_static = "1.4.0"
 log.workspace = true
 rustc-hash.workspace = true
 tiger-pkg.workspace = true
+zstd = { version = "0.13.3", default-features = false }
+
+[build-dependencies]
+zstd = { version = "0.13.3", default-features = false }

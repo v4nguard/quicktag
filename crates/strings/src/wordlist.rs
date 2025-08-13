@@ -1,9 +1,17 @@
 use std::{io::BufRead, time::Instant};
 
+use lazy_static::lazy_static;
 use log::{error, info};
 use quicktag_core::util::{FNV1_BASE, fnv1};
 
-const WORDLIST: &str = include_str!("../../../wordlist.txt");
+lazy_static! {
+    static ref WORDLIST: String = {
+        info!("Decompressing wordlist...");
+        const DATA: &[u8] = include_bytes!("../wordlist.zst");
+        let decompressed = zstd::stream::decode_all(&mut std::io::Cursor::new(DATA)).unwrap();
+        String::from_utf8(decompressed).unwrap()
+    };
+}
 
 pub fn load_wordlist<F: FnMut(&str, u32)>(mut callback: F) {
     let load_start = Instant::now();

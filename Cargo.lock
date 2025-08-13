@@ -2981,10 +2981,12 @@ dependencies = [
  "anyhow",
  "binrw",
  "bytemuck",
+ "lazy_static",
  "log",
  "quicktag-core",
  "rustc-hash 2.1.0",
  "tiger-pkg",
+ "zstd",
 ]
 
 [[package]]
