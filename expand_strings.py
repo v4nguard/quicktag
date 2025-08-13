@@ -6,12 +6,14 @@ def windows(l, size):
 
     return w
 
-f = open("wordlist_old.txt", 'r', encoding='utf-8', errors='replace')
+f = open("wordlist.txt", 'r', encoding='utf-8', errors='replace')
 
-CHARSET = "0123456789abcdefghijklmnopqrstuvwxyz_-."
+CHARSET = "0123456789abcdefghijklmnopqrstuvwxyz_-. "
 strings = set()
 for line in f.readlines():
     line = line.strip()
+    if len(line) == 0:
+        continue
     strings.add(line)
     if "_" not in line:
         continue
@@ -26,7 +28,7 @@ for line in f.readlines():
     for i in range(2, len(parts)):
         for s in windows(parts, i):
             strings.add("_".join(s))
-    
+
 
     split_part = ""
     for c in line.lower():
