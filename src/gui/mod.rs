@@ -1,5 +1,6 @@
 #[cfg(feature = "audio")]
 mod audio;
+mod audio_events;
 #[cfg(feature = "audio")]
 mod audio_list;
 mod common;
@@ -17,8 +18,8 @@ use std::cell::RefCell;
 use std::hash::{DefaultHasher, Hasher};
 use std::path::Path;
 use std::rc::Rc;
+use std::sync::Arc;
 use std::sync::mpsc::Receiver;
-use std::sync::{Arc, Once, OnceLock};
 
 use eframe::egui::{PointerButton, RichText, TextEdit, Widget};
 use eframe::egui_wgpu::RenderState;
@@ -59,6 +60,7 @@ pub enum Panel {
     Textures,
     #[cfg(feature = "audio")]
     Audio,
+    AudioEvents,
     Strings,
     ExternalFile,
 }
@@ -111,6 +113,7 @@ pub struct QuickTagApp {
     textures_view: TexturesView,
     #[cfg(feature = "audio")]
     audio_view: audio_list::AudioView,
+    audio_events_view: audio_events::AudioEventView,
     strings_view: StringsView,
     raw_strings_view: RawStringsView,
     raw_string_hashes_view: StringsView,
@@ -176,6 +179,7 @@ impl QuickTagApp {
             textures_view: TexturesView::new(texture_cache),
             #[cfg(feature = "audio")]
             audio_view: audio_list::AudioView::new(),
+            audio_events_view: audio_events::AudioEventView::new(),
             strings_view: StringsView::new(
                 strings.clone(),
                 Default::default(),
@@ -345,6 +349,7 @@ impl eframe::App for QuickTagApp {
 
             self.raw_strings = Arc::new(new_rsh_cache);
             *RAW_STRING_HASH_LOOKUP.write() = Some(Arc::clone(&self.raw_strings));
+            self.audio_events_view = audio_events::AudioEventView::new();
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -478,6 +483,7 @@ impl eframe::App for QuickTagApp {
                     ui.selectable_value(&mut self.open_panel, Panel::Textures, "Textures");
                     #[cfg(feature = "audio")]
                     ui.selectable_value(&mut self.open_panel, Panel::Audio, "Audio");
+                    ui.selectable_value(&mut self.open_panel, Panel::AudioEvents, "Wwise Events");
                     ui.selectable_value(&mut self.open_panel, Panel::Strings, "Strings");
                     if let Some(external_file_view) = &self.external_file_view {
                         ui.selectable_value(
@@ -513,6 +519,7 @@ impl eframe::App for QuickTagApp {
                     Panel::Textures => self.textures_view.view(ctx, ui),
                     #[cfg(feature = "audio")]
                     Panel::Audio => self.audio_view.view(ctx, ui),
+                    Panel::AudioEvents => self.audio_events_view.view(ctx, ui),
                     Panel::Strings => match self.strings_panel {
                         StringsPanel::Localized => self.strings_view.view(ctx, ui),
                         StringsPanel::Raw => self.raw_strings_view.view(ctx, ui),

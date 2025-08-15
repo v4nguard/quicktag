@@ -185,9 +185,9 @@ impl View for PackagesView {
                                         ))
                                         .color(tag_type.display_color()),
                                     ))
-                                    .tag_context_with_texture(
+                                    .tag_context_with_preview(
                                         tag,
-                                        &self.texture_cache,
+                                        Some(&self.texture_cache),
                                         tag_type.is_texture() && tag_type.is_header(),
                                     )
                                     .clicked()

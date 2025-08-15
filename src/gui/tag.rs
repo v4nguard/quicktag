@@ -399,7 +399,7 @@ impl TagView {
             ui.horizontal(|ui| {
                 if ui
                     .add_enabled(depth > 0, egui::SelectableLabel::new(false, tag_label))
-                    .tag_context_with_texture(traversed.tag, &self.texture_cache, is_texture)
+                    .tag_context_with_preview(traversed.tag, Some(&self.texture_cache), is_texture)
                     .clicked()
                 {
                     if ui.input(|i| i.modifiers.ctrl)
@@ -430,7 +430,11 @@ impl TagView {
                         ui.add_enabled(depth > 0, egui::SelectableLabel::new(false, tag_label));
 
                     if response
-                        .tag_context_with_texture(traversed.tag, &self.texture_cache, is_texture)
+                        .tag_context_with_preview(
+                            traversed.tag,
+                            Some(&self.texture_cache),
+                            is_texture,
+                        )
                         .clicked()
                     {
                         open_new_tag = Some(traversed.tag);
@@ -746,9 +750,9 @@ impl TagView {
 
                 let response = ui.selectable_label(false, tag_label);
                 if response
-                    .tag_context_with_texture(
+                    .tag_context_with_preview(
                         *tag,
-                        &self.texture_cache,
+                        Some(&self.texture_cache),
                         tagtype.is_texture() && tagtype.is_header(),
                     )
                     .clicked()
@@ -997,9 +1001,9 @@ impl View for TagView {
                                 if tag.hash.hash32() != self.tag {
                                     let response = ui.selectable_label(false, tag_label);
                                     if response
-                                        .tag_context_with_texture(
+                                        .tag_context_with_preview(
                                             tag.hash.hash32(),
-                                            &self.texture_cache,
+                                            Some(&self.texture_cache),
                                             is_texture,
                                         )
                                         .clicked()

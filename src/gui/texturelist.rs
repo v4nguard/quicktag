@@ -336,7 +336,11 @@ impl View for TexturesView {
                                     }
 
                                     if img_container
-                                        .tag_context_with_texture(*hash, &self.texture_cache, true)
+                                        .tag_context_with_preview(
+                                            *hash,
+                                            Some(&self.texture_cache),
+                                            true,
+                                        )
                                         .on_hover_text(RichText::new(format!("{hash}")).strong())
                                         .clicked()
                                     {

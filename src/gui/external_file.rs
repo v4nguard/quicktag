@@ -59,9 +59,9 @@ impl ExternalFileScanView {
 
                     let response = ui.selectable_label(false, tag_label);
                     if response
-                        .tag_context_with_texture(
+                        .tag_context_with_preview(
                             tag.hash.hash32(),
-                            texture_cache,
+                            Some(texture_cache),
                             tagtype.is_texture() && tagtype.is_header(),
                         )
                         .clicked()
