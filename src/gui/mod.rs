@@ -17,8 +17,8 @@ use std::cell::RefCell;
 use std::hash::{DefaultHasher, Hasher};
 use std::path::Path;
 use std::rc::Rc;
-use std::sync::Arc;
 use std::sync::mpsc::Receiver;
+use std::sync::{Arc, Once, OnceLock};
 
 use eframe::egui::{PointerButton, RichText, TextEdit, Widget};
 use eframe::egui_wgpu::RenderState;
@@ -73,6 +73,14 @@ pub enum StringsPanel {
 lazy_static! {
     pub static ref TOASTS: Arc<Mutex<Toasts>> = Arc::new(Mutex::new(Toasts::new()));
     pub static ref CACHE: RwLock<Arc<TagCache>> = RwLock::new(Arc::new(TagCache::default()));
+    pub static ref RAW_STRING_HASH_LOOKUP: RwLock<Option<Arc<RawStringHashCache>>> =
+        RwLock::new(None);
+}
+
+pub fn get_string_for_hash(hash: u32) -> Option<String> {
+    let lookup = RAW_STRING_HASH_LOOKUP.read();
+    let lookup = lookup.as_ref()?;
+    lookup.get(&hash)?.first().cloned().map(|(s, _)| s)
 }
 
 pub struct QuickTagApp {
@@ -207,44 +215,44 @@ impl eframe::App for QuickTagApp {
 
         ctx.set_style(style::style());
         let mut is_loading_cache = false;
-        if let Some(cache_promise) = self.cache_load.as_ref() {
-            if cache_promise.poll().is_pending() {
-                {
-                    let painter = ctx.layer_painter(egui::LayerId::background());
-                    painter.rect_filled(
-                        egui::Rect::EVERYTHING,
-                        Rounding::default(),
-                        Color32::from_black_alpha(127),
-                    );
-                }
-                egui::Window::new("Loading cache")
-                    .collapsible(false)
-                    .resizable(false)
-                    .title_bar(false)
-                    .anchor(Align2::CENTER_CENTER, Vec2::ZERO)
-                    .show(ctx, |ui| {
-                        let progress = if let ScanStatus::Scanning {
-                            current_package,
-                            total_packages,
-                        } = scanner_progress()
-                        {
-                            current_package as f32 / total_packages as f32
-                        } else {
-                            0.9999
-                        };
-
-                        ui.add(
-                            egui::ProgressBar::new(progress)
-                                .animate(true)
-                                .text(scanner_progress().to_string()),
-                        );
-                        ctx.request_repaint();
-                    });
-
-                // 
-
-                is_loading_cache = true;
+        if let Some(cache_promise) = self.cache_load.as_ref()
+            && cache_promise.poll().is_pending()
+        {
+            {
+                let painter = ctx.layer_painter(egui::LayerId::background());
+                painter.rect_filled(
+                    egui::Rect::EVERYTHING,
+                    Rounding::default(),
+                    Color32::from_black_alpha(127),
+                );
             }
+            egui::Window::new("Loading cache")
+                .collapsible(false)
+                .resizable(false)
+                .title_bar(false)
+                .anchor(Align2::CENTER_CENTER, Vec2::ZERO)
+                .show(ctx, |ui| {
+                    let progress = if let ScanStatus::Scanning {
+                        current_package,
+                        total_packages,
+                    } = scanner_progress()
+                    {
+                        current_package as f32 / total_packages as f32
+                    } else {
+                        0.9999
+                    };
+
+                    ui.add(
+                        egui::ProgressBar::new(progress)
+                            .animate(true)
+                            .text(scanner_progress().to_string()),
+                    );
+                    ctx.request_repaint();
+                });
+
+            // 
+
+            is_loading_cache = true;
         }
 
         if self
@@ -336,6 +344,7 @@ impl eframe::App for QuickTagApp {
             // }
 
             self.raw_strings = Arc::new(new_rsh_cache);
+            *RAW_STRING_HASH_LOOKUP.write() = Some(Arc::clone(&self.raw_strings));
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -373,10 +382,8 @@ impl eframe::App for QuickTagApp {
 
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Max), |ui| {
                         // egui::global_dark_light_mode_switch(ui);
-                        if self.current_wordlist_hash != self.cache.wordlist_hash {
-                            if ui.button(RichText::new("Wordlist changed, click here to regenerate your cache").color(Color32::YELLOW)).clicked() {
-                                self.regenerate_cache();
-                            }
+                        if self.current_wordlist_hash != self.cache.wordlist_hash && ui.button(RichText::new("Wordlist changed, click here to regenerate your cache").color(Color32::YELLOW)).clicked() {
+                            self.regenerate_cache();
                         }
                     });
 

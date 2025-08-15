@@ -1,8 +1,8 @@
 use eframe::egui::{self, RichText};
 use quicktag_core::tagtypes::TagType;
-use tiger_pkg::{package::UEntryHeader, package_manager, PackageNamedTagEntry};
+use tiger_pkg::{PackageNamedTagEntry, package::UEntryHeader, package_manager};
 
-use super::{common::ResponseExt, tag::format_tag_entry, View, ViewAction};
+use super::{View, ViewAction, common::ResponseExt, tag::format_tag_entry};
 
 pub struct NamedTags {
     pub tags: Vec<(UEntryHeader, PackageNamedTagEntry)>,

@@ -1,11 +1,11 @@
 use eframe::egui::{self, RichText};
 use quicktag_core::tagtypes::TagType;
-use tiger_pkg::{manager::PackagePath, package::UEntryHeader, package_manager, TagHash, Version};
+use tiger_pkg::{TagHash, Version, manager::PackagePath, package::UEntryHeader, package_manager};
 
 use super::{
-    common::{dump_wwise_info, ResponseExt},
-    tag::format_tag_entry,
     View, ViewAction,
+    common::{ResponseExt, dump_wwise_info},
+    tag::format_tag_entry,
 };
 use crate::gui::common::open_audio_file_in_default_application;
 use crate::texture::cache::TextureCache;

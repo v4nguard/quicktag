@@ -8,9 +8,9 @@ use log::{error, info, warn};
 use quicktag_core::tagtypes::TagType;
 use std::io::{Cursor, Write};
 use std::num::NonZeroU32;
-use tiger_pkg::{package_manager, TagHash};
+use tiger_pkg::{TagHash, package_manager};
 
-use crate::texture::{cache::TextureCache, Texture};
+use crate::texture::{Texture, cache::TextureCache};
 
 use super::TOASTS;
 
@@ -222,7 +222,10 @@ pub fn tag_context(ui: &mut egui::Ui, tag: TagHash) {
     }
 
     if let Some(tag64) = package_manager().get_tag64_for_tag32(tag) {
-        if ui.selectable_label(false, format!("📋 Copy 64-bit tag{flipped_postfix}")).clicked() {
+        if ui
+            .selectable_label(false, format!("📋 Copy 64-bit tag{flipped_postfix}"))
+            .clicked()
+        {
             ui.output_mut(|o| {
                 o.copied_text = if copy_flipped {
                     format!("{:016X}", tag64.0.swap_bytes())

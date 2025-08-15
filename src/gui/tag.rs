@@ -18,6 +18,7 @@ use super::{
         tag_context,
     },
 };
+use crate::gui::get_string_for_hash;
 use crate::gui::hexview::TagHexView;
 use crate::util::ui_image_rotated;
 use crate::{texture::Texture, texture::cache::TextureCache};
@@ -1725,17 +1726,28 @@ pub fn format_tag_entry(tag: TagHash, entry: Option<&UEntryHeader>) -> String {
             String::new()
         };
 
+        let kind = TagType::from_type_subtype(entry.file_type, entry.file_subtype);
+        let name_postfix = if kind == TagType::WwiseBank {
+            get_string_for_hash(entry.reference)
+        } else {
+            None
+        };
         format!(
-            "{}{named_tag}{tag} {}{ref_label} ({}+{}, ref {:08X})",
+            "{}{named_tag}{tag} {}{ref_label} ({}+{}, ref {:08X}{})",
             if package_manager().get_tag64_for_tag32(tag).is_some() {
                 "★ "
             } else {
                 ""
             },
-            TagType::from_type_subtype(entry.file_type, entry.file_subtype),
+            kind,
             entry.file_type,
             entry.file_subtype,
             entry.reference,
+            if let Some(postfix) = name_postfix {
+                &format!(" ({postfix})")
+            } else {
+                ""
+            },
         )
     } else {
         format!("{} (pkg entry not found)", tag)

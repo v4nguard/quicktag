@@ -1,12 +1,12 @@
-use eframe::egui::{self, pos2, vec2, Color32, RichText, Stroke, Widget};
+use eframe::egui::{self, Color32, RichText, Stroke, Widget, pos2, vec2};
 use quicktag_core::tagtypes::TagType;
 use std::fmt::{Display, Formatter};
-use tiger_pkg::{manager::PackagePath, package_manager, TagHash};
+use tiger_pkg::{TagHash, manager::PackagePath, package_manager};
 
-use crate::texture::{cache::TextureCache, Texture, TextureDesc};
+use crate::texture::{Texture, TextureDesc, cache::TextureCache};
 use crate::util::ui_image_rotated;
 
-use super::{common::ResponseExt, View, ViewAction};
+use super::{View, ViewAction, common::ResponseExt};
 
 const DESC_FILTER_PRESETS: &[(&str, &str)] = &[
     ("(De)buff Icons", "75x75x1 Rgb"),

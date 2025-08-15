@@ -1,12 +1,12 @@
 use crate::gui::common::ResponseExt;
-use crate::gui::tag::{format_tag_entry, ExtendedScanResult};
+use crate::gui::tag::{ExtendedScanResult, format_tag_entry};
 use crate::swap_to_ne;
-use binrw::{binread, BinReaderExt, Endian};
+use binrw::{BinReaderExt, Endian, binread};
 use eframe::egui;
 use eframe::egui::ahash::HashMap;
 use eframe::egui::{
-    collapsing_header::CollapsingState, vec2, Color32, CursorIcon, Rgba, RichText, ScrollArea,
-    Sense, Stroke, Ui,
+    Color32, CursorIcon, Rgba, RichText, ScrollArea, Sense, Stroke, Ui,
+    collapsing_header::CollapsingState, vec2,
 };
 use itertools::Itertools;
 use log::warn;
@@ -509,7 +509,9 @@ fn find_all_array_ranges(data: &[u8]) -> Vec<ArrayRange> {
                 } else {
                     warn!(
                         "Array data for class {:08X}/{} goes beyond file end (data_start=0x{data_start:X} array_size=0x{:X} file_end=0x{file_end:X}",
-                        class.id, class.name, class.array_size(header.count as usize).unwrap_or_default()
+                        class.id,
+                        class.name,
+                        class.array_size(header.count as usize).unwrap_or_default()
                     );
                 }
             }

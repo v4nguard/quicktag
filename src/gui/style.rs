@@ -3,9 +3,9 @@
 use eframe::egui;
 use eframe::egui::Margin;
 use egui::{
+    Color32, Rounding, Stroke, Style, Vec2, Visuals,
     epaint::Shadow,
     style::{Interaction, Selection, Spacing, WidgetVisuals, Widgets},
-    Color32, Rounding, Stroke, Style, Vec2, Visuals,
 };
 
 pub fn style() -> Style {

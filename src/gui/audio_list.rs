@@ -78,6 +78,21 @@ pub fn wwise_bank_type() -> (u8, u8) {
     }
 }
 
+pub fn wwise_event_type() -> Option<u32> {
+    match package_manager().version {
+        GameVersion::Destiny(v) => match v {
+            DestinyVersion::Destiny2Shadowkeep => Some(0x80809802),
+            DestinyVersion::Destiny2BeyondLight
+            | DestinyVersion::Destiny2WitchQueen
+            | DestinyVersion::Destiny2Lightfall
+            | DestinyVersion::Destiny2TheFinalShape
+            | DestinyVersion::Destiny2TheEdgeOfFate => Some(0x80809738),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
 impl PackageAudio {
     pub fn by_pkg_id(id: u16) -> Self {
         let (wwise_type, wwise_subtype) = wwise_stream_type();

@@ -3,7 +3,7 @@ use eframe::wgpu;
 
 use super::TextureType;
 
-use crate::util::{ui_image_rotated, UiExt};
+use crate::util::{UiExt, ui_image_rotated};
 
 use eframe::egui::Sense;
 

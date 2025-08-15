@@ -11,8 +11,8 @@ use std::hash::BuildHasherDefault;
 use std::io::{Cursor, Seek, SeekFrom};
 use std::sync::Arc;
 use std::time::Instant;
-use tiger_pkg::package_manager;
 use tiger_pkg::TagHash;
+use tiger_pkg::package_manager;
 use vgmstream::info::VgmstreamInfo;
 
 pub enum AudioPlayerState {

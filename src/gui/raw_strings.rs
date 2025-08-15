@@ -5,9 +5,9 @@ use itertools::Itertools;
 use quicktag_core::{tagtypes::TagType, util::fnv1};
 use quicktag_scanner::TagCache;
 use rustc_hash::FxHashMap;
-use tiger_pkg::{package_manager, TagHash};
+use tiger_pkg::{TagHash, package_manager};
 
-use super::{common::ResponseExt, tag::format_tag_entry, View, ViewAction};
+use super::{View, ViewAction, common::ResponseExt, tag::format_tag_entry};
 
 pub struct RawStringsView {
     strings: Vec<(String, Vec<TagHash>, u32)>,
