@@ -9,7 +9,6 @@ use rodio::buffer::SamplesBuffer;
 use rustc_hash::FxHasher;
 use std::hash::BuildHasherDefault;
 use std::io::{Cursor, Seek, SeekFrom};
-use std::sync::Arc;
 use std::time::Instant;
 use tiger_pkg::TagHash;
 use tiger_pkg::package_manager;
@@ -36,7 +35,7 @@ pub struct PlayingFile {
 }
 
 pub struct AudioPlayer {
-    cache: Arc<RwLock<AudioCacheMap>>,
+    cache: RwLock<AudioCacheMap>,
     _output: (rodio::OutputStream, rodio::OutputStreamHandle),
     sink: rodio::Sink,
 
@@ -56,7 +55,7 @@ impl AudioPlayer {
         let sink = rodio::Sink::try_new(&output.1).unwrap();
         sink.set_volume(0.5);
         Self {
-            cache: Arc::new(RwLock::new(AudioCacheMap::default())),
+            cache: RwLock::new(AudioCacheMap::default()),
             sink,
             _output: output,
             playing: RwLock::new(None),

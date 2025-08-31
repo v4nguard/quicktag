@@ -3,6 +3,7 @@ use quicktag_core::tagtypes::TagType;
 use std::fmt::{Display, Formatter};
 use tiger_pkg::{TagHash, manager::PackagePath, package_manager};
 
+use crate::gui::common;
 use crate::texture::{Texture, TextureDesc, cache::TextureCache};
 use crate::util::ui_image_rotated;
 
@@ -245,6 +246,24 @@ impl View for TexturesView {
                             }
                         }
                     });
+
+                if ui
+                    .button("Export All")
+                    .on_hover_text("Exports all filtered textures")
+                    .clicked()
+                {
+                    let filter = self.filter_texdesc.to_lowercase();
+                    for (_i, hash, _tag_type, desc) in &self.textures {
+                        if let Some(desc) = desc
+                            && !filter.is_empty()
+                            && !desc.info().to_lowercase().contains(&filter)
+                        {
+                            continue;
+                        }
+
+                        common::export_texture(&self.texture_cache, *hash);
+                    }
+                }
             });
 
             ui.separator();
@@ -266,12 +285,11 @@ impl View for TexturesView {
 
                             let filter = self.filter_texdesc.to_lowercase();
                             for (_i, hash, _tag_type, desc) in &self.textures {
-                                if let Some(desc) = desc {
-                                    if !filter.is_empty()
-                                        && !desc.info().to_lowercase().contains(&filter)
-                                    {
-                                        continue;
-                                    }
+                                if let Some(desc) = desc
+                                    && !filter.is_empty()
+                                    && !desc.info().to_lowercase().contains(&filter)
+                                {
+                                    continue;
                                 }
 
                                 let img_container = ui.allocate_response(

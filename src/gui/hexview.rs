@@ -16,7 +16,7 @@ use std::io::{Cursor, Seek, SeekFrom};
 use tiger_pkg::package_manager;
 use tiger_pkg::{DestinyVersion, GameVersion, TagHash, Version};
 
-use super::tag::{TagArray, TagView};
+use super::tag::TagArray;
 
 pub struct TagHexView {
     tag: TagHash,
@@ -489,31 +489,31 @@ fn find_all_array_ranges(data: &[u8]) -> Vec<ArrayRange> {
         let start = offset;
         let data_start = offset + 16;
         let mut pretty_rows = vec![];
-        if let Some(class) = get_class_by_id(header.tagtype) {
-            if class.has_pretty_formatter() {
-                let class_size = class
-                    .size
-                    .expect("Class size zero but has a pretty formatter??");
-                if data_start + (class.array_size(header.count as usize).unwrap_or_default() as u64)
-                    <= file_end
-                {
-                    for i in 0..header.count as usize {
-                        let offset = data_start as usize + i * class_size;
-                        let data = &data[offset..offset + class_size];
-                        pretty_rows.push(
-                            class
-                                .parse_and_format(data, endian)
-                                .unwrap_or_else(|| "Failed to parse row".to_string()),
-                        );
-                    }
-                } else {
-                    warn!(
-                        "Array data for class {:08X}/{} goes beyond file end (data_start=0x{data_start:X} array_size=0x{:X} file_end=0x{file_end:X}",
-                        class.id,
-                        class.name,
-                        class.array_size(header.count as usize).unwrap_or_default()
+        if let Some(class) = get_class_by_id(header.tagtype)
+            && class.has_pretty_formatter()
+        {
+            let class_size = class
+                .size
+                .expect("Class size zero but has a pretty formatter??");
+            if data_start + (class.array_size(header.count as usize).unwrap_or_default() as u64)
+                <= file_end
+            {
+                for i in 0..header.count as usize {
+                    let offset = data_start as usize + i * class_size;
+                    let data = &data[offset..offset + class_size];
+                    pretty_rows.push(
+                        class
+                            .parse_and_format(data, endian)
+                            .unwrap_or_else(|| "Failed to parse row".to_string()),
                     );
                 }
+            } else {
+                warn!(
+                    "Array data for class {:08X}/{} goes beyond file end (data_start=0x{data_start:X} array_size=0x{:X} file_end=0x{file_end:X}",
+                    class.id,
+                    class.name,
+                    class.array_size(header.count as usize).unwrap_or_default()
+                );
             }
         }
 

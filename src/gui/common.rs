@@ -1,7 +1,7 @@
 use std::fs::File;
 
 use eframe::egui::RichText;
-use eframe::egui::{self, text};
+use eframe::egui::{self};
 use image::{DynamicImage, GenericImage, ImageFormat};
 use lazy_static::lazy_static;
 use log::{error, info, warn};
@@ -44,76 +44,52 @@ impl ResponseExt for egui::Response {
         is_texture: bool,
     ) -> Self {
         self.context_menu(|ui| {
-            if is_texture {
-                if let Some(texture_cache) = texture_cache {
-                    if ui.selectable_label(false, "📷 Copy texture").clicked() {
-                        match Texture::load(&texture_cache.render_state, tag, false) {
-                            Ok(o) => {
-                                let image = o.to_image(&texture_cache.render_state, 0).unwrap();
-                                let mut png_data = vec![];
-                                let mut png_writer = Cursor::new(&mut png_data);
-                                image.write_to(&mut png_writer, ImageFormat::Png).unwrap();
+            if is_texture && let Some(texture_cache) = texture_cache {
+                if ui.selectable_label(false, "📷 Copy texture").clicked() {
+                    match Texture::load(&texture_cache.render_state, tag, false) {
+                        Ok(o) => {
+                            let image = o.to_image(&texture_cache.render_state, 0).unwrap();
+                            let mut png_data = vec![];
+                            let mut png_writer = Cursor::new(&mut png_data);
+                            image.write_to(&mut png_writer, ImageFormat::Png).unwrap();
 
-                                let _clipboard = clipboard_win::Clipboard::new();
-                                if let Err(e) = clipboard_win::raw::set(CF_PNG.get(), &png_data) {
-                                    error!("Failed to copy texture to clipboard: {e}");
-                                }
-
-                                // Save to temp
-                                let path = std::env::temp_dir().join(format!("{tag}.png"));
-                                let mut file = File::create(&path).unwrap();
-                                file.write_all(&png_data).unwrap();
-
-                                let mut path_utf16 =
-                                    path.to_string_lossy().encode_utf16().collect::<Vec<u16>>();
-                                path_utf16.push(0);
-
-                                if let Err(e) = clipboard_win::raw::set_without_clear(
-                                    CF_FILENAME.get(),
-                                    bytemuck::cast_slice(&path_utf16),
-                                ) {
-                                    error!("Failed to copy texture path to clipboard: {e}");
-                                } else {
-                                    TOASTS.lock().success("Texture copied to clipboard");
-                                }
+                            let _clipboard = clipboard_win::Clipboard::new();
+                            if let Err(e) = clipboard_win::raw::set(CF_PNG.get(), &png_data) {
+                                error!("Failed to copy texture to clipboard: {e}");
                             }
-                            Err(e) => {
-                                error!("Failed to load texture: {e}");
+
+                            // Save to temp
+                            let path = std::env::temp_dir().join(format!("{tag}.png"));
+                            let mut file = File::create(&path).unwrap();
+                            file.write_all(&png_data).unwrap();
+
+                            let mut path_utf16 =
+                                path.to_string_lossy().encode_utf16().collect::<Vec<u16>>();
+                            path_utf16.push(0);
+
+                            if let Err(e) = clipboard_win::raw::set_without_clear(
+                                CF_FILENAME.get(),
+                                bytemuck::cast_slice(&path_utf16),
+                            ) {
+                                error!("Failed to copy texture path to clipboard: {e}");
+                            } else {
+                                TOASTS.lock().success("Texture copied to clipboard");
                             }
                         }
-                        ui.close_menu();
-                    }
-
-                    if ui
-                        .selectable_label(false, "📷 Save texture")
-                        .on_hover_text("Texture(s) will be saved to the textures/ directory")
-                        .clicked()
-                    {
-                        match Texture::load(&texture_cache.render_state, tag, false) {
-                            Ok(o) => {
-                                std::fs::create_dir_all("textures/").unwrap();
-                                let mut images = vec![];
-                                for layer in 0..(o.desc.array_size.max(o.desc.depth)) {
-                                    let image =
-                                        o.to_image(&texture_cache.render_state, layer).unwrap();
-                                    image.save(format!("textures/{tag}_{layer}.png")).unwrap();
-                                    images.push(image);
-                                }
-
-                                if images.len() == 6 {
-                                    let cubemap_image = assemble_cubemap(images);
-                                    cubemap_image
-                                        .save(format!("textures/{tag}_cubemap.png"))
-                                        .unwrap();
-                                }
-                                TOASTS.lock().success("Texture saved");
-                            }
-                            Err(e) => {
-                                error!("Failed to load texture: {e}");
-                            }
+                        Err(e) => {
+                            error!("Failed to load texture: {e}");
                         }
-                        ui.close_menu();
                     }
+                    ui.close_menu();
+                }
+
+                if ui
+                    .selectable_label(false, "📷 Save texture")
+                    .on_hover_text("Texture(s) will be saved to the textures/ directory")
+                    .clicked()
+                {
+                    export_texture(texture_cache, tag);
+                    ui.close_menu();
                 }
             }
             tag_context(ui, tag);
@@ -125,6 +101,31 @@ impl ResponseExt for egui::Response {
 
             tag_hover_ui(ui, tag);
         })
+    }
+}
+
+pub fn export_texture(texture_cache: &TextureCache, tag: TagHash) {
+    match Texture::load(&texture_cache.render_state, tag, false) {
+        Ok(o) => {
+            std::fs::create_dir_all("textures/").unwrap();
+            let mut images = vec![];
+            for layer in 0..(o.desc.array_size.max(o.desc.depth)) {
+                let image = o.to_image(&texture_cache.render_state, layer).unwrap();
+                image.save(format!("textures/{tag}_{layer}.png")).unwrap();
+                images.push(image);
+            }
+
+            if images.len() == 6 {
+                let cubemap_image = assemble_cubemap(images);
+                cubemap_image
+                    .save(format!("textures/{tag}_cubemap.png"))
+                    .unwrap();
+            }
+            TOASTS.lock().success("Texture saved");
+        }
+        Err(e) => {
+            error!("Failed to load texture: {e}");
+        }
     }
 }
 
@@ -360,10 +361,10 @@ pub fn dump_wwise_info(package_id: u16) {
             TagType::from_type_subtype(e.file_type, e.file_subtype) == TagType::WwiseStream
         }) {
             let tag = TagHash::new(package_id, i as u16);
-            if let Ok(p) = package.read_entry(i) {
-                if let Ok(info) = vgmstream::read_file_info(&p, Some(format!(".\\{tag}.wem"))) {
-                    infos.push((tag, info));
-                }
+            if let Ok(p) = package.read_entry(i)
+                && let Ok(info) = vgmstream::read_file_info(&p, Some(format!(".\\{tag}.wem")))
+            {
+                infos.push((tag, info));
             }
         }
 

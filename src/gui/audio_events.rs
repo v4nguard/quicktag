@@ -1,9 +1,8 @@
-use std::{io::Cursor, u32};
+use std::io::Cursor;
 
 use binrw::{BinReaderExt, VecArgs};
 use eframe::egui::{self, Color32, RichText};
 use egui_extras::{Column, TableBuilder};
-use quicktag_core::tagtypes::TagType;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use tiger_pkg::{GameVersion, TagHash, package_manager};
 
@@ -12,6 +11,7 @@ use crate::gui::{
     tag::format_tag_entry,
 };
 
+#[derive(Clone)]
 struct AudioEvent {
     tag: TagHash,
     bank_hash: u32,
@@ -21,7 +21,9 @@ struct AudioEvent {
 
 pub struct AudioEventView {
     events: Vec<AudioEvent>,
+    filtered_events: Vec<(usize, AudioEvent)>,
     selected_event: Option<(TagHash, usize)>,
+    query: String,
 }
 
 impl AudioEventView {
@@ -85,8 +87,26 @@ impl AudioEventView {
 
         AudioEventView {
             events,
+            filtered_events: vec![],
             selected_event: None,
+            query: String::new(),
         }
+    }
+
+    fn filter_events(&mut self) {
+        self.filtered_events = self
+            .events
+            .iter()
+            .enumerate()
+            .filter(|(_, event)| {
+                event
+                    .name
+                    .as_ref()
+                    .is_some_and(|name| name.contains(&self.query))
+                    || format!("0x{:08X}", event.bank_hash).contains(&self.query)
+            })
+            .map(|(index, item)| (index, item.clone()))
+            .collect();
     }
 }
 
@@ -96,6 +116,10 @@ impl View for AudioEventView {
         ctx: &eframe::egui::Context,
         ui: &mut eframe::egui::Ui,
     ) -> Option<super::ViewAction> {
+        if self.filtered_events.is_empty() && !self.events.is_empty() {
+            self.filter_events();
+        }
+
         if let Some(action) = egui::SidePanel::right("event_stream_list")
             .min_width(320.0)
             .show_inside(ui, |ui| {
@@ -128,6 +152,13 @@ impl View for AudioEventView {
         {
             return Some(action);
         }
+
+        ui.horizontal(|ui| {
+            ui.label("Filter:");
+            if ui.text_edit_singleline(&mut self.query).changed() {
+                self.filter_events();
+            }
+        });
 
         let text_height = egui::TextStyle::Body
             .resolve(ui.style())
@@ -167,8 +198,8 @@ impl View for AudioEventView {
                 });
             })
             .body(|body| {
-                body.rows(text_height, self.events.len(), |mut row| {
-                    let event = &self.events[row.index()];
+                body.rows(text_height, self.filtered_events.len(), |mut row| {
+                    let (event_index, event) = &self.filtered_events[row.index()];
                     if let Some((selected_event_tag, _)) = self.selected_event
                         && selected_event_tag == event.tag
                     {
@@ -217,7 +248,7 @@ impl View for AudioEventView {
                         .clicked();
 
                     if clicked {
-                        self.selected_event = Some((event.tag, row.index()));
+                        self.selected_event = Some((event.tag, *event_index));
                     }
                 })
             });

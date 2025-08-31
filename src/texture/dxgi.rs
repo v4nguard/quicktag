@@ -142,7 +142,7 @@ impl TryFrom<u32> for DxgiFormat {
 
     fn try_from(value: u32) -> Result<Self, Self::Error> {
         Ok(match value {
-            0..=115 | 130..=132 => unsafe { transmute(value) },
+            0..=115 | 130..=132 => unsafe { transmute::<u32, Self>(value) },
             e => return Err(anyhow::anyhow!("DXGI format is out of range ({e})")),
         })
     }

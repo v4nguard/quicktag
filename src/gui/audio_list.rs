@@ -12,7 +12,6 @@ use tiger_pkg::{MarathonVersion, package_manager};
 
 struct PackageAudio {
     pub streams: Vec<(TagHash, f32)>,
-    pub events: Vec<TagHash>,
 }
 
 #[derive(Clone, Copy, Default, PartialEq)]
@@ -98,13 +97,6 @@ impl PackageAudio {
         let (wwise_type, wwise_subtype) = wwise_stream_type();
 
         Self {
-            // TODO(cohae): Reading events only works for game versions after beyond light
-            events: package_manager()
-                .get_all_by_reference(0x80809738)
-                .iter()
-                .filter(|(t, _)| t.pkg_id() == id)
-                .map(|(t, _)| *t)
-                .collect(),
             streams: package_manager()
                 .get_all_by_type(wwise_type, Some(wwise_subtype))
                 .iter()
