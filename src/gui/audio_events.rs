@@ -28,56 +28,57 @@ pub struct AudioEventView {
 
 impl AudioEventView {
     pub fn new() -> Self {
-        let event_type = wwise_event_type().unwrap_or(u32::MAX);
-        let tags = package_manager().get_all_by_reference(event_type);
+        let mut events: Vec<AudioEvent> = if let Some(event_type) = wwise_event_type() {
+            let tags = package_manager().get_all_by_reference(event_type);
+            tags.par_iter()
+                .map(|(t, _)| {
+                    let data = package_manager().read_tag(*t).expect("Failed to read tag");
+                    let mut data = Cursor::new(data);
+                    if package_manager().version
+                        >= GameVersion::Destiny(tiger_pkg::DestinyVersion::Destiny2BeyondLight)
+                    {
+                        data.set_position(0x18);
+                        let bank_tag: TagHash = data.read_le().unwrap();
+                        let bank_hash = package_manager().get_entry(bank_tag).unwrap().reference;
+                        let name = get_string_for_hash(bank_hash);
 
-        let mut events: Vec<AudioEvent> = tags
-            .par_iter()
-            .map(|(t, _)| {
-                let data = package_manager().read_tag(*t).expect("Failed to read tag");
-                let mut data = Cursor::new(data);
-                if package_manager().version
-                    >= GameVersion::Destiny(tiger_pkg::DestinyVersion::Destiny2BeyondLight)
-                {
-                    data.set_position(0x18);
-                    let bank_tag: TagHash = data.read_le().unwrap();
-                    let bank_hash = package_manager().get_entry(bank_tag).unwrap().reference;
-                    let name = get_string_for_hash(bank_hash);
+                        data.set_position(0x20);
+                        let event_count: u64 = data.read_le().unwrap();
+                        data.set_position(0x50);
+                        let streams: Vec<TagHash> = data
+                            .read_le_args(VecArgs::builder().count(event_count as usize).finalize())
+                            .unwrap();
 
-                    data.set_position(0x20);
-                    let event_count: u64 = data.read_le().unwrap();
-                    data.set_position(0x50);
-                    let streams: Vec<TagHash> = data
-                        .read_le_args(VecArgs::builder().count(event_count as usize).finalize())
-                        .unwrap();
+                        AudioEvent {
+                            tag: *t,
+                            bank_hash,
+                            name,
+                            streams,
+                        }
+                    } else {
+                        data.set_position(0x14);
+                        let bank_tag: TagHash = data.read_le().unwrap();
+                        let bank_hash = package_manager().get_entry(bank_tag).unwrap().reference;
+                        let name = get_string_for_hash(bank_hash);
+                        data.set_position(0x18);
+                        let event_count: u64 = data.read_le().unwrap();
+                        data.set_position(0x50);
+                        let streams: Vec<TagHash> = data
+                            .read_le_args(VecArgs::builder().count(event_count as usize).finalize())
+                            .unwrap();
 
-                    AudioEvent {
-                        tag: *t,
-                        bank_hash,
-                        name,
-                        streams,
+                        AudioEvent {
+                            tag: *t,
+                            bank_hash,
+                            name,
+                            streams,
+                        }
                     }
-                } else {
-                    data.set_position(0x14);
-                    let bank_tag: TagHash = data.read_le().unwrap();
-                    let bank_hash = package_manager().get_entry(bank_tag).unwrap().reference;
-                    let name = get_string_for_hash(bank_hash);
-                    data.set_position(0x18);
-                    let event_count: u64 = data.read_le().unwrap();
-                    data.set_position(0x50);
-                    let streams: Vec<TagHash> = data
-                        .read_le_args(VecArgs::builder().count(event_count as usize).finalize())
-                        .unwrap();
-
-                    AudioEvent {
-                        tag: *t,
-                        bank_hash,
-                        name,
-                        streams,
-                    }
-                }
-            })
-            .collect();
+                })
+                .collect()
+        } else {
+            vec![]
+        };
 
         events.sort_by_cached_key(|e| {
             e.name
