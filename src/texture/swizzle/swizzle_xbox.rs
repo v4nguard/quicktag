@@ -1,5 +1,6 @@
 // Adapted from https://github.com/bartlomiejduda/ReverseBox/blob/main/reversebox/image/swizzling/swizzle_x360.py
 
+use anyhow::Context;
 use log::warn;
 
 use crate::texture::dxgi::XenosSurfaceFormat;
@@ -70,20 +71,29 @@ fn untile_x360_image_data(
 
     let width_in_blocks = image_width / block_pixel_size;
     let height_in_blocks = image_height / block_pixel_size;
-    let slice_size = width_in_blocks * height_in_blocks * texel_byte_pitch;
+
+    let padded_width_in_blocks = (width_in_blocks + 31) & !31;
+    let padded_height_in_blocks = (height_in_blocks + 31) & !31;
+
+    let slice_size = padded_width_in_blocks * padded_height_in_blocks * texel_byte_pitch;
 
     for slice in 0..image_depth {
-        let slice_src = &image_data[slice * slice_size..];
-        let slice_dest = &mut converted_data[slice * slice_size..];
+        let slice_src = image_data
+            .get(slice * slice_size..)
+            .context("Texture slice source out of bounds")?;
+        let slice_dest = converted_data
+            .get_mut(slice * slice_size..)
+            .context("Texture slice dest out of bounds")?;
 
-        for j in 0..height_in_blocks {
-            for i in 0..width_in_blocks {
-                let block_offset = j * width_in_blocks + i;
-                let x = xg_address_2d_tiled_x(block_offset, width_in_blocks, texel_byte_pitch);
-                let y = xg_address_2d_tiled_y(block_offset, width_in_blocks, texel_byte_pitch);
-                let src_byte_offset = j * width_in_blocks * texel_byte_pitch + i * texel_byte_pitch;
-                let dest_byte_offset =
-                    y * width_in_blocks * texel_byte_pitch + x * texel_byte_pitch;
+        for j in 0..padded_height_in_blocks {
+            for i in 0..padded_width_in_blocks {
+                let block_offset = j * padded_width_in_blocks + i;
+                let x =
+                    xg_address_2d_tiled_x(block_offset, padded_width_in_blocks, texel_byte_pitch);
+                let y =
+                    xg_address_2d_tiled_y(block_offset, padded_width_in_blocks, texel_byte_pitch);
+                let src_byte_offset = block_offset * texel_byte_pitch;
+                let dest_byte_offset = (y * width_in_blocks + x) * texel_byte_pitch;
 
                 if dest_byte_offset + texel_byte_pitch > slice_dest.len()
                     || src_byte_offset + texel_byte_pitch > slice_src.len()
@@ -94,6 +104,9 @@ fn untile_x360_image_data(
                 if deswizzle {
                     match slice_src.get(src_byte_offset..src_byte_offset + texel_byte_pitch) {
                         Some(source) => {
+                            if source.iter().all(|&b| b == 0) {
+                                continue;
+                            }
                             slice_dest[dest_byte_offset..dest_byte_offset + texel_byte_pitch]
                                 .copy_from_slice(source);
                         }
@@ -168,11 +181,18 @@ impl Deswizzler for XenosDetiler {
         };
 
         let mut source = data.to_vec();
-        if !matches!(
+        if matches!(
             format,
-            XenosSurfaceFormat::k_8_8_8_8
-                | XenosSurfaceFormat::k_8_8_8_8_A
-                | XenosSurfaceFormat::k_8_8_8_8_AS_16_16_16_16
+            XenosSurfaceFormat::k_DXT1
+                | XenosSurfaceFormat::k_DXT1_AS_16_16_16_16
+                | XenosSurfaceFormat::k_DXN
+                | XenosSurfaceFormat::k_DXT2_3
+                | XenosSurfaceFormat::k_DXT2_3_AS_16_16_16_16
+                | XenosSurfaceFormat::k_DXT3A
+                | XenosSurfaceFormat::k_DXT3A_AS_1_1_1_1
+                | XenosSurfaceFormat::k_DXT4_5
+                | XenosSurfaceFormat::k_DXT4_5_AS_16_16_16_16
+                | XenosSurfaceFormat::k_DXT5A
         ) {
             swap_byte_order_x360(&mut source);
         }
