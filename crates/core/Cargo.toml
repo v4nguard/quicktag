@@ -2,6 +2,7 @@
 name = "quicktag-core"
 version = "0.1.0"
 edition = "2024"
+license = "GPL-3.0-or-later"
 
 [dependencies]
 arc-swap = "1.7.1"
