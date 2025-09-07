@@ -6,7 +6,8 @@ use std::ops::Deref;
 use std::slice::Iter;
 
 use binrw::{BinRead, BinReaderExt, BinResult, Endian, VecArgs};
-use log::error;
+use log::{error, warn};
+use quicktag_core::util::FNV1_BASE;
 use rustc_hash::{FxHashMap, FxHashSet};
 use tiger_pkg::{DestinyVersion, GameVersion, MarathonVersion, TagHash, package_manager};
 
@@ -476,6 +477,13 @@ pub fn create_stringmap_d2() -> anyhow::Result<StringCache> {
                 }
             }
 
+            if *hash == FNV1_BASE {
+                if !final_string.is_empty() {
+                    warn!("String '{final_string}' has an empty hash (0x{FNV1_BASE:X})");
+                }
+                continue;
+            }
+
             tmp_map.entry(*hash).or_default().insert(final_string);
         }
     }
@@ -527,6 +535,13 @@ pub fn create_stringmap_d1() -> anyhow::Result<StringCache> {
                 let mut data = vec![0u8; part.byte_length as usize];
                 cur.read_exact(&mut data)?;
                 final_string += &decode_text(&data, part.cipher_shift);
+            }
+
+            if *hash == FNV1_BASE {
+                if !final_string.is_empty() {
+                    warn!("String '{final_string}' has an empty hash (0x{FNV1_BASE:X})");
+                }
+                continue;
             }
 
             tmp_map.entry(*hash).or_default().insert(final_string);
@@ -586,6 +601,13 @@ pub fn create_stringmap_d1_devalpha() -> anyhow::Result<StringCache> {
                 })?;
 
                 final_string += &String::from_utf16_lossy(&data);
+            }
+
+            if *hash == FNV1_BASE {
+                if !final_string.is_empty() {
+                    warn!("String '{final_string}' has an empty hash (0x{FNV1_BASE:X})");
+                }
+                continue;
             }
 
             tmp_map.entry(*hash).or_default().insert(final_string);
@@ -648,6 +670,13 @@ pub fn create_stringmap_d1_firstlook() -> anyhow::Result<StringCache> {
                 let data_u16: Vec<u16> = bytemuck::pod_collect_to_vec(&data);
 
                 final_string += &String::from_utf16(&data_u16)?;
+            }
+
+            if *hash == FNV1_BASE {
+                if !final_string.is_empty() {
+                    warn!("String '{final_string}' has an empty hash (0x{FNV1_BASE:X})");
+                }
+                continue;
             }
 
             tmp_map.entry(*hash).or_default().insert(final_string);
