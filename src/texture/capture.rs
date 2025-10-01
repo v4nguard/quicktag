@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+
 /// Capture a texture to a raw RGBA buffer
 pub fn capture_texture(
     rs: &super::RenderState,
@@ -114,43 +116,51 @@ pub fn capture_texture(
         ],
     });
 
-    let copy_shader = device.create_shader_module(include_wgsl!("../gui/shaders/copy.wgsl"));
+    thread_local! {
+        static COPY_SHADER: RefCell<Option<eframe::wgpu::ShaderModule>> = const { RefCell::new(None) };
+    }
+    // let copy_shader = device.create_shader_module(include_wgsl!("../gui/shaders/copy.wgsl"));
+    let render_pipeline = COPY_SHADER.with_borrow_mut(|s| {
+        let copy_shader = s.get_or_insert_with(|| {
+            device.create_shader_module(include_wgsl!("../gui/shaders/copy.wgsl"))
+        });
 
-    let render_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
-        label: Some("Render Pipeline"),
-        layout: Some(&pipeline_layout),
-        multiview: None,
-        vertex: VertexState {
-            module: &copy_shader,
-            entry_point: "vs_main",
-            buffers: &[],
-            compilation_options: Default::default(),
-        },
-        fragment: Some(FragmentState {
-            module: &copy_shader,
-            entry_point: "fs_main",
-            targets: &[Some(ColorTargetState {
-                format: TextureFormat::Rgba8UnormSrgb,
-                blend: Some(BlendState::PREMULTIPLIED_ALPHA_BLENDING),
-                write_mask: ColorWrites::all(),
-            })],
-            compilation_options: Default::default(),
-        }),
-        primitive: PrimitiveState {
-            topology: PrimitiveTopology::TriangleList,
-            strip_index_format: None,
-            front_face: FrontFace::Cw,
-            cull_mode: Some(Face::Back),
-            polygon_mode: PolygonMode::Fill,
-            conservative: false,
-            unclipped_depth: false,
-        },
-        depth_stencil: None,
-        multisample: MultisampleState {
-            count: 1,
-            mask: !0,
-            alpha_to_coverage_enabled: false,
-        },
+        device.create_render_pipeline(&RenderPipelineDescriptor {
+            label: Some("Render Pipeline"),
+            layout: Some(&pipeline_layout),
+            multiview: None,
+            vertex: VertexState {
+                module: copy_shader,
+                entry_point: "vs_main",
+                buffers: &[],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(FragmentState {
+                module: copy_shader,
+                entry_point: "fs_main",
+                targets: &[Some(ColorTargetState {
+                    format: TextureFormat::Rgba8UnormSrgb,
+                    blend: Some(BlendState::PREMULTIPLIED_ALPHA_BLENDING),
+                    write_mask: ColorWrites::all(),
+                })],
+                compilation_options: Default::default(),
+            }),
+            primitive: PrimitiveState {
+                topology: PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: FrontFace::Cw,
+                cull_mode: Some(Face::Back),
+                polygon_mode: PolygonMode::Fill,
+                conservative: false,
+                unclipped_depth: false,
+            },
+            depth_stencil: None,
+            multisample: MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+        })
     });
 
     // Copy the original texture to the RGBA8 texture using the render pipeline
