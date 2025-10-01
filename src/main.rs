@@ -72,7 +72,11 @@ fn main() -> eframe::Result<()> {
     let native_options = eframe::NativeOptions {
         renderer: eframe::Renderer::Wgpu,
         viewport: ViewportBuilder::default()
-            .with_title(format!("Quicktag - {}", package_manager().version.name()))
+            .with_title(format!(
+                "Quicktag - {} ({:?})",
+                package_manager().version.name(),
+                package_manager().platform
+            ))
             .with_icon(
                 eframe::icon_data::from_png_bytes(include_bytes!("../quicktag.png"))
                     .expect("Failed to load icon"),
