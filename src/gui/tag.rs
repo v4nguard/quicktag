@@ -98,7 +98,7 @@ pub struct TagView {
     hexview_referenced: Option<TagHexView>,
     mode: TagViewMode,
 
-    decompiled_shader: Result<String, String>,
+    decompiled_shader: Option<Result<String, String>>,
 }
 
 #[macro_export]
@@ -275,13 +275,26 @@ impl TagView {
         };
 
         let decompiled_shader = if tag_type.is_shader() && tag_type.is_header() {
-            package_manager()
-                .read_tag(tag_entry.reference)
-                .ok()
-                .map(|d| decompile_shader(&d))
-                .unwrap_or(Err("Failed to read shader data".to_string()))
+            Some(
+                package_manager()
+                    .read_tag(tag_entry.reference)
+                    .ok()
+                    .map(|d| decompile_shader(&d))
+                    .unwrap_or(Err("Failed to read shader data".to_string())),
+            )
+        } else if matches!(tag_entry.reference, 0x80801AB4 | 0x80801B7C)
+            && package_manager().platform == PackagePlatform::XboxOne
+            && package_manager().version == GameVersion::Destiny(DestinyVersion::DestinyRiseOfIron)
+        {
+            Some(
+                package_manager()
+                    .read_tag(tag)
+                    .ok()
+                    .map(|d| decompile_shader(&d[0x30..]))
+                    .unwrap_or(Err("Failed to read shader data".to_string())),
+            )
         } else {
-            Err("Not a shader".to_string())
+            None
         };
 
         let mut string_hashes_hexview = string_hashes
@@ -462,7 +475,26 @@ impl TagView {
             ui.heading(RichText::new("⚠ Tag data failed to read").color(Color32::YELLOW));
         }
 
-        if self.tag_type.is_tag() {
+        if let Some(decompiled_shader) = &self.decompiled_shader {
+            match &decompiled_shader {
+                Ok(d) => {
+                    egui::ScrollArea::vertical()
+                        .auto_shrink([false; 2])
+                        .show(ui, |ui| {
+                            // ui.monospace(d);
+                            egui_extras::syntax_highlighting::code_view_ui(
+                                ui,
+                                &CodeTheme::dark(),
+                                d,
+                                "cpp",
+                            )
+                        });
+                }
+                Err(e) => {
+                    ui.label(format!("Decompiled shader output not available: {e}"));
+                }
+            }
+        } else if self.tag_type.is_tag() {
             ui.horizontal_wrapped(|ui| {
                 if ui
                     .add_enabled(
@@ -613,25 +645,6 @@ impl TagView {
                 Err(e) => {
                     ui.colored_label(Color32::RED, "⚠ Failed to load texture");
                     ui.colored_label(Color32::RED, strip_ansi_codes(&format!("{e:?}")));
-                }
-            }
-        } else if self.tag_type.is_shader() && self.tag_type.is_header() {
-            match &self.decompiled_shader {
-                Ok(d) => {
-                    egui::ScrollArea::vertical()
-                        .auto_shrink([false; 2])
-                        .show(ui, |ui| {
-                            // ui.monospace(d);
-                            egui_extras::syntax_highlighting::code_view_ui(
-                                ui,
-                                &CodeTheme::dark(),
-                                d,
-                                "cpp",
-                            )
-                        });
-                }
-                Err(e) => {
-                    ui.label(format!("Decompiled shader output not available: {e}"));
                 }
             }
         } else {
