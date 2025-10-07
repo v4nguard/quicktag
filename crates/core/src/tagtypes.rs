@@ -273,6 +273,7 @@ impl TagType {
                     // 7 => TagType::ConstantBuffer { is_header },
                     8 => TagType::PixelShader { is_header },
                     9 => TagType::VertexShader { is_header },
+                    16 => TagType::TextureSampler { is_header },
                     fsubtype => TagType::Unknown { ftype: t, fsubtype },
                 }
             }
