@@ -2,8 +2,9 @@
 
 use anyhow::Context;
 use log::warn;
+use xg::structs::XgTexture2DDesc;
 
-use crate::texture::dxgi::XenosSurfaceFormat;
+use crate::texture::dxgi::{DxgiFormat, XenosSurfaceFormat};
 
 use super::Deswizzler;
 
@@ -221,5 +222,84 @@ impl Deswizzler for XenosDetiler {
         }
 
         Ok(result)
+    }
+}
+
+pub struct DurangoDeswizzler;
+
+impl Deswizzler for DurangoDeswizzler {
+    type Format = (DxgiFormat, u32);
+    fn deswizzle(
+        &self,
+        source: &[u8],
+        width: usize,
+        height: usize,
+        depth_or_array_size: usize,
+        (format, tile_mode): Self::Format,
+        _align_output: bool,
+    ) -> anyhow::Result<Vec<u8>> {
+        if depth_or_array_size > 1 {
+            warn!("Array/3D textures are not supported yet.");
+            return Ok(source.to_vec());
+        }
+
+        let mut output = vec![0; source.len()];
+
+        let comp = match xg::XgTexture2DComputer::new(&XgTexture2DDesc {
+            width: width as u32,
+            height: height as u32,
+            mip_levels: 1,
+            array_size: depth_or_array_size as u32,
+            format: format as u32,
+            sample_desc: xg::structs::XgSampleDesc {
+                count: 1,
+                quality: 0,
+            },
+            usage: 0,
+            bind_flags: 8,
+            cpu_access_flags: 0,
+            misc_flags: 0,
+            esram_offset_bytes: 0,
+            esram_usage_bytes: 0,
+            tile_mode,
+            pitch: 0,
+        }) {
+            Ok(o) => o,
+            Err(e) => {
+                return Err(anyhow::anyhow!(
+                    "Failed to create texture computer: {e:08X}"
+                ));
+            }
+        };
+
+        let layout = match comp.get_resource_layout() {
+            Ok(l) => l,
+            Err(e) => {
+                return Err(anyhow::anyhow!("Failed to get resource layout: {e:08X}"));
+            }
+        };
+
+        let mip = &layout.planes[0].mips[0];
+        let blocks_x = mip.width_elements as usize;
+        let blocks_y = mip.height_elements as usize;
+        let texel_pitch = (mip.pitch_bytes / mip.padded_width_elements) as usize;
+
+        for y in 0..blocks_y {
+            for x in 0..blocks_x {
+                let src_offset =
+                    comp.get_texel_element_offset_bytes(0, 0, x as u64, y as u32, 0, 0);
+                let dst_offset = y * blocks_x * texel_pitch + x * texel_pitch;
+
+                if src_offset < 0 || (src_offset as usize) + texel_pitch > source.len() {
+                    continue;
+                }
+                let src_offset = src_offset as usize;
+
+                output[dst_offset..dst_offset + texel_pitch as usize]
+                    .copy_from_slice(&source[src_offset..src_offset + texel_pitch as usize]);
+            }
+        }
+
+        Ok(output)
     }
 }

@@ -2936,6 +2936,7 @@ dependencies = [
  "tokio",
  "vgmstream",
  "wav",
+ "xg",
 ]
 
 [[package]]
@@ -4634,6 +4635,10 @@ name = "xcursor"
 version = "0.3.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ef33da6b1660b4ddbfb3aef0ade110c8b8a781a3b6382fa5f2b5b040fd55f61"
+
+[[package]]
+name = "xg"
+version = "0.0.0"
 
 [[package]]
 name = "xkbcommon-dl"

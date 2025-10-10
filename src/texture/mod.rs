@@ -381,19 +381,21 @@ impl Texture {
         }
 
         let comment = format!("{texture:#X?}");
-        // if (texture.flags1 & 0xc00) != 0x400 {
-        //     let mut unswizzled = vec![];
-        //     swizzle::ps4::unswizzle(
-        //         &texture_data,
-        //         &mut unswizzled,
-        //         texture.width as usize,
-        //         texture.height as usize,
-        //         texture.format,
-        //     );
-        //     Ok((texture, unswizzled, comment))
-        // } else {
-        // Ok((texture, texture_data, comment))
-        // }
+        if texture.tile_mode != 8 {
+            let unswizzled = swizzle::swizzle_xbox::DurangoDeswizzler
+                .deswizzle(
+                    &texture_data,
+                    texture.width as usize,
+                    texture.height as usize,
+                    texture.depth as usize,
+                    (texture.format, texture.tile_mode),
+                    true,
+                )
+                .context("Failed to deswizzle texture")?;
+            Ok((texture, unswizzled, comment))
+        } else {
+            Ok((texture, texture_data, comment))
+        }
 
         // let mut untiled = vec![];
         // swizzle::xbox::untile(
@@ -403,7 +405,7 @@ impl Texture {
         //     texture.height as usize,
         //     texture.format,
         // );
-        Ok((texture, texture_data, comment))
+        // Ok((texture, texture_data, comment))
     }
 
     pub fn load_data_ps3_ttk(

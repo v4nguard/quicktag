@@ -1,9 +1,5 @@
 [workspace]
-members = [
-    "crates/core",
-    "crates/scanner",
-    "crates/strings"
-]
+members = ["crates/core", "crates/scanner", "crates/strings", "crates/xg"]
 
 [workspace.dependencies]
 anyhow = "1"
@@ -25,6 +21,7 @@ edition = "2024"
 quicktag-core = { path = "./crates/core" }
 quicktag-scanner = { path = "./crates/scanner" }
 quicktag-strings = { path = "./crates/strings" }
+xg = { path = "./crates/xg" }
 
 # General
 anyhow.workspace = true

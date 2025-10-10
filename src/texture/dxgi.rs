@@ -2,12 +2,40 @@ use binrw::BinRead;
 use eframe::wgpu;
 use std::mem::transmute;
 
+pub struct FormatInfo {
+    // wgpu_format: Option<wgpu::TextureFormat>,
+    pub block_width: u32,
+    pub block_height: u32,
+    pub bits_per_pixel: u32,
+}
+
+impl FormatInfo {
+    pub fn bytes_per_block(&self) -> usize {
+        (self.block_width * self.block_height * self.bits_per_pixel / 8) as usize
+    }
+
+    pub fn pixel_block_size(&self) -> usize {
+        self.block_width as usize
+    }
+}
+
+#[macro_export]
+macro_rules! format_info {
+    ($block_width:expr, $block_height:expr, $bpp:expr) => {
+        FormatInfo {
+            // wgpu_format: Some(wgpu::TextureFormat::$wgpu_format),
+            block_width: $block_width,
+            block_height: $block_height,
+            bits_per_pixel: $bpp,
+        }
+    };
+}
+
 #[allow(non_camel_case_types, dead_code, clippy::upper_case_acronyms)]
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq, Hash, BinRead)]
 #[br(repr(u32))]
 pub enum DxgiFormat {
-    Unknown = 0,
     R32G32B32A32_TYPELESS = 1,
     R32G32B32A32_FLOAT = 2,
     R32G32B32A32_UINT = 3,
@@ -128,7 +156,6 @@ pub enum DxgiFormat {
     V408 = 132,
     SAMPLER_FEEDBACK_MIN_MIP_OPAQUE,
     SAMPLER_FEEDBACK_MIP_REGION_USED_OPAQUE,
-    FORCE_UINT = 0xffffffff,
 }
 
 impl From<DxgiFormat> for u32 {
@@ -244,120 +271,131 @@ impl DxgiFormat {
     }
 
     pub fn bpp(&self) -> usize {
+        self.format_info().bits_per_pixel as usize
+    }
+
+    pub fn format_info(&self) -> FormatInfo {
         match self {
-            DxgiFormat::R32G32B32A32_TYPELESS
-            | DxgiFormat::R32G32B32A32_FLOAT
-            | DxgiFormat::R32G32B32A32_UINT
-            | DxgiFormat::R32G32B32A32_SINT => 128,
-            DxgiFormat::R32G32B32_TYPELESS
-            | DxgiFormat::R32G32B32_FLOAT
-            | DxgiFormat::R32G32B32_UINT
-            | DxgiFormat::R32G32B32_SINT => 96,
-            DxgiFormat::R16G16B16A16_TYPELESS
-            | DxgiFormat::R16G16B16A16_FLOAT
-            | DxgiFormat::R16G16B16A16_UNORM
-            | DxgiFormat::R16G16B16A16_UINT
-            | DxgiFormat::R16G16B16A16_SNORM
-            | DxgiFormat::R16G16B16A16_SINT
-            | DxgiFormat::R32G32_TYPELESS
-            | DxgiFormat::R32G32_FLOAT
-            | DxgiFormat::R32G32_UINT
-            | DxgiFormat::R32G32_SINT
-            | DxgiFormat::R32G8X24_TYPELESS
-            | DxgiFormat::D32_FLOAT_S8X24_UINT
-            | DxgiFormat::R32_FLOAT_X8X24_TYPELESS
-            | DxgiFormat::X32_TYPELESS_G8X24_UINT
-            | DxgiFormat::Y416
-            | DxgiFormat::Y210
-            | DxgiFormat::Y216 => 64,
-            DxgiFormat::R10G10B10A2_TYPELESS
-            | DxgiFormat::R10G10B10A2_UNORM
-            | DxgiFormat::R10G10B10A2_UINT
-            | DxgiFormat::R11G11B10_FLOAT
-            | DxgiFormat::R8G8B8A8_TYPELESS
-            | DxgiFormat::R8G8B8A8_UNORM
-            | DxgiFormat::R8G8B8A8_UNORM_SRGB
-            | DxgiFormat::R8G8B8A8_UINT
-            | DxgiFormat::R8G8B8A8_SNORM
-            | DxgiFormat::R8G8B8A8_SINT
-            | DxgiFormat::R16G16_TYPELESS
-            | DxgiFormat::R16G16_FLOAT
-            | DxgiFormat::R16G16_UNORM
-            | DxgiFormat::R16G16_UINT
-            | DxgiFormat::R16G16_SNORM
-            | DxgiFormat::R16G16_SINT
-            | DxgiFormat::R32_TYPELESS
-            | DxgiFormat::D32_FLOAT
-            | DxgiFormat::R32_FLOAT
-            | DxgiFormat::R32_UINT
-            | DxgiFormat::R32_SINT
-            | DxgiFormat::R24G8_TYPELESS
-            | DxgiFormat::D24_UNORM_S8_UINT
-            | DxgiFormat::R24_UNORM_X8_TYPELESS
-            | DxgiFormat::X24_TYPELESS_G8_UINT
-            | DxgiFormat::R9G9B9E5_SHAREDEXP
-            | DxgiFormat::R8G8_B8G8_UNORM
-            | DxgiFormat::G8R8_G8B8_UNORM
-            | DxgiFormat::B8G8R8A8_UNORM
-            | DxgiFormat::B8G8R8X8_UNORM
-            | DxgiFormat::R10G10B10_XR_BIAS_A2_UNORM
-            | DxgiFormat::B8G8R8A8_TYPELESS
-            | DxgiFormat::B8G8R8A8_UNORM_SRGB
-            | DxgiFormat::B8G8R8X8_TYPELESS
-            | DxgiFormat::B8G8R8X8_UNORM_SRGB
-            | DxgiFormat::AYUV
-            | DxgiFormat::Y410
-            | DxgiFormat::YUY2 => 32,
-            DxgiFormat::P010 | DxgiFormat::P016 => 24,
-            DxgiFormat::R8G8_TYPELESS
-            | DxgiFormat::R8G8_UNORM
-            | DxgiFormat::R8G8_UINT
-            | DxgiFormat::R8G8_SNORM
-            | DxgiFormat::R8G8_SINT
-            | DxgiFormat::R16_TYPELESS
-            | DxgiFormat::R16_FLOAT
-            | DxgiFormat::D16_UNORM
-            | DxgiFormat::R16_UNORM
-            | DxgiFormat::R16_UINT
-            | DxgiFormat::R16_SNORM
-            | DxgiFormat::R16_SINT
-            | DxgiFormat::B5G6R5_UNORM
-            | DxgiFormat::B5G5R5A1_UNORM
-            | DxgiFormat::A8P8
-            | DxgiFormat::B4G4R4A4_UNORM => 16,
-            DxgiFormat::NV12 | DxgiFormat::OPAQUE420 | DxgiFormat::NV11 => 12,
-            DxgiFormat::R8_TYPELESS
-            | DxgiFormat::R8_UNORM
-            | DxgiFormat::R8_UINT
-            | DxgiFormat::R8_SNORM
-            | DxgiFormat::R8_SINT
-            | DxgiFormat::A8_UNORM
-            | DxgiFormat::AI44
-            | DxgiFormat::IA44
-            | DxgiFormat::P8 => 8,
-            DxgiFormat::R1_UNORM => 1,
-            DxgiFormat::BC1_TYPELESS
-            | DxgiFormat::BC1_UNORM
-            | DxgiFormat::BC1_UNORM_SRGB
-            | DxgiFormat::BC4_TYPELESS
-            | DxgiFormat::BC4_UNORM
-            | DxgiFormat::BC4_SNORM => 4,
-            DxgiFormat::BC2_TYPELESS
-            | DxgiFormat::BC2_UNORM
-            | DxgiFormat::BC2_UNORM_SRGB
-            | DxgiFormat::BC3_TYPELESS
-            | DxgiFormat::BC3_UNORM
-            | DxgiFormat::BC3_UNORM_SRGB
-            | DxgiFormat::BC5_TYPELESS
-            | DxgiFormat::BC5_UNORM
-            | DxgiFormat::BC5_SNORM
-            | DxgiFormat::BC6H_TYPELESS
-            | DxgiFormat::BC6H_UF16
-            | DxgiFormat::BC6H_SF16
-            | DxgiFormat::BC7_TYPELESS
-            | DxgiFormat::BC7_UNORM
-            | DxgiFormat::BC7_UNORM_SRGB => 8,
-            u => panic!("{u:?}"),
+            DxgiFormat::R32G32B32A32_TYPELESS => format_info!(1, 1, 128),
+            DxgiFormat::R32G32B32A32_FLOAT => format_info!(1, 1, 128),
+            DxgiFormat::R32G32B32A32_UINT => format_info!(1, 1, 128),
+            DxgiFormat::R32G32B32A32_SINT => format_info!(1, 1, 128),
+            DxgiFormat::R32G32B32_TYPELESS => format_info!(1, 1, 96),
+            DxgiFormat::R32G32B32_FLOAT => format_info!(1, 1, 96),
+            DxgiFormat::R32G32B32_UINT => format_info!(1, 1, 96),
+            DxgiFormat::R32G32B32_SINT => format_info!(1, 1, 96),
+            DxgiFormat::R16G16B16A16_TYPELESS => format_info!(1, 1, 64),
+            DxgiFormat::R16G16B16A16_FLOAT => format_info!(1, 1, 64),
+            DxgiFormat::R16G16B16A16_UNORM => format_info!(1, 1, 64),
+            DxgiFormat::R16G16B16A16_UINT => format_info!(1, 1, 64),
+            DxgiFormat::R16G16B16A16_SNORM => format_info!(1, 1, 64),
+            DxgiFormat::R16G16B16A16_SINT => format_info!(1, 1, 64),
+            DxgiFormat::R32G32_TYPELESS => format_info!(1, 1, 64),
+            DxgiFormat::R32G32_FLOAT => format_info!(1, 1, 64),
+            DxgiFormat::R32G32_UINT => format_info!(1, 1, 64),
+            DxgiFormat::R32G32_SINT => format_info!(1, 1, 64),
+            DxgiFormat::R32G8X24_TYPELESS => format_info!(1, 1, 64),
+            DxgiFormat::D32_FLOAT_S8X24_UINT => format_info!(1, 1, 64),
+            DxgiFormat::R32_FLOAT_X8X24_TYPELESS => format_info!(1, 1, 64),
+            DxgiFormat::X32_TYPELESS_G8X24_UINT => format_info!(1, 1, 64),
+            DxgiFormat::R10G10B10A2_TYPELESS => format_info!(1, 1, 32),
+            DxgiFormat::R10G10B10A2_UNORM => format_info!(1, 1, 32),
+            DxgiFormat::R10G10B10A2_UINT => format_info!(1, 1, 32),
+            DxgiFormat::R11G11B10_FLOAT => format_info!(1, 1, 32),
+            DxgiFormat::R8G8B8A8_TYPELESS => format_info!(1, 1, 32),
+            DxgiFormat::R8G8B8A8_UNORM => format_info!(1, 1, 32),
+            DxgiFormat::R8G8B8A8_UNORM_SRGB => format_info!(1, 1, 32),
+            DxgiFormat::R8G8B8A8_UINT => format_info!(1, 1, 32),
+            DxgiFormat::R8G8B8A8_SNORM => format_info!(1, 1, 32),
+            DxgiFormat::R8G8B8A8_SINT => format_info!(1, 1, 32),
+            DxgiFormat::R16G16_TYPELESS => format_info!(1, 1, 32),
+            DxgiFormat::R16G16_FLOAT => format_info!(1, 1, 32),
+            DxgiFormat::R16G16_UNORM => format_info!(1, 1, 32),
+            DxgiFormat::R16G16_UINT => format_info!(1, 1, 32),
+            DxgiFormat::R16G16_SNORM => format_info!(1, 1, 32),
+            DxgiFormat::R16G16_SINT => format_info!(1, 1, 32),
+            DxgiFormat::R32_TYPELESS => format_info!(1, 1, 32),
+            DxgiFormat::D32_FLOAT => format_info!(1, 1, 32),
+            DxgiFormat::R32_FLOAT => format_info!(1, 1, 32),
+            DxgiFormat::R32_UINT => format_info!(1, 1, 32),
+            DxgiFormat::R32_SINT => format_info!(1, 1, 32),
+            DxgiFormat::R24G8_TYPELESS => format_info!(1, 1, 32),
+            DxgiFormat::D24_UNORM_S8_UINT => format_info!(1, 1, 32),
+            DxgiFormat::R24_UNORM_X8_TYPELESS => format_info!(1, 1, 32),
+            DxgiFormat::X24_TYPELESS_G8_UINT => format_info!(1, 1, 32),
+            DxgiFormat::R8G8_TYPELESS => format_info!(1, 1, 16),
+            DxgiFormat::R8G8_UNORM => format_info!(1, 1, 16),
+            DxgiFormat::R8G8_UINT => format_info!(1, 1, 16),
+            DxgiFormat::R8G8_SNORM => format_info!(1, 1, 16),
+            DxgiFormat::R8G8_SINT => format_info!(1, 1, 16),
+            DxgiFormat::R16_TYPELESS => format_info!(1, 1, 16),
+            DxgiFormat::R16_FLOAT => format_info!(1, 1, 16),
+            DxgiFormat::D16_UNORM => format_info!(1, 1, 16),
+            DxgiFormat::R16_UNORM => format_info!(1, 1, 16),
+            DxgiFormat::R16_UINT => format_info!(1, 1, 16),
+            DxgiFormat::R16_SNORM => format_info!(1, 1, 16),
+            DxgiFormat::R16_SINT => format_info!(1, 1, 16),
+            DxgiFormat::R8_TYPELESS => format_info!(1, 1, 8),
+            DxgiFormat::R8_UNORM => format_info!(1, 1, 8),
+            DxgiFormat::R8_UINT => format_info!(1, 1, 8),
+            DxgiFormat::R8_SNORM => format_info!(1, 1, 8),
+            DxgiFormat::R8_SINT => format_info!(1, 1, 8),
+            DxgiFormat::A8_UNORM => format_info!(1, 1, 8),
+            DxgiFormat::R1_UNORM => format_info!(1, 1, 8),
+            DxgiFormat::R9G9B9E5_SHAREDEXP => format_info!(1, 1, 16),
+            DxgiFormat::R8G8_B8G8_UNORM => format_info!(1, 1, 16),
+            DxgiFormat::G8R8_G8B8_UNORM => format_info!(1, 1, 16),
+            DxgiFormat::BC1_TYPELESS => format_info!(4, 4, 4),
+            DxgiFormat::BC1_UNORM => format_info!(4, 4, 4),
+            DxgiFormat::BC1_UNORM_SRGB => format_info!(4, 4, 4),
+            DxgiFormat::BC2_TYPELESS => format_info!(4, 4, 8),
+            DxgiFormat::BC2_UNORM => format_info!(4, 4, 8),
+            DxgiFormat::BC2_UNORM_SRGB => format_info!(4, 4, 8),
+            DxgiFormat::BC3_TYPELESS => format_info!(4, 4, 8),
+            DxgiFormat::BC3_UNORM => format_info!(4, 4, 8),
+            DxgiFormat::BC3_UNORM_SRGB => format_info!(4, 4, 8),
+            DxgiFormat::BC4_TYPELESS => format_info!(4, 4, 4),
+            DxgiFormat::BC4_UNORM => format_info!(4, 4, 4),
+            DxgiFormat::BC4_SNORM => format_info!(4, 4, 4),
+            DxgiFormat::BC5_TYPELESS => format_info!(4, 4, 8),
+            DxgiFormat::BC5_UNORM => format_info!(4, 4, 8),
+            DxgiFormat::BC5_SNORM => format_info!(4, 4, 8),
+            DxgiFormat::BC6H_TYPELESS => format_info!(4, 4, 8),
+            DxgiFormat::BC6H_UF16 => format_info!(4, 4, 8),
+            DxgiFormat::BC6H_SF16 => format_info!(4, 4, 8),
+            DxgiFormat::BC7_TYPELESS => format_info!(4, 4, 8),
+            DxgiFormat::BC7_UNORM => format_info!(4, 4, 8),
+            DxgiFormat::BC7_UNORM_SRGB => format_info!(4, 4, 8),
+            DxgiFormat::B5G6R5_UNORM => format_info!(1, 1, 16),
+            DxgiFormat::B5G5R5A1_UNORM => format_info!(1, 1, 16),
+            DxgiFormat::B8G8R8A8_UNORM => format_info!(1, 1, 32),
+            DxgiFormat::B8G8R8X8_UNORM => format_info!(1, 1, 32),
+            DxgiFormat::R10G10B10_XR_BIAS_A2_UNORM => format_info!(1, 1, 32),
+            DxgiFormat::B8G8R8A8_TYPELESS => format_info!(1, 1, 32),
+            DxgiFormat::B8G8R8A8_UNORM_SRGB => format_info!(1, 1, 32),
+            DxgiFormat::B8G8R8X8_TYPELESS => format_info!(1, 1, 32),
+            DxgiFormat::B8G8R8X8_UNORM_SRGB => format_info!(1, 1, 32),
+            DxgiFormat::AYUV => format_info!(1, 1, 32),
+            DxgiFormat::Y410 => format_info!(1, 1, 32),
+            DxgiFormat::Y416 => format_info!(1, 1, 64),
+            DxgiFormat::NV12 => format_info!(1, 1, 12),
+            DxgiFormat::P010 => format_info!(1, 1, 24),
+            DxgiFormat::P016 => format_info!(1, 1, 24),
+            DxgiFormat::OPAQUE420 => format_info!(1, 1, 12),
+            DxgiFormat::YUY2 => format_info!(1, 1, 32),
+            DxgiFormat::Y210 => format_info!(1, 1, 64),
+            DxgiFormat::Y216 => format_info!(1, 1, 64),
+            DxgiFormat::NV11 => format_info!(1, 1, 12),
+            DxgiFormat::AI44 => format_info!(1, 1, 8),
+            DxgiFormat::IA44 => format_info!(1, 1, 8),
+            DxgiFormat::P8 => format_info!(1, 1, 8),
+            DxgiFormat::A8P8 => format_info!(1, 1, 16),
+            DxgiFormat::B4G4R4A4_UNORM => format_info!(1, 1, 8),
+            DxgiFormat::P208 => format_info!(1, 1, 8),
+            DxgiFormat::V208 => format_info!(1, 1, 8),
+            DxgiFormat::V408 => format_info!(1, 1, 8),
+            DxgiFormat::SAMPLER_FEEDBACK_MIN_MIP_OPAQUE => format_info!(1, 1, 8),
+            DxgiFormat::SAMPLER_FEEDBACK_MIP_REGION_USED_OPAQUE => format_info!(1, 1, 8),
         }
     }
 
@@ -671,7 +709,7 @@ impl TryFrom<u16> for GcnSurfaceFormat {
 
     fn try_from(value: u16) -> Result<Self, Self::Error> {
         Ok(match value {
-            0..=0x29 => unsafe { transmute(value) },
+            0..=0x29 => unsafe { transmute::<u16, GcnSurfaceFormat>(value) },
             e => return Err(anyhow::anyhow!("GCN format is out of range ({e})")),
         })
     }
@@ -746,30 +784,6 @@ pub enum XenosSurfaceFormat {
     k_DXT3A_AS_1_1_1_1 = 61,
     k_8_8_8_8_GAMMA_EDRAM = 62,
     k_2_10_10_10_FLOAT_EDRAM = 63,
-}
-
-pub struct FormatInfo {
-    // wgpu_format: Option<wgpu::TextureFormat>,
-    pub block_width: u32,
-    pub block_height: u32,
-    pub bits_per_pixel: u32,
-}
-
-impl FormatInfo {
-    pub fn bytes_per_block(&self) -> u32 {
-        self.block_width * self.block_height * self.bits_per_pixel / 8
-    }
-}
-
-macro_rules! format_info {
-    ($block_width:expr, $block_height:expr, $bpp:expr) => {
-        FormatInfo {
-            // wgpu_format: Some(wgpu::TextureFormat::$wgpu_format),
-            block_width: $block_width,
-            block_height: $block_height,
-            bits_per_pixel: $bpp,
-        }
-    };
 }
 
 impl XenosSurfaceFormat {
@@ -898,7 +912,7 @@ impl TryFrom<u8> for XenosSurfaceFormat {
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         Ok(match value {
-            0..=63 => unsafe { transmute(value) },
+            0..=63 => unsafe { transmute::<u8, XenosSurfaceFormat>(value) },
             e => return Err(anyhow::anyhow!("Xenos format is out of range ({e})")),
         })
     }
@@ -1020,7 +1034,7 @@ impl TryFrom<u8> for GcmSurfaceFormat {
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         Ok(match value {
-            0x81..=0x9F => unsafe { transmute(value) },
+            0x81..=0x9F => unsafe { transmute::<u8, GcmSurfaceFormat>(value) },
             e => return Err(anyhow::anyhow!("GCM format is out of range ({e:x})")),
         })
     }

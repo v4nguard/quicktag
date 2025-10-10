@@ -33,6 +33,7 @@ pub struct TextureHeaderDevAlphaX360 {
 #[derive(Debug, BinRead)]
 pub struct TextureHeaderRoiXbox {
     pub format: DxgiFormat,
+    pub tile_mode: u32,
 
     #[br(seek_before = SeekFrom::Start(0x2c), assert(beefcafe == 0xbeefcafe))]
     pub beefcafe: u32,

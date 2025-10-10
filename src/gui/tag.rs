@@ -1561,7 +1561,27 @@ fn traverse_tag(
         references_collapsed.iter().map(|t| (*t, 0)).collect_vec()
     };
 
-    if all_hashes.is_empty() {
+    let mut raw_strings = vec![];
+    let mut raw_string_hashes = vec![];
+    if options.show_strings {
+        let tag_data = package_manager().read_tag(tag).unwrap();
+        for (i, b) in tag_data.chunks_exact(4).enumerate() {
+            let v: [u8; 4] = b.try_into().unwrap();
+            let hash = u32::from_le_bytes(v);
+
+            if let Some(v) = options.raw_strings.get(&hash) {
+                raw_string_hashes.push(v[0].clone());
+            }
+
+            if hash == 0x80800065 {
+                raw_strings.extend(read_raw_string_blob(&tag_data, i as u64 * 4));
+            }
+        }
+    }
+
+    if all_hashes.is_empty()
+        && (!options.show_strings && raw_strings.is_empty() && raw_string_hashes.is_empty())
+    {
         return TraversedTag {
             tag,
             entry,
@@ -1575,45 +1595,27 @@ fn traverse_tag(
         write!(line_header, "{s}   ").ok();
     }
 
-    if options.show_strings {
-        let tag_data = package_manager().read_tag(tag).unwrap();
-        let mut raw_strings = vec![];
-        let mut raw_string_hashes = vec![];
-        for (i, b) in tag_data.chunks_exact(4).enumerate() {
-            let v: [u8; 4] = b.try_into().unwrap();
-            let hash = u32::from_le_bytes(v);
+    if !raw_strings.is_empty() {
+        writeln!(
+            out,
+            "{line_header}├──Raw Strings: [{}]",
+            raw_strings.into_iter().map(|(_, string)| string).join(", ")
+        )
+        .ok();
+    }
 
-            if let Some(v) = options.raw_strings.get(&hash) {
-                raw_string_hashes.push(v[0].clone());
-            }
-
-            if hash == 0x80800065 {
-                raw_strings.extend(read_raw_string_blob(&tag_data, i as u64 * 4));
-            }
-        }
-
-        if !raw_strings.is_empty() {
-            writeln!(
-                out,
-                "{line_header}├──Raw Strings: [{}]",
-                raw_strings.into_iter().map(|(_, string)| string).join(", ")
-            )
-            .ok();
-        }
-
-        if !raw_string_hashes.is_empty() {
-            writeln!(
-                out,
-                "{line_header}├──Raw String Hashes: [{}]",
-                raw_string_hashes
-                    .into_iter()
-                    .map(|(string, _)|
+    if !raw_string_hashes.is_empty() {
+        writeln!(
+            out,
+            "{line_header}├──Raw String Hashes: [{}]",
+            raw_string_hashes
+                .into_iter()
+                .map(|(string, _)|
                     //     format!("{} (wordlist.txt)", string)
                         string)
-                    .join(", ")
-            )
-            .ok();
-        }
+                .join(", ")
+        )
+        .ok();
     }
 
     let mut subtags = vec![];
