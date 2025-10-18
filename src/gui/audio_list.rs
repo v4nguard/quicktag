@@ -86,6 +86,7 @@ pub fn wwise_event_type() -> Option<u32> {
             | DestinyVersion::Destiny2Lightfall
             | DestinyVersion::Destiny2TheFinalShape
             | DestinyVersion::Destiny2TheEdgeOfFate => Some(0x80809738),
+            DestinyVersion::DestinyRiseOfIron => Some(0x8080080A),
             _ => None,
         },
         _ => None,

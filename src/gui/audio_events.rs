@@ -4,7 +4,7 @@ use binrw::{BinReaderExt, VecArgs};
 use eframe::egui::{self, Color32, RichText};
 use egui_extras::{Column, TableBuilder};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use tiger_pkg::{GameVersion, TagHash, package_manager};
+use tiger_pkg::{DestinyVersion, GameVersion, TagHash, package_manager};
 
 use crate::gui::{
     View, ViewAction, audio_list::wwise_event_type, common::ResponseExt, get_string_for_hash,
@@ -34,44 +34,78 @@ impl AudioEventView {
                 .map(|(t, _)| {
                     let data = package_manager().read_tag(*t).expect("Failed to read tag");
                     let mut data = Cursor::new(data);
-                    if package_manager().version
-                        >= GameVersion::Destiny(tiger_pkg::DestinyVersion::Destiny2BeyondLight)
-                    {
-                        data.set_position(0x18);
-                        let bank_tag: TagHash = data.read_le().unwrap();
-                        let bank_hash = package_manager().get_entry(bank_tag).unwrap().reference;
-                        let name = get_string_for_hash(bank_hash);
 
-                        data.set_position(0x20);
-                        let event_count: u64 = data.read_le().unwrap();
-                        data.set_position(0x50);
-                        let streams: Vec<TagHash> = data
-                            .read_le_args(VecArgs::builder().count(event_count as usize).finalize())
-                            .unwrap();
+                    match package_manager().version {
+                        v if v >= GameVersion::Destiny(DestinyVersion::Destiny2BeyondLight) => {
+                            data.set_position(0x18);
+                            let bank_tag: TagHash = data.read_le().unwrap();
+                            let bank_hash =
+                                package_manager().get_entry(bank_tag).unwrap().reference;
+                            let name = get_string_for_hash(bank_hash);
 
-                        AudioEvent {
-                            tag: *t,
-                            bank_hash,
-                            name,
-                            streams,
+                            data.set_position(0x20);
+                            let event_count: u64 = data.read_le().unwrap();
+                            data.set_position(0x50);
+                            let streams: Vec<TagHash> = data
+                                .read_le_args(
+                                    VecArgs::builder().count(event_count as usize).finalize(),
+                                )
+                                .unwrap();
+
+                            AudioEvent {
+                                tag: *t,
+                                bank_hash,
+                                name,
+                                streams,
+                            }
                         }
-                    } else {
-                        data.set_position(0x14);
-                        let bank_tag: TagHash = data.read_le().unwrap();
-                        let bank_hash = package_manager().get_entry(bank_tag).unwrap().reference;
-                        let name = get_string_for_hash(bank_hash);
-                        data.set_position(0x18);
-                        let event_count: u64 = data.read_le().unwrap();
-                        data.set_position(0x50);
-                        let streams: Vec<TagHash> = data
-                            .read_le_args(VecArgs::builder().count(event_count as usize).finalize())
-                            .unwrap();
+                        GameVersion::Destiny(DestinyVersion::Destiny2Shadowkeep) => {
+                            data.set_position(0x14);
+                            let bank_tag: TagHash = data.read_le().unwrap();
+                            let bank_hash =
+                                package_manager().get_entry(bank_tag).unwrap().reference;
+                            let name = get_string_for_hash(bank_hash);
+                            data.set_position(0x18);
+                            let event_count: u64 = data.read_le().unwrap();
+                            data.set_position(0x50);
+                            let streams: Vec<TagHash> = data
+                                .read_le_args(
+                                    VecArgs::builder().count(event_count as usize).finalize(),
+                                )
+                                .unwrap();
 
-                        AudioEvent {
-                            tag: *t,
-                            bank_hash,
-                            name,
-                            streams,
+                            AudioEvent {
+                                tag: *t,
+                                bank_hash,
+                                name,
+                                streams,
+                            }
+                        }
+                        GameVersion::Destiny(DestinyVersion::DestinyRiseOfIron) => {
+                            data.set_position(0x34);
+                            let bank_tag: TagHash = data.read_le().unwrap();
+                            let bank_hash =
+                                package_manager().get_entry(bank_tag).unwrap().reference;
+                            let name = get_string_for_hash(bank_hash);
+
+                            data.set_position(0x38);
+                            let event_count: u64 = data.read_le().unwrap();
+                            data.set_position(0x70);
+                            let streams: Vec<TagHash> = data
+                                .read_le_args(
+                                    VecArgs::builder().count(event_count as usize).finalize(),
+                                )
+                                .unwrap();
+
+                            AudioEvent {
+                                tag: *t,
+                                bank_hash,
+                                name,
+                                streams,
+                            }
+                        }
+                        _ => {
+                            panic!("Unsupported game version for Wwise Event parsing");
                         }
                     }
                 })
