@@ -1,0 +1,26 @@
+[workspace]
+members = ["cargo:."]
+
+# Config for 'dist'
+[dist]
+# The preferred dist version to use in CI (Cargo.toml SemVer syntax)
+cargo-dist-version = "0.30.0"
+# CI backends to support
+ci = "github"
+# The installers to generate for each app
+installers = ["msi"]
+# Target platforms to build apps for (Rust target-triple syntax)
+targets = ["x86_64-pc-windows-msvc"]
+
+include = [
+    "lib/avcodec-vgmstream-59.dll",
+    "lib/avformat-vgmstream-59.dll",
+    "lib/avutil-vgmstream-57.dll",
+    "lib/libatrac9.dll",
+    "lib/libcelt-0061.dll",
+    "lib/libcelt-0110.dll",
+    "lib/libg719_decode.dll",
+    "lib/libmpg123-0.dll",
+    "lib/libspeex-1.dll",
+    "lib/libvorbis.dll"
+]

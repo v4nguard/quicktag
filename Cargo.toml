@@ -16,6 +16,15 @@ tiger-pkg = { version = "0.18.8", features = ["global_manager_instance"] }
 name = "quicktag"
 version = "0.8.0"
 edition = "2024"
+repository = "https://github.com/v4nguard/quicktag"
+authors = ["cohaereo <cohae@cohae.dev>", "nblock <nblock@nblock.dev>"]
+description = "A fast, multi-platform tag research tool for Tiger engine packages"
+
+[package.metadata.wix]
+upgrade-guid = "C1EE38B8-200B-465D-9AEF-5DEB1F8C6977"
+path-guid = "B77979F7-9075-4F72-9005-59441AA4E70E"
+license = false
+eula = false
 
 [dependencies]
 quicktag-core = { path = "./crates/core" }
@@ -92,6 +101,11 @@ overflow-checks = false
 
 [profile.release]
 debug = "limited"
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
 #opt-level = 3
 # strip = "symbols"
 # lto = "fat"
