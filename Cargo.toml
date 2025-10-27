@@ -14,7 +14,7 @@ tiger-pkg = { version = "0.18.8", features = ["global_manager_instance"] }
 
 [package]
 name = "quicktag"
-version = "0.8.0"
+version = "0.9.0"
 edition = "2024"
 repository = "https://github.com/v4nguard/quicktag"
 authors = ["cohaereo <cohae@cohae.dev>", "nblock <nblock@nblock.dev>"]
