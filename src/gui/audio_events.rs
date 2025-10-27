@@ -4,7 +4,7 @@ use binrw::{BinReaderExt, VecArgs};
 use eframe::egui::{self, Color32, RichText};
 use egui_extras::{Column, TableBuilder};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use tiger_pkg::{DestinyVersion, GameVersion, TagHash, package_manager};
+use tiger_pkg::{DestinyVersion, GameVersion, MarathonVersion, TagHash, package_manager};
 
 use crate::gui::{
     View, ViewAction, audio_list::wwise_event_type, common::ResponseExt, get_string_for_hash,
@@ -36,6 +36,27 @@ impl AudioEventView {
                     let mut data = Cursor::new(data);
 
                     match package_manager().version {
+                        GameVersion::Marathon(MarathonVersion::MarathonAlpha) => {
+                            data.set_position(0x8);
+                            let bank_hash: u32 = data.read_le().unwrap();
+                            let name = get_string_for_hash(bank_hash);
+
+                            data.set_position(0x20);
+                            let event_count: u64 = data.read_le().unwrap();
+                            data.set_position(0x50);
+                            let streams: Vec<TagHash> = data
+                                .read_le_args(
+                                    VecArgs::builder().count(event_count as usize).finalize(),
+                                )
+                                .unwrap();
+
+                            AudioEvent {
+                                tag: *t,
+                                bank_hash,
+                                name,
+                                streams,
+                            }
+                        }
                         v if v >= GameVersion::Destiny(DestinyVersion::Destiny2BeyondLight) => {
                             data.set_position(0x18);
                             let bank_tag: TagHash = data.read_le().unwrap();

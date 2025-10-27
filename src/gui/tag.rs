@@ -1763,9 +1763,9 @@ pub fn format_tag_entry(tag: TagHash, entry: Option<&UEntryHeader>) -> String {
             entry.file_subtype,
             entry.reference,
             if let Some(postfix) = name_postfix {
-                &format!(" ({postfix})")
+                format!(" ({postfix})")
             } else {
-                ""
+                "".to_string()
             },
         )
     } else {
@@ -1931,6 +1931,7 @@ fn search_for_tag(
     results
 }
 
+#[cfg(feature = "decompile-shaders")]
 fn decompile_shader(data: &[u8]) -> Result<String, String> {
     if !matches!(
         package_manager().platform,
@@ -1946,4 +1947,9 @@ fn decompile_shader(data: &[u8]) -> Result<String, String> {
     }
 
     hlsldecompiler::decompile(data)
+}
+
+#[cfg(not(feature = "decompile-shaders"))]
+fn decompile_shader(_data: &[u8]) -> Result<String, String> {
+    Err("Shader decompilation is not enabled in this build".to_string())
 }

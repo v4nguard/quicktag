@@ -89,7 +89,7 @@ pub fn wwise_event_type() -> Option<u32> {
             DestinyVersion::DestinyRiseOfIron => Some(0x8080080A),
             _ => None,
         },
-        _ => None,
+        GameVersion::Marathon(MarathonVersion::MarathonAlpha) => Some(0x8080B128),
     }
 }
 

@@ -1,3 +1,4 @@
+#![cfg(target_os = "windows")]
 use std::mem::MaybeUninit;
 
 use crate::structs::{XgResourceLayout, XgTexture2DDesc};

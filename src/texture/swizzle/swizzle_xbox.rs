@@ -2,7 +2,6 @@
 
 use anyhow::Context;
 use log::warn;
-use xg::structs::XgTexture2DDesc;
 
 use crate::texture::dxgi::{DxgiFormat, XenosSurfaceFormat};
 
@@ -227,6 +226,7 @@ impl Deswizzler for XenosDetiler {
 
 pub struct DurangoDeswizzler;
 
+#[cfg(all(feature = "xbox-one-deswizzler", target_os = "windows"))]
 impl Deswizzler for DurangoDeswizzler {
     type Format = (DxgiFormat, u32);
     fn deswizzle(
@@ -238,6 +238,7 @@ impl Deswizzler for DurangoDeswizzler {
         (format, tile_mode): Self::Format,
         _align_output: bool,
     ) -> anyhow::Result<Vec<u8>> {
+        use xg::structs::XgTexture2DDesc;
         if depth_or_array_size > 1 {
             warn!("Array/3D textures are not supported yet.");
             return Ok(source.to_vec());
@@ -301,5 +302,29 @@ impl Deswizzler for DurangoDeswizzler {
         }
 
         Ok(output)
+    }
+}
+
+#[cfg(any(not(feature = "xbox-one-deswizzler"), not(target_os = "windows")))]
+impl Deswizzler for DurangoDeswizzler {
+    type Format = (DxgiFormat, u32);
+    fn deswizzle(
+        &self,
+        _data: &[u8],
+        _width: usize,
+        _height: usize,
+        _depth_or_array_size: usize,
+        _format: Self::Format,
+        _align_output: bool,
+    ) -> anyhow::Result<Vec<u8>> {
+        if cfg!(target_os = "windows") {
+            Err(anyhow::anyhow!(
+                "Durango deswizzling is not supported. Enable the 'xbox-one-deswizzler' feature."
+            ))
+        } else {
+            Err(anyhow::anyhow!(
+                "Durango deswizzling is not supported on this platform"
+            ))
+        }
     }
 }
