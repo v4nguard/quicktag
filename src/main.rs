@@ -6,9 +6,9 @@ mod util;
 use std::sync::Arc;
 
 use clap::Parser;
-use eframe::egui::ViewportBuilder;
 use eframe::egui_wgpu::WgpuConfiguration;
 use eframe::wgpu;
+use eframe::{egui::ViewportBuilder, egui_wgpu::WgpuSetupCreateNew};
 use env_logger::Env;
 use game_detector::InstalledGame;
 use log::info;
@@ -82,15 +82,19 @@ fn main() -> eframe::Result<()> {
                     .expect("Failed to load icon"),
             ),
         persist_window: true,
-        follow_system_theme: false,
-        default_theme: eframe::Theme::Dark,
         wgpu_options: WgpuConfiguration {
-            supported_backends: wgpu::Backends::PRIMARY,
-            device_descriptor: Arc::new(|_adapter| wgpu::DeviceDescriptor {
-                required_features: wgpu::Features::TEXTURE_COMPRESSION_BC
-                    | wgpu::Features::TEXTURE_BINDING_ARRAY
-                    | wgpu::Features::TEXTURE_FORMAT_16BIT_NORM,
-                required_limits: wgpu::Limits::default(),
+            wgpu_setup: eframe::egui_wgpu::WgpuSetup::CreateNew(WgpuSetupCreateNew {
+                instance_descriptor: wgpu::InstanceDescriptor {
+                    backends: wgpu::Backends::PRIMARY,
+                    ..Default::default()
+                },
+                device_descriptor: Arc::new(|_adapter| wgpu::DeviceDescriptor {
+                    required_features: wgpu::Features::TEXTURE_COMPRESSION_BC
+                        | wgpu::Features::TEXTURE_BINDING_ARRAY
+                        | wgpu::Features::TEXTURE_FORMAT_16BIT_NORM,
+                    required_limits: wgpu::Limits::default(),
+                    ..Default::default()
+                }),
                 ..Default::default()
             }),
             ..Default::default()

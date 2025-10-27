@@ -22,12 +22,12 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::mpsc::Receiver;
 
-use eframe::egui::{PointerButton, RichText, TextEdit, Widget};
+use eframe::egui::{CornerRadius, PointerButton, RichText, TextEdit, Widget};
 use eframe::egui_wgpu::RenderState;
 use eframe::{
     egui::{self},
     emath::Align2,
-    epaint::{Color32, Rounding, Vec2},
+    epaint::{Color32, Vec2},
 };
 use egui_notify::Toasts;
 use lazy_static::lazy_static;
@@ -130,10 +130,14 @@ pub struct QuickTagApp {
 impl QuickTagApp {
     /// Called once before the first frame.
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        cc.egui_ctx
+            .options_mut(|o| o.theme_preference = egui::ThemePreference::Dark);
         let mut fonts = egui::FontDefinitions::default();
         fonts.font_data.insert(
             "Destiny_Keys".into(),
-            egui::FontData::from_static(include_bytes!("../../Destiny_Keys.otf")),
+            Arc::new(egui::FontData::from_static(include_bytes!(
+                "../../Destiny_Keys.otf"
+            ))),
         );
 
         fonts
@@ -230,7 +234,7 @@ impl eframe::App for QuickTagApp {
                 let painter = ctx.layer_painter(egui::LayerId::background());
                 painter.rect_filled(
                     egui::Rect::EVERYTHING,
-                    Rounding::default(),
+                    CornerRadius::default(),
                     Color32::from_black_alpha(127),
                 );
             }
@@ -362,7 +366,7 @@ impl eframe::App for QuickTagApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.add_enabled_ui(!is_loading_cache, |ui| {
-                egui::menu::bar(ui, |ui| {
+                egui::MenuBar::new().ui(ui, |ui| {
                     ui.menu_button("File", |ui| {
                         if ui.button("Scan file").clicked() {
                             if let Ok(Some(selected_file)) = native_dialog::FileDialog::new()
@@ -384,12 +388,12 @@ impl eframe::App for QuickTagApp {
                                 self.open_panel = Panel::ExternalFile;
                             }
 
-                            ui.close_menu();
+                            ui.close();
                         }
 
                         if ui.button("Regenerate Cache").clicked() {
                             self.regenerate_cache();
-                            ui.close_menu();
+                            ui.close();
                         }
                     });
 

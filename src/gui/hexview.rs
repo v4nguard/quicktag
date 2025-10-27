@@ -241,6 +241,7 @@ impl TagHexView {
                                         0.0,
                                         Color32::from_white_alpha(30),
                                         Stroke::NONE,
+                                        egui::StrokeKind::Middle,
                                     );
                                 }
 

@@ -2,22 +2,15 @@ use std::fs::File;
 
 use eframe::egui::RichText;
 use eframe::egui::{self};
-use image::{DynamicImage, GenericImage, ImageFormat};
-use lazy_static::lazy_static;
+use image::{DynamicImage, GenericImage};
 use log::{error, info, warn};
 use quicktag_core::tagtypes::TagType;
-use std::io::{Cursor, Write};
-use std::num::NonZeroU32;
+use std::io::Write;
 use tiger_pkg::{TagHash, package_manager};
 
 use crate::texture::{Texture, cache::TextureCache};
 
 use super::TOASTS;
-
-lazy_static! {
-    static ref CF_PNG: NonZeroU32 = clipboard_win::register_format("PNG").unwrap();
-    static ref CF_FILENAME: NonZeroU32 = clipboard_win::register_format("FileNameW").unwrap();
-}
 
 pub trait ResponseExt {
     fn tag_context(self, tag: TagHash) -> Self;
@@ -49,38 +42,19 @@ impl ResponseExt for egui::Response {
                     match Texture::load(&texture_cache.render_state, tag, false) {
                         Ok(o) => {
                             let image = o.to_image(&texture_cache.render_state, 0).unwrap();
-                            let mut png_data = vec![];
-                            let mut png_writer = Cursor::new(&mut png_data);
-                            image.write_to(&mut png_writer, ImageFormat::Png).unwrap();
+                            let rgba = image.to_rgba8().to_vec();
+                            let color_image = egui::ColorImage::from_rgba_unmultiplied(
+                                [image.width() as usize, image.height() as usize],
+                                &rgba,
+                            );
 
-                            let _clipboard = clipboard_win::Clipboard::new();
-                            if let Err(e) = clipboard_win::raw::set(CF_PNG.get(), &png_data) {
-                                error!("Failed to copy texture to clipboard: {e}");
-                            }
-
-                            // Save to temp
-                            let path = std::env::temp_dir().join(format!("{tag}.png"));
-                            let mut file = File::create(&path).unwrap();
-                            file.write_all(&png_data).unwrap();
-
-                            let mut path_utf16 =
-                                path.to_string_lossy().encode_utf16().collect::<Vec<u16>>();
-                            path_utf16.push(0);
-
-                            if let Err(e) = clipboard_win::raw::set_without_clear(
-                                CF_FILENAME.get(),
-                                bytemuck::cast_slice(&path_utf16),
-                            ) {
-                                error!("Failed to copy texture path to clipboard: {e}");
-                            } else {
-                                TOASTS.lock().success("Texture copied to clipboard");
-                            }
+                            self.ctx.copy_image(color_image);
                         }
                         Err(e) => {
                             error!("Failed to load texture: {e}");
                         }
                     }
-                    ui.close_menu();
+                    ui.close();
                 }
 
                 if ui
@@ -89,7 +63,7 @@ impl ResponseExt for egui::Response {
                     .clicked()
                 {
                     export_texture(texture_cache, tag);
-                    ui.close_menu();
+                    ui.close();
                 }
             }
             tag_context(ui, tag);
@@ -215,14 +189,12 @@ pub fn tag_context(ui: &mut egui::Ui, tag: TagHash) {
         .selectable_label(false, format!("📋 Copy tag{flipped_postfix}"))
         .clicked()
     {
-        ui.output_mut(|o| {
-            o.copied_text = if copy_flipped {
-                format!("{:08X}", tag.0.swap_bytes())
-            } else {
-                format!("{:08X}", tag.0)
-            }
+        ui.ctx().copy_text(if copy_flipped {
+            format!("{:08X}", tag.0.swap_bytes())
+        } else {
+            format!("{:08X}", tag.0)
         });
-        ui.close_menu();
+        ui.close();
     }
 
     if let Some(tag64) = package_manager().get_tag64_for_tag32(tag) {
@@ -230,14 +202,12 @@ pub fn tag_context(ui: &mut egui::Ui, tag: TagHash) {
             .selectable_label(false, format!("📋 Copy 64-bit tag{flipped_postfix}"))
             .clicked()
         {
-            ui.output_mut(|o| {
-                o.copied_text = if copy_flipped {
-                    format!("{:016X}", tag64.0.swap_bytes())
-                } else {
-                    format!("{:016X}", tag64.0)
-                }
+            ui.ctx().copy_text(if copy_flipped {
+                format!("{:016X}", tag64.0.swap_bytes())
+            } else {
+                format!("{:016X}", tag64.0)
             });
-            ui.close_menu();
+            ui.close();
         }
     }
 
@@ -246,37 +216,35 @@ pub fn tag_context(ui: &mut egui::Ui, tag: TagHash) {
             .selectable_label(false, format!("📋 Copy reference tag{flipped_postfix}"))
             .clicked()
         {
-            ui.output_mut(|o| {
-                o.copied_text = if copy_flipped {
-                    format!("{:08X}", entry.reference.swap_bytes())
-                } else {
-                    format!("{:08X}", entry.reference)
-                }
+            ui.ctx().copy_text(if copy_flipped {
+                format!("{:08X}", entry.reference.swap_bytes())
+            } else {
+                format!("{:08X}", entry.reference)
             });
-            ui.close_menu();
+            ui.close();
         }
 
         let tt = TagType::from_type_subtype(entry.file_type, entry.file_subtype);
         if tt == TagType::WwiseStream && ui.selectable_label(false, "🎵 Play audio").clicked() {
             open_audio_file_in_default_application(tag, "wem");
-            ui.close_menu();
+            ui.close();
         }
     }
 
     if ui
         .add_enabled(
             false,
-            egui::SelectableLabel::new(false, "📤 Open in Alkahest"),
+            egui::Button::selectable(false, "📤 Open in Alkahest"),
         )
         .clicked()
     {
         warn!("Alkahest IPC not implemented yet");
-        ui.close_menu();
+        ui.close();
     }
 
     if ui.selectable_label(false, "📤 Open tag data").clicked() {
         open_tag_in_default_application(tag);
-        ui.close_menu();
+        ui.close();
     }
 }
 

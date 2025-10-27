@@ -199,7 +199,7 @@ impl DxgiFormat {
             DxgiFormat::R10G10B10A2_TYPELESS => wgpu::TextureFormat::Rgb10a2Unorm,
             DxgiFormat::R10G10B10A2_UNORM => wgpu::TextureFormat::Rgb10a2Unorm,
             // DxgiFormat::R10G10B10A2_UINT => VkFormat::A2B10G10R10_UINT_PACK32,
-            DxgiFormat::R11G11B10_FLOAT => wgpu::TextureFormat::Rg11b10Float,
+            DxgiFormat::R11G11B10_FLOAT => wgpu::TextureFormat::Rg11b10Ufloat,
             // DxgiFormat::R8G8_TYPELESS => VkFormat::R8G8_UNORM,
             // DxgiFormat::R8G8_UNORM => VkFormat::R8G8_UNORM,
             // DxgiFormat::R8G8_UINT => VkFormat::R8G8_UINT,
@@ -596,7 +596,7 @@ impl GcnSurfaceFormat {
             GcnSurfaceFormat::Format8_8 => wgpu::TextureFormat::Rg8Unorm,
             GcnSurfaceFormat::Format32 => wgpu::TextureFormat::R32Float,
             GcnSurfaceFormat::Format16_16 => wgpu::TextureFormat::Rg16Unorm,
-            GcnSurfaceFormat::Format10_11_11 => wgpu::TextureFormat::Rg11b10Float,
+            GcnSurfaceFormat::Format10_11_11 => wgpu::TextureFormat::Rg11b10Ufloat,
             // GcnSurfaceFormat::Format11_11_10 => todo!(), // No wgpu equivalent
             GcnSurfaceFormat::Format10_10_10_2 => wgpu::TextureFormat::Rgb10a2Unorm,
             GcnSurfaceFormat::Format2_10_10_10 => wgpu::TextureFormat::Rgb10a2Unorm,

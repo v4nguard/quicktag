@@ -411,7 +411,7 @@ impl TagView {
         if traversed.subtags.is_empty() {
             ui.horizontal(|ui| {
                 if ui
-                    .add_enabled(depth > 0, egui::SelectableLabel::new(false, tag_label))
+                    .add_enabled(depth > 0, egui::Button::selectable(false, tag_label))
                     .tag_context_with_preview(traversed.tag, Some(&self.texture_cache), is_texture)
                     .clicked()
                 {
@@ -440,7 +440,7 @@ impl TagView {
             .show_header(ui, |ui| {
                 ui.horizontal(|ui| {
                     let response =
-                        ui.add_enabled(depth > 0, egui::SelectableLabel::new(false, tag_label));
+                        ui.add_enabled(depth > 0, egui::Button::selectable(false, tag_label));
 
                     if response
                         .tag_context_with_preview(
@@ -484,7 +484,7 @@ impl TagView {
                             // ui.monospace(d);
                             egui_extras::syntax_highlighting::code_view_ui(
                                 ui,
-                                &CodeTheme::dark(),
+                                &CodeTheme::dark(12.0),
                                 d,
                                 "cpp",
                             )
@@ -547,7 +547,7 @@ impl TagView {
                 if ui.button("Copy traversal").clicked() {
                     if let Some(traversal) = self.tag_traversal.as_ref() {
                         if let Some((_, result)) = traversal.ready() {
-                            ui.output_mut(|o| o.copied_text = result.clone());
+                            ui.ctx().copy_text(result.clone());
                         }
                     }
                 }
@@ -933,7 +933,7 @@ impl View for TagView {
                     .collect::<Vec<String>>()
                     .join("\n");
 
-                ui.output_mut(|o| o.copied_text = tag_hashes_str);
+                ui.ctx().copy_text(tag_hashes_str);
             }
         });
 
@@ -964,7 +964,7 @@ impl View for TagView {
                                 let fancy_tag = format_tag_entry(*tag, entry.as_ref());
                                 let response = ui.add_enabled(
                                     *tag != self.tag,
-                                    egui::SelectableLabel::new(false, fancy_tag),
+                                    egui::Button::selectable(false, fancy_tag),
                                 );
 
                                 if response.tag_context(*tag).clicked() {
@@ -1147,14 +1147,13 @@ impl View for TagView {
                         .default_open(true)
                         .show(ui, |ui| {
                             if !self.raw_strings.is_empty() && ui.button("Copy all").clicked() {
-                                ui.output_mut(|o| {
-                                    o.copied_text = self
-                                        .raw_strings
+                                ui.ctx().copy_text(
+                                    self.raw_strings
                                         .iter()
                                         .map(|(_offset, string, _offsets)| string.clone())
                                         .collect::<Vec<String>>()
-                                        .join("\n")
-                                });
+                                        .join("\n"),
+                                );
                             }
 
                             ui.group(|ui| {
@@ -1181,10 +1180,8 @@ impl View for TagView {
                                             |ui| {
                                                 if ui.selectable_label(false, "Copy text").clicked()
                                                 {
-                                                    ui.output_mut(|o| {
-                                                        o.copied_text = string.clone()
-                                                    });
-                                                    ui.close_menu();
+                                                    ui.ctx().copy_text(string.clone());
+                                                    ui.close();
                                                 }
                                             },
                                         );
@@ -1199,7 +1196,7 @@ impl View for TagView {
                                 if !self.raw_string_hashes.is_empty()
                                     && ui.button("Copy all").clicked()
                                 {
-                                    ui.output_mut(|o| {
+                                    ui.ctx().copy_text({
                                         let mut strs: Vec<String> = vec![];
                                         for (_, hash) in &self.raw_string_hashes {
                                             if let Some(str) = self.raw_string_hash_cache.get(hash)
@@ -1209,7 +1206,7 @@ impl View for TagView {
                                             }
                                         }
 
-                                        o.copied_text = strs.join("\n")
+                                        strs.join("\n")
                                     });
                                 }
                                 ui.group(|ui| {

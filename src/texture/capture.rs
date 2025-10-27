@@ -39,6 +39,7 @@ pub fn capture_texture(
         mip_level_count: None,
         base_array_layer: 0,
         array_layer_count: None,
+        usage: None,
     });
 
     // Create a buffer to hold the result of copying the texture to CPU memory
@@ -128,16 +129,17 @@ pub fn capture_texture(
         device.create_render_pipeline(&RenderPipelineDescriptor {
             label: Some("Render Pipeline"),
             layout: Some(&pipeline_layout),
+            cache: None,
             multiview: None,
             vertex: VertexState {
                 module: copy_shader,
-                entry_point: "vs_main",
+                entry_point: Some("vs_main"),
                 buffers: &[],
                 compilation_options: Default::default(),
             },
             fragment: Some(FragmentState {
                 module: copy_shader,
-                entry_point: "fs_main",
+                entry_point: Some("fs_main"),
                 targets: &[Some(ColorTargetState {
                     format: TextureFormat::Rgba8UnormSrgb,
                     blend: Some(BlendState::PREMULTIPLIED_ALPHA_BLENDING),
@@ -175,6 +177,7 @@ pub fn capture_texture(
                     load: LoadOp::Load,
                     store: StoreOp::Store,
                 },
+                depth_slice: None,
             })],
             depth_stencil_attachment: None,
             occlusion_query_set: None,
@@ -193,15 +196,15 @@ pub fn capture_texture(
     let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor { label: None });
     {
         encoder.copy_texture_to_buffer(
-            ImageCopyTexture {
+            TexelCopyTextureInfo {
                 aspect: TextureAspect::All,
                 texture: &texture_wgpu,
                 mip_level: 0,
                 origin: Origin3d::ZERO,
             },
-            ImageCopyBuffer {
+            TexelCopyBufferInfo {
                 buffer: &buffer,
-                layout: ImageDataLayout {
+                layout: TexelCopyBufferLayout {
                     offset: 0,
                     bytes_per_row: Some(4 * padded_width),
                     rows_per_image: Some(padded_height),
@@ -219,11 +222,17 @@ pub fn capture_texture(
     queue.submit(Some(encoder.finish()));
 
     // Wait for the copy operation to complete
-    device.poll(Maintain::Wait);
+    device.poll(PollType::Wait {
+        submission_index: None,
+        timeout: None,
+    })?;
 
     let buffer_slice = buffer.slice(..);
     buffer_slice.map_async(MapMode::Read, |_| {});
-    device.poll(Maintain::Wait);
+    device.poll(PollType::Wait {
+        submission_index: None,
+        timeout: None,
+    })?;
     let buffer_view = buffer_slice.get_mapped_range();
     let buffer_data = buffer_view.to_vec();
     // let final_size = (texture.width * texture.height * 4) as usize;

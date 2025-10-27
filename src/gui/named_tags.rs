@@ -71,7 +71,7 @@ impl View for NamedTagView {
                             egui::RichText::new(fancy_tag).color(tagtype.display_color());
 
                         if ui
-                            .add(egui::SelectableLabel::new(false, tag_label))
+                            .add(egui::Button::selectable(false, tag_label))
                             .tag_context(nt.hash)
                             .clicked()
                         {

@@ -1,39 +1,19 @@
-use eframe::egui::Color32;
-use eframe::wgpu;
-
-use super::TextureType;
-
-use crate::util::{UiExt, ui_image_rotated};
-
-use eframe::egui::Sense;
-
-use eframe::epaint::vec2;
-
-use either::Either::Left;
-
-use eframe::epaint::mutex::RwLock;
-
-use std::rc::Rc;
-
-use eframe::egui_wgpu::RenderState;
-
-use rustc_hash::FxHasher;
-
-use std::hash::BuildHasherDefault;
-
-use poll_promise::Promise;
-
-use either::Either;
-
-use tiger_pkg::TagHash;
-
+use crate::{
+    texture::{Texture, TextureType},
+    util::{UiExt, ui_image_rotated},
+};
+use eframe::{
+    egui::{Color32, Sense, TextureId, vec2},
+    egui_wgpu::RenderState,
+    wgpu,
+};
+use either::Either::{self, Left};
 use linked_hash_map::LinkedHashMap;
-
-use eframe::epaint::TextureId;
-
-use super::Texture;
-
-use std::sync::Arc;
+use parking_lot::RwLock;
+use poll_promise::Promise;
+use rustc_hash::FxHasher;
+use std::{hash::BuildHasherDefault, rc::Rc, sync::Arc};
+use tiger_pkg::TagHash;
 
 pub type LoadedTexture = (Arc<Texture>, TextureId);
 
@@ -138,7 +118,7 @@ impl TextureCache {
 
     pub fn texture_preview(&self, hash: TagHash, ui: &mut eframe::egui::Ui) {
         if let Some((tex, egui_tex)) = self.get_or_load(hash) {
-            let screen_size = ui.ctx().screen_rect().size();
+            let screen_size = ui.ctx().content_rect().size();
             let screen_aspect_ratio = screen_size.x / screen_size.y;
             let texture_aspect_ratio = tex.aspect_ratio;
 

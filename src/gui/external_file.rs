@@ -43,7 +43,7 @@ impl ExternalFileScanView {
                 }
             }
 
-            ui.output_mut(|o| o.copied_text = taglist);
+            ui.ctx().copy_text(taglist);
         }
 
         egui::ScrollArea::vertical().show_rows(ui, 22.0, self.file_hashes.len(), |ui, range| {

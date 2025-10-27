@@ -237,7 +237,7 @@ impl View for TexturesView {
                 ui.label("Texture desc filter: ");
                 ui.text_edit_singleline(&mut self.filter_texdesc).changed();
 
-                egui::ComboBox::from_id_source("Presets")
+                egui::ComboBox::from_id_salt("Presets")
                     .selected_text("Filter Presets")
                     .show_ui(ui, |ui| {
                         for (name, filter) in DESC_FILTER_PRESETS {
@@ -350,6 +350,7 @@ impl View for TexturesView {
                                             img_container_rect,
                                             4.0,
                                             Stroke::new(1.0, Color32::WHITE),
+                                            egui::StrokeKind::Middle,
                                         );
                                     }
 

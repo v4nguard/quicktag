@@ -131,8 +131,8 @@ impl View for RawStringsView {
 
                             response.on_hover_text(string).context_menu(|ui| {
                                 if ui.selectable_label(false, "Copy string").clicked() {
-                                    ui.output_mut(|o| o.copied_text = string.clone());
-                                    ui.close_menu();
+                                    ui.ctx().copy_text(string.clone());
+                                    ui.close();
                                 }
                             });
                         }
@@ -153,7 +153,7 @@ impl View for RawStringsView {
                                     let tag_type =
                                         TagType::from_type_subtype(e.file_type, e.file_subtype);
                                     if ui
-                                        .add(egui::SelectableLabel::new(
+                                        .add(egui::Button::selectable(
                                             false,
                                             RichText::new(label).color(tag_type.display_color()),
                                         ))

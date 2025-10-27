@@ -243,8 +243,8 @@ impl View for StringsView {
 
                                 response.context_menu(|ui| {
                                     if ui.selectable_label(false, "Copy string").clicked() {
-                                        ui.output_mut(|o| o.copied_text = strings[0].clone());
-                                        ui.close_menu();
+                                        ui.ctx().copy_text(strings[0].clone());
+                                        ui.close();
                                     }
                                 });
                             }
@@ -263,7 +263,7 @@ impl View for StringsView {
                         } else {
                             for (tag, label, tag_type) in &self.string_selected_entries {
                                 if ui
-                                    .add(egui::SelectableLabel::new(
+                                    .add(egui::Button::selectable(
                                         false,
                                         RichText::new(label).color(tag_type.display_color()),
                                     ))

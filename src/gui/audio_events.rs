@@ -193,7 +193,7 @@ impl View for AudioEventView {
                             egui::RichText::new(fancy_tag).color(Color32::from_rgb(191, 106, 247));
 
                         if ui
-                            .add(egui::SelectableLabel::new(false, tag_label))
+                            .add(egui::Button::selectable(false, tag_label))
                             .tag_context_with_preview(*tag, None, false)
                             .clicked()
                         {

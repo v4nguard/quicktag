@@ -177,7 +177,7 @@ impl View for PackagesView {
                                     s.interaction.tooltip_delay = 0.0;
                                 });
                                 if ui
-                                    .add(egui::SelectableLabel::new(
+                                    .add(egui::Button::selectable(
                                         false,
                                         RichText::new(format!(
                                             "{i}: {label} ({})",
