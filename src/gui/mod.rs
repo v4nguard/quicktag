@@ -220,7 +220,12 @@ impl eframe::App for QuickTagApp {
             self.reload_cache = false;
         }
 
-        if self.schemafile_update_rx.try_recv().is_ok() {
+        if let Ok(Ok(event)) = self.schemafile_update_rx.try_recv()
+            && matches!(
+                event.kind,
+                notify::EventKind::Modify(notify::event::ModifyKind::Data(_))
+            )
+        {
             quicktag_core::classes::load_schemafile();
             info!("Reloaded schema file");
         }
