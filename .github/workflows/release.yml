@@ -42,7 +42,7 @@ on:
   pull_request:
   push:
     tags:
-      - "**[0-9]+.[0-9]+.[0-9]+*"
+      - '**[0-9]+.[0-9]+.[0-9]+*'
 
 jobs:
   # Run 'dist plan' (or host) to determine what tasks we need to do
@@ -211,86 +211,86 @@ jobs:
           path: |
             ${{ steps.cargo-dist.outputs.paths }}
             ${{ env.BUILD_MANIFEST_NAME }}
-  # # Determines if we should publish/announce
-  # host:
-  #   needs:
-  #     - plan
-  #     - build-local-artifacts
-  #     - build-global-artifacts
-  #   # Only run if we're "publishing", and only if local and global didn't fail (skipped is fine)
-  #   if: ${{ always() && needs.plan.outputs.publishing == 'true' && (needs.build-global-artifacts.result == 'skipped' || needs.build-global-artifacts.result == 'success') && (needs.build-local-artifacts.result == 'skipped' || needs.build-local-artifacts.result == 'success') }}
-  #   env:
-  #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  #   runs-on: "ubuntu-22.04"
-  #   outputs:
-  #     val: ${{ steps.host.outputs.manifest }}
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with:
-  #         persist-credentials: false
-  #         submodules: recursive
-  #     - name: Install cached dist
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: cargo-dist-cache
-  #         path: ~/.cargo/bin/
-  #     - run: chmod +x ~/.cargo/bin/dist
-  #     # Fetch artifacts from scratch-storage
-  #     - name: Fetch artifacts
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         pattern: artifacts-*
-  #         path: target/distrib/
-  #         merge-multiple: true
-  #     - id: host
-  #       shell: bash
-  #       run: |
-  #         dist host ${{ needs.plan.outputs.tag-flag }} --steps=upload --steps=release --output-format=json > dist-manifest.json
-  #         echo "artifacts uploaded and released successfully"
-  #         cat dist-manifest.json
-  #         echo "manifest=$(jq -c "." dist-manifest.json)" >> "$GITHUB_OUTPUT"
-  #     - name: "Upload dist-manifest.json"
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         # Overwrite the previous copy
-  #         name: artifacts-dist-manifest
-  #         path: dist-manifest.json
-  #     # Create a GitHub Release while uploading all files to it
-  #     - name: "Download GitHub Artifacts"
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         pattern: artifacts-*
-  #         path: artifacts
-  #         merge-multiple: true
-  #     - name: Cleanup
-  #       run: |
-  #         # Remove the granular manifests
-  #         rm -f artifacts/*-dist-manifest.json
-  #     - name: Create GitHub Release
-  #       env:
-  #         PRERELEASE_FLAG: "${{ fromJson(steps.host.outputs.manifest).announcement_is_prerelease && '--prerelease' || '' }}"
-  #         ANNOUNCEMENT_TITLE: "${{ fromJson(steps.host.outputs.manifest).announcement_title }}"
-  #         ANNOUNCEMENT_BODY: "${{ fromJson(steps.host.outputs.manifest).announcement_github_body }}"
-  #         RELEASE_COMMIT: "${{ github.sha }}"
-  #       run: |
-  #         # Write and read notes from a file to avoid quoting breaking things
-  #         echo "$ANNOUNCEMENT_BODY" > $RUNNER_TEMP/notes.txt
+  # Determines if we should publish/announce
+  host:
+    needs:
+      - plan
+      - build-local-artifacts
+      - build-global-artifacts
+    # Only run if we're "publishing", and only if local and global didn't fail (skipped is fine)
+    if: ${{ always() && needs.plan.outputs.publishing == 'true' && (needs.build-global-artifacts.result == 'skipped' || needs.build-global-artifacts.result == 'success') && (needs.build-local-artifacts.result == 'skipped' || needs.build-local-artifacts.result == 'success') }}
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    runs-on: "ubuntu-22.04"
+    outputs:
+      val: ${{ steps.host.outputs.manifest }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: recursive
+      - name: Install cached dist
+        uses: actions/download-artifact@v4
+        with:
+          name: cargo-dist-cache
+          path: ~/.cargo/bin/
+      - run: chmod +x ~/.cargo/bin/dist
+      # Fetch artifacts from scratch-storage
+      - name: Fetch artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: artifacts-*
+          path: target/distrib/
+          merge-multiple: true
+      - id: host
+        shell: bash
+        run: |
+          dist host ${{ needs.plan.outputs.tag-flag }} --steps=upload --steps=release --output-format=json > dist-manifest.json
+          echo "artifacts uploaded and released successfully"
+          cat dist-manifest.json
+          echo "manifest=$(jq -c "." dist-manifest.json)" >> "$GITHUB_OUTPUT"
+      - name: "Upload dist-manifest.json"
+        uses: actions/upload-artifact@v4
+        with:
+          # Overwrite the previous copy
+          name: artifacts-dist-manifest
+          path: dist-manifest.json
+      # Create a GitHub Release while uploading all files to it
+      - name: "Download GitHub Artifacts"
+        uses: actions/download-artifact@v4
+        with:
+          pattern: artifacts-*
+          path: artifacts
+          merge-multiple: true
+      - name: Cleanup
+        run: |
+          # Remove the granular manifests
+          rm -f artifacts/*-dist-manifest.json
+      - name: Create GitHub Release
+        env:
+          PRERELEASE_FLAG: "${{ fromJson(steps.host.outputs.manifest).announcement_is_prerelease && '--prerelease' || '' }}"
+          ANNOUNCEMENT_TITLE: "${{ fromJson(steps.host.outputs.manifest).announcement_title }}"
+          ANNOUNCEMENT_BODY: "${{ fromJson(steps.host.outputs.manifest).announcement_github_body }}"
+          RELEASE_COMMIT: "${{ github.sha }}"
+        run: |
+          # Write and read notes from a file to avoid quoting breaking things
+          echo "$ANNOUNCEMENT_BODY" > $RUNNER_TEMP/notes.txt
 
-  #         gh release create "${{ needs.plan.outputs.tag }}" --target "$RELEASE_COMMIT" $PRERELEASE_FLAG --title "$ANNOUNCEMENT_TITLE" --notes-file "$RUNNER_TEMP/notes.txt" artifacts/*
+          gh release create "${{ needs.plan.outputs.tag }}" --target "$RELEASE_COMMIT" $PRERELEASE_FLAG --title "$ANNOUNCEMENT_TITLE" --notes-file "$RUNNER_TEMP/notes.txt" artifacts/*
 
-  # announce:
-  #   needs:
-  #     - plan
-  #     - host
-  #   # use "always() && ..." to allow us to wait for all publish jobs while
-  #   # still allowing individual publish jobs to skip themselves (for prereleases).
-  #   # "host" however must run to completion, no skipping allowed!
-  #   if: ${{ always() && needs.host.result == 'success' }}
-  #   runs-on: "ubuntu-22.04"
-  #   env:
-  #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with:
-  #         persist-credentials: false
-  #         submodules: recursive
+  announce:
+    needs:
+      - plan
+      - host
+    # use "always() && ..." to allow us to wait for all publish jobs while
+    # still allowing individual publish jobs to skip themselves (for prereleases).
+    # "host" however must run to completion, no skipping allowed!
+    if: ${{ always() && needs.host.result == 'success' }}
+    runs-on: "ubuntu-22.04"
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: recursive

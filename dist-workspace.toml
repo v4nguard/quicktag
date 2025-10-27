@@ -11,16 +11,5 @@ ci = "github"
 installers = ["msi"]
 # Target platforms to build apps for (Rust target-triple syntax)
 targets = ["x86_64-pc-windows-msvc"]
-
-include = [
-    "lib/avcodec-vgmstream-59.dll",
-    "lib/avformat-vgmstream-59.dll",
-    "lib/avutil-vgmstream-57.dll",
-    "lib/libatrac9.dll",
-    "lib/libcelt-0061.dll",
-    "lib/libcelt-0110.dll",
-    "lib/libg719_decode.dll",
-    "lib/libmpg123-0.dll",
-    "lib/libspeex-1.dll",
-    "lib/libvorbis.dll"
-]
+# Extra static files to include in each App (path relative to this Cargo.toml's dir)
+include = ["lib/avcodec-vgmstream-59.dll", "lib/avformat-vgmstream-59.dll", "lib/avutil-vgmstream-57.dll", "lib/libatrac9.dll", "lib/libcelt-0061.dll", "lib/libcelt-0110.dll", "lib/libg719_decode.dll", "lib/libmpg123-0.dll", "lib/libspeex-1.dll", "lib/libvorbis.dll"]
