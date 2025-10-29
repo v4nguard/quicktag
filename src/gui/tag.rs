@@ -153,6 +153,15 @@ impl TagView {
             *value = swap_to_ne!(*value, endian);
         }
 
+        let scan_raw_hashes_unaligned_big_endian = if let Some(entry) =
+            package_manager().get_entry(tag)
+            && let Some(class) = get_class_by_id(entry.reference)
+        {
+            matches!(&*class.name, "s_scope" | "s_technique")
+        } else {
+            false
+        };
+
         for (i, &value) in data_chunks_u32.iter().enumerate() {
             let offset = i as u64 * 4;
 
@@ -177,6 +186,20 @@ impl TagView {
 
             if raw_string_hash_cache.contains_key(&value) {
                 raw_string_hashes.push((offset, value));
+            }
+        }
+
+        // Scan some more tags for unaligned raw string hashes.
+        // This is primarily useful for techniques and scopes, which often contain object channel hashes
+        if scan_raw_hashes_unaligned_big_endian {
+            raw_string_hashes.clear();
+            for b in tag_data.windows(4) {
+                let value = u32::from_be_bytes([b[0], b[1], b[2], b[3]]);
+                let offset = b.as_ptr() as u64 - tag_data.as_ptr() as u64;
+
+                if raw_string_hash_cache.contains_key(&value) {
+                    raw_string_hashes.push((offset, value));
+                }
             }
         }
 
