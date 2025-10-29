@@ -21,6 +21,8 @@ pub trait ResponseExt {
         texture_cache: Option<&TextureCache>,
         is_texture: bool,
     ) -> Self;
+
+    fn string_context(self, s: &str, hash: Option<u32>) -> Self;
 }
 
 impl ResponseExt for egui::Response {
@@ -75,6 +77,23 @@ impl ResponseExt for egui::Response {
 
             tag_hover_ui(ui, tag);
         })
+    }
+
+    fn string_context(self, string: &str, hash: Option<u32>) -> Self {
+        self.context_menu(|ui| {
+            if ui.selectable_label(false, "Copy string").clicked() {
+                ui.ctx().copy_text(string.to_string());
+                ui.close();
+            }
+            if let Some(hash) = hash
+                && ui.selectable_label(false, "Copy hash").clicked()
+            {
+                ui.ctx().copy_text(format!("{:08X}", hash));
+                ui.close();
+            }
+        });
+
+        self
     }
 }
 

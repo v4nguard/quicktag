@@ -328,12 +328,7 @@ impl View for StringsView {
                                     }
                                 }
 
-                                response.context_menu(|ui| {
-                                    if ui.selectable_label(false, "Copy string").clicked() {
-                                        ui.ctx().copy_text(strings[0].clone());
-                                        ui.close();
-                                    }
-                                });
+                                response.string_context(&strings[0], Some(*hash));
                             }
                         },
                     );

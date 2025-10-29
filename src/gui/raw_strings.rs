@@ -111,7 +111,7 @@ impl View for RawStringsView {
                     string_height,
                     self.strings_vec_filtered.len(),
                     |ui, range| {
-                        for (i, string, tags, _hash) in self.strings_vec_filtered[range].iter() {
+                        for (i, string, tags, hash) in self.strings_vec_filtered[range].iter() {
                             let response = ui.selectable_label(
                                 *i == self.selected_stringset,
                                 format!(
@@ -129,12 +129,9 @@ impl View for RawStringsView {
                                 self.selected_stringset = *i;
                             }
 
-                            response.on_hover_text(string).context_menu(|ui| {
-                                if ui.selectable_label(false, "Copy string").clicked() {
-                                    ui.ctx().copy_text(string.clone());
-                                    ui.close();
-                                }
-                            });
+                            response
+                                .on_hover_text(string)
+                                .string_context(string, Some(*hash));
                         }
                     },
                 );

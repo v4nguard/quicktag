@@ -1147,6 +1147,7 @@ impl View for TagView {
                                                         ),
                                                     )
                                                     .on_hover_text(strings.join("\n"))
+                                                    .string_context(&strings[0], Some(*hash))
                                                     .clicked();
                                                 } else {
                                                     ui.selectable_label(
@@ -1156,6 +1157,7 @@ impl View for TagView {
                                                             strings[0], hash, offset
                                                         ),
                                                     )
+                                                    .string_context(&strings[0], Some(*hash))
                                                     .clicked();
                                                 }
                                             }
@@ -1271,7 +1273,8 @@ impl View for TagView {
                                                                     .iter()
                                                                     .map(|(s, _)| s)
                                                                     .join("\n"),
-                                                            );
+                                                            )
+                                                            .string_context(&strings[0].0, Some(*hash));
 
                                                         (response, strings[current_string].1)
                                                     } else {
@@ -1287,7 +1290,8 @@ impl View for TagView {
                                                                 strings[0].0, hash, offset
                                                             ))
                                                             .color(color),
-                                                        );
+                                                        )
+                                                        .string_context(&strings[0].0, Some(*hash));
 
                                                         (response, strings[0].1)
                                                     };
