@@ -1426,9 +1426,9 @@ dependencies = [
 
 [[package]]
 name = "game-detector"
-version = "0.1.5"
+version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e402aa3e469f106a785c3af7f7d265eff82fefaa852a9bfe50a2b327918c46d7"
+checksum = "203228a1fee2958ec374f7fa666651dbe73227a6e4158a09e4c37865791648e3"
 dependencies = [
  "anyhow",
  "fs-err",
@@ -3481,7 +3481,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.11.0",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3849,9 +3849,9 @@ dependencies = [
 
 [[package]]
 name = "tiger-pkg"
-version = "0.18.8"
+version = "0.18.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68f8790c4262099c7ec53e1732798cfda43839bd731bcf1b87d4e85395ca061a"
+checksum = "236d7ca7020918c4c668e6645595652544ec9564588238dc11fbcdbd4a585041"
 dependencies = [
  "aes-gcm",
  "anyhow",
