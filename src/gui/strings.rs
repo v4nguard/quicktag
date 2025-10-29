@@ -6,7 +6,7 @@ use std::{
 
 use binrw::BinReaderExt;
 
-use eframe::egui::{self, RichText};
+use eframe::egui::{self, RichText, TextEdit, Widget};
 use itertools::Itertools;
 use quicktag_core::tagtypes::TagType;
 use quicktag_scanner::TagCache;
@@ -27,6 +27,8 @@ pub struct StringsView {
     selected_string: u32,
     string_selected_entries: Vec<(TagHash, String, TagType)>,
     string_filter: String,
+    update_search: bool,
+    search_by_hash: bool,
 
     exact_match: bool,
     case_sensitive: bool,
@@ -78,6 +80,8 @@ impl StringsView {
             cache,
             strings,
             strings_vec_filtered,
+            update_search: true,
+            search_by_hash: false,
             selected_string: u32::MAX,
             string_filter: String::new(),
             string_selected_entries: vec![],
@@ -87,6 +91,108 @@ impl StringsView {
             variant,
         }
     }
+
+    fn reset_search(&mut self) {
+        let mut strings_vec_filtered = self
+            .strings
+            .iter()
+            .map(|(k, v)| (*k, v.clone()))
+            .collect_vec();
+
+        if self.hide_devalpha_str {
+            let devstr_regex = regex::Regex::new(r"^str[0-9]*").unwrap();
+            strings_vec_filtered.retain(|(_, s)| !devstr_regex.is_match(&s[0]));
+        }
+
+        self.strings_vec_filtered = strings_vec_filtered;
+    }
+
+    fn filter_strings(&mut self) {
+        if !self.update_search {
+            return;
+        }
+
+        if self.string_filter.is_empty() {
+            self.reset_search();
+        } else if self.search_by_hash {
+            self.filter_strings_by_hash();
+        } else {
+            self.filter_strings_normal();
+        }
+
+        self.update_search = false;
+    }
+
+    fn parse_filter_as_hash(&self) -> Option<u32> {
+        if self.string_filter.len() > 8 {
+            return None;
+        }
+
+        u32::from_str_radix(&self.string_filter, 16).ok()
+    }
+
+    fn filter_strings_by_hash(&mut self) {
+        let match_b = match self.parse_filter_as_hash() {
+            Some(h) => {
+                if self.exact_match {
+                    format!("{:08x}", h)
+                } else {
+                    self.string_filter.clone()
+                }
+            }
+            None => {
+                self.strings_vec_filtered.clear();
+                return;
+            }
+        };
+
+        self.strings_vec_filtered = self
+            .strings
+            .iter()
+            .filter(|(hash, _)| {
+                let match_a = format!("{hash:08x}");
+
+                if self.exact_match {
+                    match_a == match_b
+                } else {
+                    match_a.contains(&match_b)
+                }
+            })
+            .map(|(k, v)| (*k, v.clone()))
+            .collect();
+    }
+
+    fn filter_strings_normal(&mut self) {
+        let devstr_regex = regex::Regex::new(r"^str[0-9]*").unwrap();
+        let match_b = if self.case_sensitive {
+            self.string_filter.clone()
+        } else {
+            self.string_filter.to_lowercase()
+        };
+
+        self.strings_vec_filtered = self
+            .strings
+            .iter()
+            .filter(|(_, s)| {
+                s.iter().any(|s| {
+                    let match_a = if self.case_sensitive {
+                        s.clone()
+                    } else {
+                        s.to_lowercase()
+                    };
+
+                    if self.hide_devalpha_str && devstr_regex.is_match(s) {
+                        false
+                    } else if self.exact_match {
+                        match_a == match_b
+                    } else {
+                        match_a.contains(&match_b)
+                    }
+                })
+            })
+            .map(|(k, v)| (*k, v.clone()))
+            .collect();
+    }
 }
 
 impl View for StringsView {
@@ -95,11 +201,11 @@ impl View for StringsView {
         _ctx: &eframe::egui::Context,
         ui: &mut eframe::egui::Ui,
     ) -> Option<super::ViewAction> {
+        self.filter_strings();
         if self.variant == StringViewVariant::RawWordlist {
             ui.weak("Tip: Additional strings can be added to `local_wordlist.txt`. This requires your tag cache to be regenerated (File > Regenerate Cache).");
         }
 
-        let devstr_regex = regex::Regex::new(r"^str[0-9]*").unwrap();
         egui::SidePanel::left("strings_left_panel")
             .resizable(true)
             .min_width(384.0)
@@ -114,63 +220,44 @@ impl View for StringsView {
                 ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
                 ui.horizontal(|ui| {
                     ui.label("Search:");
-                    let mut update_search =
-                        ui.text_edit_singleline(&mut self.string_filter).changed();
-                    update_search |= ui.checkbox(&mut self.exact_match, "Exact match").changed();
-                    update_search |= ui
-                        .checkbox(&mut self.case_sensitive, "Case sensitive")
+                    let input_valid =
+                        !(self.parse_filter_as_hash().is_none() && self.search_by_hash);
+                    let mut text_edit = TextEdit::singleline(&mut self.string_filter).hint_text(
+                        if self.search_by_hash {
+                            "Enter hexadecimal hash (e.g., 1a2b3c4d)"
+                        } else {
+                            "Enter search term"
+                        },
+                    );
+
+                    if !input_valid {
+                        text_edit = text_edit.background_color(egui::Color32::DARK_RED);
+                    }
+
+                    let input_response = text_edit.ui(ui);
+                    if !input_valid {
+                        input_response.show_tooltip_text("Invalid hexadecimal hash");
+                    }
+
+                    self.update_search |= input_response.changed();
+                    self.update_search |=
+                        ui.checkbox(&mut self.exact_match, "Exact match").changed();
+                    self.update_search |= ui
+                        .add_enabled_ui(!self.search_by_hash, |ui| {
+                            ui.checkbox(&mut self.case_sensitive, "Case sensitive")
+                                .changed()
+                        })
+                        .inner;
+                    self.update_search |= ui
+                        .checkbox(&mut self.search_by_hash, "Search by hash")
                         .changed();
 
                     if package_manager().version
                         == GameVersion::Destiny(DestinyVersion::DestinyInternalAlpha)
                     {
-                        update_search |= ui
+                        self.update_search |= ui
                             .checkbox(&mut self.hide_devalpha_str, "Hide devalpha strXX strings")
                             .changed();
-                    }
-
-                    if update_search {
-                        self.strings_vec_filtered = if !self.string_filter.is_empty() {
-                            let match_b = if self.case_sensitive {
-                                self.string_filter.clone()
-                            } else {
-                                self.string_filter.to_lowercase()
-                            };
-
-                            self.strings
-                                .iter()
-                                .filter(|(_, s)| {
-                                    s.iter().any(|s| {
-                                        let match_a = if self.case_sensitive {
-                                            s.clone()
-                                        } else {
-                                            s.to_lowercase()
-                                        };
-
-                                        if self.hide_devalpha_str && devstr_regex.is_match(s) {
-                                            false
-                                        } else if self.exact_match {
-                                            match_a == match_b
-                                        } else {
-                                            match_a.contains(&match_b)
-                                        }
-                                    })
-                                })
-                                .map(|(k, v)| (*k, v.clone()))
-                                .collect()
-                        } else {
-                            let mut strings_vec_filtered = self
-                                .strings
-                                .iter()
-                                .map(|(k, v)| (*k, v.clone()))
-                                .collect_vec();
-
-                            if self.hide_devalpha_str {
-                                strings_vec_filtered.retain(|(_, s)| !devstr_regex.is_match(&s[0]));
-                            }
-
-                            strings_vec_filtered
-                        };
                     }
                 });
 
