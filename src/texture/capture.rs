@@ -142,7 +142,7 @@ pub fn capture_texture(
                 entry_point: Some("fs_main"),
                 targets: &[Some(ColorTargetState {
                     format: TextureFormat::Rgba8UnormSrgb,
-                    blend: Some(BlendState::PREMULTIPLIED_ALPHA_BLENDING),
+                    blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::all(),
                 })],
                 compilation_options: Default::default(),
@@ -174,7 +174,7 @@ pub fn capture_texture(
                 view: &texture_view_wgpu,
                 resolve_target: None,
                 ops: Operations {
-                    load: LoadOp::Load,
+                    load: LoadOp::Clear(Color::TRANSPARENT),
                     store: StoreOp::Store,
                 },
                 depth_slice: None,

@@ -720,15 +720,17 @@ impl Texture {
         }
 
         // Pre-multiply alpha where possible
-        if matches!(
-            desc.format,
-            wgpu::TextureFormat::Rgba8Unorm | wgpu::TextureFormat::Rgba8UnormSrgb
-        ) {
+        if desc.premultiply_alpha
+            && matches!(
+                desc.format,
+                wgpu::TextureFormat::Rgba8Unorm | wgpu::TextureFormat::Rgba8UnormSrgb
+            )
+        {
             for c in data.chunks_exact_mut(4) {
                 c[0] = (c[0] as f32 * c[3] as f32 / 255.) as u8;
                 c[1] = (c[1] as f32 * c[3] as f32 / 255.) as u8;
                 c[2] = (c[2] as f32 * c[3] as f32 / 255.) as u8;
-                c[3] = 255;
+                // c[3] = c[3];
             }
         }
 
