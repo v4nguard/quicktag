@@ -2,13 +2,15 @@ def windows(l, size):
     w = []
 
     for i in range(len(l) - size + 1):
-        w.append(l[i:i+size])
+        w.append(l[i : i + size])
 
     return w
 
-f = open("wordlist.txt", 'r', encoding='utf-8', errors='replace')
+
+f = open("wordlist.txt", "r", encoding="utf-8", errors="replace")
 
 CHARSET = "0123456789abcdefghijklmnopqrstuvwxyz_-. "
+print(f"Processing wordlist.txt...")
 strings = set()
 for line in f.readlines():
     line = line.strip()
@@ -22,13 +24,13 @@ for line in f.readlines():
     while "__" in line:
         line = line.replace("__", "_")
 
-    parts = [x for x in line.split("_") if len(x) > 1]
-    if len(parts) == 1:
-        continue
-    for i in range(2, len(parts)):
-        for s in windows(parts, i):
-            strings.add("_".join(s))
-
+    for separator in ["_", "-", "/", "\\", "."]:
+        parts = [x for x in line.split(separator) if len(x) > 1]
+        if len(parts) == 1:
+            continue
+        for i in range(2, len(parts)):
+            for s in windows(parts, i):
+                strings.add("_".join(s))
 
     split_part = ""
     for c in line.lower():
@@ -42,12 +44,14 @@ for line in f.readlines():
     if len(split_part) != len(line) and len(split_part) > 1:
         strings.add(split_part)
 
-out = open("wordlist_expanded.txt", "w", encoding='utf-8', errors='replace')
+print(f"Expanded to {len(strings)} unique strings")
+out = open("wordlist_expanded.txt", "w", encoding="utf-8", errors="replace")
 for line in sorted(strings):
     out.write(line + "\n")
 out.close()
 
-out = open("wordlist_expanded_purified.txt", "w", encoding='utf-8', errors='replace')
+print(f"Purifying strings...")
+out = open("wordlist_expanded_purified.txt", "w", encoding="utf-8", errors="replace")
 purified = set()
 for line in sorted(strings):
     line = line.lower()
