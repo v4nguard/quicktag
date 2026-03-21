@@ -90,6 +90,7 @@ fn main() -> eframe::Result<()> {
                 },
                 device_descriptor: Arc::new(|_adapter| wgpu::DeviceDescriptor {
                     required_features: wgpu::Features::TEXTURE_COMPRESSION_BC
+                        | wgpu::Features::TEXTURE_COMPRESSION_BC_SLICED_3D
                         | wgpu::Features::TEXTURE_BINDING_ARRAY
                         | wgpu::Features::TEXTURE_FORMAT_16BIT_NORM,
                     required_limits: wgpu::Limits::default(),
