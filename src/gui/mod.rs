@@ -10,6 +10,7 @@ mod hexview;
 mod named_tags;
 mod packages;
 mod raw_strings;
+mod space_usage;
 mod strings;
 mod style;
 mod tag;
@@ -50,6 +51,7 @@ use self::strings::StringsView;
 use self::tag::TagView;
 use self::texturelist::TexturesView;
 use crate::gui::external_file::ExternalFileScanView;
+use crate::gui::space_usage::SpaceUsageView;
 use crate::gui::tag::TagHistory;
 use crate::texture::cache::TextureCache;
 
@@ -64,6 +66,7 @@ pub enum Panel {
     #[cfg(feature = "audio")]
     AudioEvents,
     Strings,
+    SpaceUsage,
     ExternalFile,
 }
 
@@ -120,6 +123,7 @@ pub struct QuickTagApp {
     strings_view: StringsView,
     raw_strings_view: RawStringsView,
     raw_string_hashes_view: StringsView,
+    space_usage_view: SpaceUsageView,
 
     _schemafile_watcher: notify::RecommendedWatcher,
     schemafile_update_rx: Receiver<Result<notify::Event, notify::Error>>,
@@ -199,6 +203,7 @@ impl QuickTagApp {
                 Default::default(),
                 StringViewVariant::RawWordlist,
             ),
+            space_usage_view: SpaceUsageView::new(),
 
             strings,
             raw_strings: Default::default(),
@@ -503,6 +508,7 @@ impl eframe::App for QuickTagApp {
                     #[cfg(feature = "audio")]
                     ui.selectable_value(&mut self.open_panel, Panel::AudioEvents, "Wwise Events");
                     ui.selectable_value(&mut self.open_panel, Panel::Strings, "Strings");
+                    ui.selectable_value(&mut self.open_panel, Panel::SpaceUsage, "Space Usage");
                     if let Some(external_file_view) = &self.external_file_view {
                         ui.selectable_value(
                             &mut self.open_panel,
@@ -544,6 +550,7 @@ impl eframe::App for QuickTagApp {
                         StringsPanel::Raw => self.raw_strings_view.view(ctx, ui),
                         StringsPanel::Hashes => self.raw_string_hashes_view.view(ctx, ui),
                     },
+                    Panel::SpaceUsage => self.space_usage_view.view(ctx, ui),
                     Panel::ExternalFile => {
                         if let Some(external_file_view) = &mut self.external_file_view {
                             external_file_view.view(ctx, ui, &self.texture_cache)
