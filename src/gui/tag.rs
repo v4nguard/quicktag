@@ -272,7 +272,9 @@ impl TagView {
 
         let tag_entry = package_manager().get_entry(tag)?;
         let tag_type = TagType::from_type_subtype(tag_entry.file_type, tag_entry.file_subtype);
-        let scan = ExtendedScanResult::from_scanresult(cache.hashes.get(&tag).cloned()?);
+        let scan = ExtendedScanResult::from_scanresult(
+            cache.hashes.get(&tag).cloned().unwrap_or_default(),
+        );
 
         let texture = if tag_type.is_texture() && tag_type.is_header() {
             Texture::load(&render_state, tag, true).map(|t| {
@@ -533,6 +535,7 @@ impl TagView {
                     let depth_limit = self.traversal_depth_limit;
                     let options = TraversalOptions {
                         cache: self.cache.clone(),
+                        localized_strings: self.string_cache.clone(),
                         raw_strings: self.raw_string_hash_cache.clone(),
                         show_strings: self.traversal_show_strings,
                         direction: TraversalDirection::Down,
@@ -557,6 +560,7 @@ impl TagView {
                     let depth_limit = self.traversal_depth_limit;
                     let options = TraversalOptions {
                         cache: self.cache.clone(),
+                        localized_strings: self.string_cache.clone(),
                         raw_strings: self.raw_string_hash_cache.clone(),
                         show_strings: self.traversal_show_strings,
                         direction: TraversalDirection::Up,
@@ -578,10 +582,7 @@ impl TagView {
                 ui.add(egui::DragValue::new(&mut self.traversal_depth_limit).range(1..=256));
                 ui.label("Max depth");
 
-                ui.checkbox(
-                    &mut self.traversal_show_strings,
-                    "Find strings (currently only shows raw strings)",
-                );
+                ui.checkbox(&mut self.traversal_show_strings, "Find strings");
                 ui.checkbox(&mut self.traversal_interactive, "Interactive");
                 ui.checkbox(&mut self.hide_already_traversed, "Hide already traversed");
 
@@ -1473,6 +1474,7 @@ enum TraversalDirection {
 struct TraversalOptions {
     cache: Arc<TagCache>,
     raw_strings: Arc<RawStringHashCache>,
+    localized_strings: Arc<StringCache>,
     show_strings: bool,
     hide_already_traversed: bool,
     direction: TraversalDirection,
@@ -1586,12 +1588,17 @@ fn traverse_tag(
     };
 
     let mut raw_strings = vec![];
+    let mut localized_string_hashes = vec![];
     let mut raw_string_hashes = vec![];
     if options.show_strings {
         let tag_data = package_manager().read_tag(tag).unwrap();
         for (i, b) in tag_data.chunks_exact(4).enumerate() {
             let v: [u8; 4] = b.try_into().unwrap();
             let hash = u32::from_le_bytes(v);
+
+            if let Some(v) = options.localized_strings.get(&hash) {
+                localized_string_hashes.push(v[0].clone());
+            }
 
             if let Some(v) = options.raw_strings.get(&hash) {
                 raw_string_hashes.push(v[0].clone());
@@ -1604,7 +1611,10 @@ fn traverse_tag(
     }
 
     if all_hashes.is_empty()
-        && (!options.show_strings && raw_strings.is_empty() && raw_string_hashes.is_empty())
+        && (!options.show_strings
+            && localized_string_hashes.is_empty()
+            && raw_strings.is_empty()
+            && raw_string_hashes.is_empty())
     {
         return TraversedTag {
             tag,
@@ -1624,6 +1634,15 @@ fn traverse_tag(
             out,
             "{line_header}├──Raw Strings: [{}]",
             raw_strings.into_iter().map(|(_, string)| string).join(", ")
+        )
+        .ok();
+    }
+
+    if !localized_string_hashes.is_empty() {
+        writeln!(
+            out,
+            "{line_header}├──Localized String Hashes: [{}]",
+            localized_string_hashes.into_iter().join(", ")
         )
         .ok();
     }
