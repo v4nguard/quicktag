@@ -1,7 +1,11 @@
 use binrw::BinReaderExt;
+use downmixer::speaker_positions::{STEREO_LAYOUT, guess_channel_mask};
+use downmixer::{Downmixer, DownmixerParams};
 use eframe::egui::mutex::RwLock;
 use either::{Either, Left, Right};
+use itertools::Itertools;
 use lazy_static::lazy_static;
+use lewton::inside_ogg::OggStreamReader;
 use linked_hash_map::LinkedHashMap;
 use log::{error, warn};
 use poll_promise::Promise;
@@ -12,14 +16,21 @@ use std::io::{Cursor, Seek, SeekFrom};
 use std::time::Instant;
 use tiger_pkg::TagHash;
 use tiger_pkg::package_manager;
-use vgmstream::info::VgmstreamInfo;
+use ww2ogg::{CodebookLibrary, WwiseRiffVorbis};
 
 pub enum AudioPlayerState {
     Loading,
     Errored(String),
     Playing(PlayingFile),
 }
-pub type LoadedAudioFile = (Vec<i16>, VgmstreamInfo);
+
+pub struct AudioStreamInfo {
+    pub channels: u16,
+    pub sample_rate: u32,
+    pub sample_count: u32,
+}
+
+pub type LoadedAudioFile = (Vec<i16>, AudioStreamInfo);
 
 type AudioCacheMap = LinkedHashMap<
     TagHash,
@@ -103,17 +114,13 @@ impl AudioPlayer {
         };
 
         let state = if let Some((samples, desc)) = &audio {
-            let sb = SamplesBuffer::new(
-                desc.channels as u16,
-                desc.sample_rate as u32,
-                samples.to_vec(),
-            );
+            let sb = SamplesBuffer::new(2, desc.sample_rate, samples.to_vec());
             self.sink.stop();
             self.sink.clear();
             self.sink.append(sb);
             self.sink.play();
 
-            let duration = samples.len() as f32 / (desc.channels as f32 * desc.sample_rate as f32);
+            let duration = desc.sample_count as f32 / desc.sample_rate as f32;
             let playing = PlayingFile {
                 tag: hash,
                 time: Instant::now(),
@@ -144,17 +151,51 @@ impl AudioPlayer {
 
     async fn load_audio_task(hash: TagHash) -> Option<LoadedAudioFile> {
         let data = package_manager().read_tag(hash).ok()?;
+        let reader = Cursor::new(data);
 
-        let filename = format!(".\\{hash}.wem");
-        let (samples, desc) = match vgmstream::read_file_to_samples(&data, Some(filename)) {
-            Ok(o) => o,
+        let mut converter =
+            match WwiseRiffVorbis::new(reader, CodebookLibrary::aotuv_codebooks().unwrap()) {
+                Ok(o) => o,
+                Err(e) => {
+                    error!("Failed to open wwise stream file {hash}: {e}");
+                    return None;
+                }
+            };
+
+        let info = AudioStreamInfo {
+            channels: converter.num_channels(),
+            sample_rate: converter.sample_rate(),
+            sample_count: converter.sample_count(),
+        };
+
+        let mut ogg_data = vec![];
+        if let Err(e) = converter.generate_ogg(&mut ogg_data) {
+            error!("Failed to generate ogg for {hash}: {e}");
+            return None;
+        }
+
+        let mut ogg_reader = match OggStreamReader::new(Cursor::new(ogg_data)) {
+            Ok(r) => r,
             Err(e) => {
-                error!("Failed to decode audio file {hash}: {e}");
+                error!("Failed to create ogg reader for {hash}: {e}");
                 return None;
             }
         };
 
-        Some((samples, desc))
+        let mut samples = Vec::with_capacity(info.sample_count as usize);
+        let mixer = Downmixer::new(
+            guess_channel_mask(info.channels).unwrap_or(STEREO_LAYOUT),
+            DownmixerParams::default(),
+        );
+        while let Some(packet) = ogg_reader.read_dec_packet_itl().ok()? {
+            for frame in packet.chunks_exact(info.channels as usize) {
+                let (left, right) = mixer.downmix_frame_to_stereo(frame);
+                samples.push(left);
+                samples.push(right);
+            }
+        }
+
+        Some((samples, info))
     }
 
     const MAX_FILES: usize = 64;

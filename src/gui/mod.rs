@@ -1,8 +1,5 @@
-#[cfg(feature = "audio")]
 mod audio;
-#[cfg(feature = "audio")]
 mod audio_events;
-#[cfg(feature = "audio")]
 mod audio_list;
 mod common;
 mod external_file;
@@ -61,9 +58,7 @@ pub enum Panel {
     NamedTags,
     Packages,
     Textures,
-    #[cfg(feature = "audio")]
     Audio,
-    #[cfg(feature = "audio")]
     AudioEvents,
     Strings,
     SpaceUsage,
@@ -116,9 +111,7 @@ pub struct QuickTagApp {
     named_tags_view: NamedTagView,
     packages_view: PackagesView,
     textures_view: TexturesView,
-    #[cfg(feature = "audio")]
     audio_view: audio_list::AudioView,
-    #[cfg(feature = "audio")]
     audio_events_view: audio_events::AudioEventView,
     strings_view: StringsView,
     raw_strings_view: RawStringsView,
@@ -188,9 +181,7 @@ impl QuickTagApp {
             named_tags_view: NamedTagView::new(),
             packages_view: PackagesView::new(texture_cache.clone()),
             textures_view: TexturesView::new(texture_cache),
-            #[cfg(feature = "audio")]
             audio_view: audio_list::AudioView::new(),
-            #[cfg(feature = "audio")]
             audio_events_view: audio_events::AudioEventView::new(),
             strings_view: StringsView::new(
                 strings.clone(),
@@ -368,7 +359,6 @@ impl eframe::App for QuickTagApp {
             self.raw_strings = Arc::new(new_rsh_cache);
             *RAW_STRING_HASH_LOOKUP.write() = Some(Arc::clone(&self.raw_strings));
 
-            #[cfg(feature = "audio")]
             {
                 self.audio_events_view = audio_events::AudioEventView::new();
             }
@@ -503,9 +493,7 @@ impl eframe::App for QuickTagApp {
                     ui.selectable_value(&mut self.open_panel, Panel::NamedTags, "Named tags");
                     ui.selectable_value(&mut self.open_panel, Panel::Packages, "Packages");
                     ui.selectable_value(&mut self.open_panel, Panel::Textures, "Textures");
-                    #[cfg(feature = "audio")]
                     ui.selectable_value(&mut self.open_panel, Panel::Audio, "Audio");
-                    #[cfg(feature = "audio")]
                     ui.selectable_value(&mut self.open_panel, Panel::AudioEvents, "Wwise Events");
                     ui.selectable_value(&mut self.open_panel, Panel::Strings, "Strings");
                     ui.selectable_value(&mut self.open_panel, Panel::SpaceUsage, "Space Usage");
@@ -541,9 +529,7 @@ impl eframe::App for QuickTagApp {
                     Panel::NamedTags => self.named_tags_view.view(ctx, ui),
                     Panel::Packages => self.packages_view.view(ctx, ui),
                     Panel::Textures => self.textures_view.view(ctx, ui),
-                    #[cfg(feature = "audio")]
                     Panel::Audio => self.audio_view.view(ctx, ui),
-                    #[cfg(feature = "audio")]
                     Panel::AudioEvents => self.audio_events_view.view(ctx, ui),
                     Panel::Strings => match self.strings_panel {
                         StringsPanel::Localized => self.strings_view.view(ctx, ui),

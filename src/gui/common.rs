@@ -5,8 +5,9 @@ use eframe::egui::{self};
 use image::{DynamicImage, GenericImage};
 use log::{error, info, warn};
 use quicktag_core::tagtypes::TagType;
-use std::io::Write;
+use std::io::{Cursor, Write};
 use tiger_pkg::{TagHash, package_manager};
+use ww2ogg::{CodebookLibrary, WwiseRiffVorbis};
 
 use crate::texture::{Texture, cache::TextureCache};
 
@@ -128,7 +129,6 @@ fn tag_hover_ui(ui: &mut egui::Ui, tag: TagHash) {
     }
 
     // Render the audio playback state
-    #[cfg(feature = "audio")]
     if let Some(entry) = package_manager().get_entry(tag) {
         use crate::gui::audio::{AudioPlayer, AudioPlayerState};
         let tag_type = TagType::from_type_subtype(entry.file_type, entry.file_subtype);
@@ -245,7 +245,7 @@ pub fn tag_context(ui: &mut egui::Ui, tag: TagHash) {
 
         let tt = TagType::from_type_subtype(entry.file_type, entry.file_subtype);
         if tt == TagType::WwiseStream && ui.selectable_label(false, "🎵 Play audio").clicked() {
-            open_audio_file_in_default_application(tag, "wem");
+            open_audio_file_in_default_application(tag);
             ui.close();
         }
     }
@@ -284,93 +284,24 @@ pub fn open_tag_in_default_application(tag: TagHash) {
     opener::open(path).ok();
 }
 
-#[cfg(not(feature = "audio"))]
-pub fn open_audio_file_in_default_application(_tag: TagHash, _ext: &str) {}
-
-#[cfg(feature = "audio")]
-pub fn open_audio_file_in_default_application(tag: TagHash, ext: &str) {
-    let filename = format!(".\\{tag}.{ext}");
+pub fn open_audio_file_in_default_application(tag: TagHash) {
     std::thread::spawn(move || {
         let data = package_manager().read_tag(tag).unwrap();
 
-        let (samples, desc) = match vgmstream::read_file_to_samples(&data, Some(filename)) {
-            Ok(o) => o,
-            Err(e) => {
-                error!("Failed to decode audio file: {e}");
-                return;
-            }
-        };
+        let input = Cursor::new(data);
+        let mut converter =
+            match WwiseRiffVorbis::new(input, CodebookLibrary::aotuv_codebooks().unwrap()) {
+                Ok(o) => o,
+                Err(e) => {
+                    error!("Failed to decode audio file: {e}");
+                    return;
+                }
+            };
 
-        let filename_wav = format!("{tag}.wav");
-
-        let path = std::env::temp_dir().join(filename_wav);
-        // std::fs::write(&path, data).ok();
-        if let Ok(mut f) = File::create(&path) {
-            // TODO(cohae): Replace with `hound` crate
-            #[allow(deprecated)]
-            wav::write(
-                wav::Header {
-                    audio_format: wav::WAV_FORMAT_PCM,
-                    channel_count: desc.channels as u16,
-                    sampling_rate: desc.sample_rate as u32,
-                    bytes_per_second: desc.bitrate as u32,
-                    bytes_per_sample: 2,
-                    bits_per_sample: 16,
-                },
-                &wav::BitDepth::Sixteen(samples),
-                &mut f,
-            )
-            .unwrap();
-
-            opener::open(path).ok();
+        let path = std::env::temp_dir().join(format!("{tag}.ogg"));
+        if let Ok(f) = File::create(&path) {
+            converter.generate_ogg(f);
         }
-    });
-}
-
-#[cfg(not(feature = "audio"))]
-pub fn dump_wwise_info(_package_id: u16) {}
-
-#[cfg(feature = "audio")]
-pub fn dump_wwise_info(package_id: u16) {
-    use tiger_pkg::Version;
-
-    let package_path = package_manager()
-        .package_paths
-        .get(&package_id)
-        .cloned()
-        .unwrap();
-    let version = package_manager().version;
-    std::thread::spawn(move || {
-        let mut info_file = File::create(format!("wwise_info_{:04x}.txt", package_id)).unwrap();
-        let package = version.open(&package_path.path).unwrap();
-        let mut infos = vec![];
-        for (i, _e) in package.entries().iter().enumerate().filter(|(_, e)| {
-            TagType::from_type_subtype(e.file_type, e.file_subtype) == TagType::WwiseStream
-        }) {
-            let tag = TagHash::new(package_id, i as u16);
-            if let Ok(p) = package.read_entry(i)
-                && let Ok(info) = vgmstream::read_file_info(&p, Some(format!(".\\{tag}.wem")))
-            {
-                infos.push((tag, info));
-            }
-        }
-
-        infos.sort_by_key(|(_, info)| {
-            ((info.num_samples as f32 / info.sample_rate as f32) * 100.0) as usize
-        });
-
-        for (tag, info) in infos {
-            writeln!(
-                &mut info_file,
-                "{tag} - samplerate={}hz samples={} duration={:.2}",
-                info.sample_rate,
-                info.num_samples,
-                info.num_samples as f32 / info.sample_rate as f32
-            )
-            .ok();
-        }
-
-        info!("dump_wwise_info: Done");
     });
 }
 

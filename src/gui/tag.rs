@@ -447,7 +447,7 @@ impl TagView {
                             .map(|e| TagType::from_type_subtype(e.file_type, e.file_subtype))
                             == Some(TagType::WwiseStream)
                     {
-                        open_audio_file_in_default_application(traversed.tag, "wem");
+                        open_audio_file_in_default_application(traversed.tag);
                     } else {
                         open_new_tag = Some(traversed.tag);
                     }
@@ -937,7 +937,7 @@ impl View for TagView {
             }
 
             if self.tag_type == TagType::WwiseStream && ui.button("Play audio").clicked() {
-                open_audio_file_in_default_application(self.tag, "wem");
+                open_audio_file_in_default_application(self.tag);
             }
 
             if TagHash(self.tag_entry.reference).is_pkg_file()
@@ -1055,7 +1055,6 @@ impl View for TagView {
                                         {
                                             open_audio_file_in_default_application(
                                                 tag.hash.hash32(),
-                                                "wem",
                                             );
                                         } else {
                                             open_new_tag = Some(tag.hash.hash32());

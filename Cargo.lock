@@ -730,6 +730,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "copiablebuf"
+version = "0.0.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b2bdc213aff4a024407b8f133c507141c3fa24fcd044c293597bf20f5252295b"
+
+[[package]]
 name = "core-foundation"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1004,6 +1010,16 @@ name = "downcast-rs"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "75b325c5dbd37f80359721ad39aca5a29fb04c89279657cffdda8736d0c0b9d2"
+
+[[package]]
+name = "downmixer"
+version = "0.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc93fa7883364b686bc871b98dc9e7fdc30fc260528ebd7d973cfa6bc64ff82d"
+dependencies = [
+ "copiablebuf",
+ "sampletypes",
+]
 
 [[package]]
 name = "dpi"
@@ -3191,6 +3207,7 @@ dependencies = [
  "bytemuck",
  "chrono",
  "clap",
+ "downmixer",
  "eframe",
  "egui-notify",
  "egui_extras",
@@ -3202,6 +3219,7 @@ dependencies = [
  "indexmap",
  "itertools 0.14.0",
  "lazy_static",
+ "lewton",
  "linked-hash-map",
  "log",
  "native-dialog",
@@ -3221,9 +3239,8 @@ dependencies = [
  "serde_json",
  "tiger-pkg",
  "tokio",
- "vgmstream",
- "wav",
  "wgpu",
+ "ww2ogg",
  "xg",
 ]
 
@@ -3408,12 +3425,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19b30a45b0cd0bcca8037f3d0dc3421eaf95327a17cad11964fb8179b4fc4832"
 
 [[package]]
-name = "riff"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b9b1a3d5f46d53f4a3478e2be4a5a5ce5108ea58b100dcd139830eae7f79a3a1"
-
-[[package]]
 name = "rodio"
 version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3504,6 +3515,12 @@ checksum = "93fc1dc3aaa9bfed95e02e6eadabb4baf7e3078b0bd1b4d7b6b0b68378900502"
 dependencies = [
  "winapi-util",
 ]
+
+[[package]]
+name = "sampletypes"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "389d970e8d015571406d9d6a334cf748d446d2abaebb1100fed4b8e6622e4eca"
 
 [[package]]
 name = "scoped-tls"
@@ -4111,20 +4128,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "vgmstream"
-version = "0.1.5"
-source = "git+https://github.com/cohaereo/vgmstream-rs/#3575deb148c145b55db5820d055476eb893fe353"
-dependencies = [
- "anyhow",
- "vgmstream-sys",
-]
-
-[[package]]
-name = "vgmstream-sys"
-version = "0.1.0"
-source = "git+https://github.com/cohaereo/vgmstream-rs/#3575deb148c145b55db5820d055476eb893fe353"
-
-[[package]]
 name = "virtue"
 version = "0.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4224,15 +4227,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1a05d73b933a847d6cccdda8f838a22ff101ad9bf93e33684f39c1f5f0eece3d"
 dependencies = [
  "unicode-ident",
-]
-
-[[package]]
-name = "wav"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "99d97402f69875b579ec37f2aa52d1f455a1d6224251edba32e8c18a5da2698d"
-dependencies = [
- "riff",
 ]
 
 [[package]]
@@ -4966,6 +4960,16 @@ name = "writeable"
 version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e9df38ee2d2c3c5948ea468a8406ff0db0b29ae1ffde1bcf20ef305bcc95c51"
+
+[[package]]
+name = "ww2ogg"
+version = "0.1.0"
+source = "git+https://github.com/cohaereo/ww2ogg-rs#2b57d339855e59c7e4bf5710ed1ee95dee18532e"
+dependencies = [
+ "byteorder",
+ "lewton",
+ "thiserror 2.0.17",
+]
 
 [[package]]
 name = "x11-dl"

@@ -2,11 +2,7 @@ use eframe::egui::{self, RichText};
 use quicktag_core::tagtypes::TagType;
 use tiger_pkg::{TagHash, Version, manager::PackagePath, package::UEntryHeader, package_manager};
 
-use super::{
-    View, ViewAction,
-    common::{ResponseExt, dump_wwise_info},
-    tag::format_tag_entry,
-};
+use super::{View, ViewAction, common::ResponseExt, tag::format_tag_entry};
 use crate::gui::common::open_audio_file_in_default_application;
 use crate::texture::cache::TextureCache;
 use crate::util::format_file_size;
@@ -136,10 +132,6 @@ impl View for PackagesView {
                     });
 
                     ui.horizontal(|ui| {
-                        if ui.button("Export audio info").clicked() {
-                            dump_wwise_info(self.selected_package);
-                        }
-
                         ui.checkbox(&mut self.show_only_hash64, "★ Only show hash64");
                         if ui
                             .checkbox(&mut self.sort_by_size, "Sort by size descending")
@@ -195,7 +187,7 @@ impl View for PackagesView {
                                     if ui.input(|i| i.modifiers.ctrl)
                                         && *tag_type == TagType::WwiseStream
                                     {
-                                        open_audio_file_in_default_application(tag, "wem");
+                                        open_audio_file_in_default_application(tag);
                                     } else {
                                         return Some(ViewAction::OpenTag(tag));
                                     }

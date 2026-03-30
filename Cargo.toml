@@ -78,8 +78,9 @@ serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.108"
 tiger-pkg.workspace = true
 tokio = { version = "1.37.0", features = ["rt", "macros"] }
-vgmstream = { git = "https://github.com/cohaereo/vgmstream-rs/", version = "0.1.5", optional = true }
-wav = "1.0.0"
+ww2ogg = { git = "https://github.com/cohaereo/ww2ogg-rs" }
+lewton = "0.10.2"
+downmixer = "0.0.5"
 
 # tiger-parse structure crates
 # alkahest-data = { git = "https://github.com/cohaereo/alkahest.git" }
@@ -87,10 +88,9 @@ wav = "1.0.0"
 #dawn-data = { git = "https://github.com/cohaereo/dawn.git" }
 
 [features]
-default = ["wordlist", "audio", "decompile-shaders", "xbox-one-deswizzler"]
+default = ["wordlist", "decompile-shaders", "xbox-one-deswizzler"]
 # Embeds `wordlist.txt` into the executable and adds it's contents to the raw string list
 wordlist = []
-audio = ["vgmstream"]
 decompile-shaders = ["hlsldecompiler"]
 xbox-one-deswizzler = ["xg"]
 
