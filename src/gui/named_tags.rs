@@ -54,8 +54,8 @@ impl View for NamedTagView {
                 } else {
                     for i in 0..self.named_tags.tags.len() {
                         let (entry, nt) = self.named_tags.tags[i].clone();
-                        if !nt
-                            .name
+                        let fancy_tag = format_tag_entry(nt.hash, Some(&entry));
+                        if !fancy_tag
                             .to_lowercase()
                             .contains(&self.named_tag_filter.to_lowercase())
                         {
@@ -64,8 +64,6 @@ impl View for NamedTagView {
 
                         let tagtype =
                             TagType::from_type_subtype(entry.file_type, entry.file_subtype);
-
-                        let fancy_tag = format_tag_entry(nt.hash, Some(&entry));
 
                         let tag_label =
                             egui::RichText::new(fancy_tag).color(tagtype.display_color());
