@@ -161,7 +161,7 @@ impl TextureCache {
         }
     }
 
-    pub(crate) const MAX_TEXTURES: usize = 2048;
+    pub(crate) const MAX_TEXTURES: usize = 1024;
     pub(crate) fn truncate(&self) {
         let mut cache = self.cache.write();
         while cache.len() > Self::MAX_TEXTURES {
