@@ -15,10 +15,11 @@ pub struct TagCache {
 
     pub hashes: FxHashMap<TagHash, ScanResult>,
     pub wordlist_hash: u64,
+    pub signatures_hash: u64,
 }
 
 impl TagCache {
-    pub const VERSION: u32 = 8;
+    pub const VERSION: u32 = 9;
 
     pub fn load(path: impl AsRef<Path>) -> anyhow::Result<CacheLoadResult> {
         if let Ok(cache_file) = File::open(&path) {
@@ -119,6 +120,7 @@ impl Default for TagCache {
             version: Self::VERSION,
             hashes: Default::default(),
             wordlist_hash: 0,
+            signatures_hash: 0,
         }
     }
 }

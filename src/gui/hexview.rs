@@ -12,6 +12,7 @@ use itertools::Itertools;
 use log::warn;
 use quicktag_core::classes::get_class_by_id;
 use quicktag_core::tagtypes::TagType;
+use quicktag_scanner::signatures::SIGNATURE_LIST;
 use std::io::{Cursor, Seek, SeekFrom};
 use tiger_pkg::package_manager;
 use tiger_pkg::{DestinyVersion, GameVersion, TagHash, Version};
@@ -187,6 +188,10 @@ impl TagHexView {
                                 .file_hashes
                                 .iter()
                                 .find(|v| v.offset == chunk_offset as u64);
+                            let signature = scan
+                                .signatures
+                                .iter()
+                                .find(|v| v.offset == chunk_offset as u64);
 
                             let array_offset = ((chunk_offset >> 3) << 3) as u64;
                             let array_offset2 = array_offset.saturating_sub(8);
@@ -214,6 +219,8 @@ impl TagHexView {
                                 let color_mul = 1.0 - (distance_from_ptr as f32 / 24.0);
 
                                 Color32::from_rgb(171, 95, 252).gamma_multiply(color_mul)
+                            } else if signature.is_some() {
+                                Color32::GREEN
                             } else if let Some((_, is_wordlist)) = string_hash {
                                 if *is_wordlist {
                                     Color32::from_rgb(0, 128, 255)
@@ -231,7 +238,16 @@ impl TagHexView {
                                 ))
                                 .color(color),
                             );
-                            if let Some(e) = hash {
+                            if let Some(sig) = signature
+                                && let Some(string) = SIGNATURE_LIST.load().get(&sig.hash)
+                            {
+                                response
+                                    .on_hover_text(
+                                        RichText::new(string.clone()).color(Color32::GREEN),
+                                    )
+                                    .interact(Sense::hover())
+                                    .on_hover_cursor(CursorIcon::PointingHand);
+                            } else if let Some(e) = hash {
                                 let hash32 = e.hash.hash32();
                                 let is_self_referential = hash32 == self.tag;
 

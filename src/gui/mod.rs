@@ -7,6 +7,7 @@ mod hexview;
 mod named_tags;
 mod packages;
 mod raw_strings;
+mod signatures;
 mod space_usage;
 mod strings;
 mod style;
@@ -35,6 +36,7 @@ use parking_lot::{Mutex, RwLock};
 use poll_promise::Promise;
 use quicktag_core::util::fnv1;
 use quicktag_scanner::context::ScannerContext;
+use quicktag_scanner::signatures::SIGNATURES_HASH;
 use quicktag_scanner::{ScanStatus, TagCache, load_tag_cache, scanner_progress};
 use quicktag_strings::localized::{RawStringHashCache, StringCache, create_stringmap};
 use rustc_hash::FxHashSet;
@@ -48,6 +50,7 @@ use self::strings::StringsView;
 use self::tag::TagView;
 use self::texturelist::TexturesView;
 use crate::gui::external_file::ExternalFileScanView;
+use crate::gui::signatures::SignaturesView;
 use crate::gui::space_usage::SpaceUsageView;
 use crate::gui::tag::TagHistory;
 use crate::texture::cache::TextureCache;
@@ -70,6 +73,7 @@ pub enum StringsPanel {
     Localized,
     Raw,
     Hashes,
+    Signatures,
 }
 
 lazy_static! {
@@ -91,6 +95,7 @@ pub struct QuickTagApp {
     reload_cache: bool,
     cache: Arc<TagCache>,
     current_wordlist_hash: u64,
+    current_signatures_hash: u64,
     tag_history: Rc<RefCell<TagHistory>>,
     strings: Arc<StringCache>,
     raw_strings: Arc<RawStringHashCache>,
@@ -116,6 +121,7 @@ pub struct QuickTagApp {
     strings_view: StringsView,
     raw_strings_view: RawStringsView,
     raw_string_hashes_view: StringsView,
+    signatures_view: SignaturesView,
     space_usage_view: SpaceUsageView,
 
     _schemafile_watcher: notify::RecommendedWatcher,
@@ -158,6 +164,7 @@ impl QuickTagApp {
             .unwrap();
 
         quicktag_core::classes::load_schemafile();
+        quicktag_scanner::signatures::load_sigfile();
 
         QuickTagApp {
             scanner_context: ScannerContext::create(&package_manager())
@@ -167,6 +174,7 @@ impl QuickTagApp {
             tag_history: Rc::new(RefCell::new(TagHistory::default())),
             cache: Default::default(),
             current_wordlist_hash: 0,
+            current_signatures_hash: 0,
             tag_view: None,
             external_file_view: None,
             tag_input: String::new(),
@@ -194,6 +202,7 @@ impl QuickTagApp {
                 Default::default(),
                 StringViewVariant::RawWordlist,
             ),
+            signatures_view: SignaturesView::new(Default::default()),
             space_usage_view: SpaceUsageView::new(),
 
             strings,
@@ -313,6 +322,8 @@ impl eframe::App for QuickTagApp {
                 entry.push((s.to_string(), true));
             });
             self.current_wordlist_hash = wordlist_hasher.finish();
+            self.current_signatures_hash =
+                SIGNATURES_HASH.load(std::sync::atomic::Ordering::Relaxed);
 
             let mut filtered_wordlist_hashes: StringCache = Default::default();
             let found_hashes: FxHashSet<u32> = self
@@ -345,6 +356,8 @@ impl eframe::App for QuickTagApp {
                 self.cache.clone(),
                 StringViewVariant::RawWordlist,
             );
+
+            self.signatures_view = SignaturesView::new(self.cache.clone());
 
             // // Dump all raw strings to a csv file
             // if let Ok(mut f) = std::fs::File::create("raw_strings.csv") {
@@ -398,9 +411,17 @@ impl eframe::App for QuickTagApp {
                     });
 
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Max), |ui| {
-                        // egui::global_dark_light_mode_switch(ui);
-                        if self.current_wordlist_hash != self.cache.wordlist_hash && ui.button(RichText::new("Wordlist changed, click here to regenerate your cache").color(Color32::YELLOW)).clicked() {
-                            self.regenerate_cache();
+                        if self.current_signatures_hash != self.cache.signatures_hash && self.current_wordlist_hash != self.cache.wordlist_hash {
+                            if ui.button(RichText::new("Signatures and wordlist changed, click here to regenerate your cache").color(Color32::ORANGE)).clicked() {
+                                self.regenerate_cache();
+                            }
+                        } else {
+                            if self.current_signatures_hash != self.cache.signatures_hash && ui.button(RichText::new("Signatures changed, click here to regenerate your cache").color(Color32::GREEN)).clicked() {
+                                self.regenerate_cache();
+                            }
+                            if self.current_wordlist_hash != self.cache.wordlist_hash && ui.button(RichText::new("Wordlist changed, click here to regenerate your cache").color(Color32::YELLOW)).clicked() {
+                                self.regenerate_cache();
+                            }
                         }
                     });
 
@@ -513,6 +534,7 @@ impl eframe::App for QuickTagApp {
                         ui.selectable_value(&mut self.strings_panel, StringsPanel::Localized, "Localized");
                         ui.selectable_value(&mut self.strings_panel, StringsPanel::Raw, "Raw Strings");
                         ui.selectable_value(&mut self.strings_panel, StringsPanel::Hashes, "Hashes");
+                        ui.selectable_value(&mut self.strings_panel, StringsPanel::Signatures, "Signatures");
                     });
                     ui.separator();
                 }
@@ -535,6 +557,7 @@ impl eframe::App for QuickTagApp {
                         StringsPanel::Localized => self.strings_view.view(ctx, ui),
                         StringsPanel::Raw => self.raw_strings_view.view(ctx, ui),
                         StringsPanel::Hashes => self.raw_string_hashes_view.view(ctx, ui),
+                        StringsPanel::Signatures => self.signatures_view.view(ctx, ui),
                     },
                     Panel::SpaceUsage => self.space_usage_view.view(ctx, ui),
                     Panel::ExternalFile => {

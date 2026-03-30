@@ -9,6 +9,7 @@ quicktag-core = { path = "../core" }
 quicktag-strings = { path = "../strings" }
 
 anyhow.workspace = true
+arc-swap = "1.7.1"
 bincode = "2"
 binrw.workspace = true
 chrono = "0.4.31"
@@ -22,3 +23,4 @@ rayon = "1"
 rustc-hash.workspace = true
 tiger-pkg.workspace = true
 zstd = { version = "0.13.0", features = ["zstdmt"] }
+hex = "0.4.3"

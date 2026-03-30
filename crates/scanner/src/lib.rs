@@ -1,5 +1,6 @@
 pub mod cache;
 pub mod context;
+pub mod signatures;
 
 pub use cache::TagCache;
 
@@ -30,15 +31,18 @@ use tiger_pkg::{
     package_manager,
 };
 
+use crate::signatures::{SIGNATURE_LIST, Signature};
+
 #[derive(Clone, bincode::Encode, bincode::Decode, Debug)]
 pub struct ScanResult {
     /// Were we able to read the tag data?
     pub successful: bool,
 
-    pub file_hashes: Vec<ScannedHash<TagHash>>,
-    pub file_hashes64: Vec<ScannedHash<TagHash64>>,
-    pub string_hashes: Vec<ScannedHash<u32>>,
-    pub wordlist_hashes: Vec<ScannedHash<u32>>,
+    pub file_hashes: Vec<ScannedItem<TagHash>>,
+    pub file_hashes64: Vec<ScannedItem<TagHash64>>,
+    pub string_hashes: Vec<ScannedItem<u32>>,
+    pub wordlist_hashes: Vec<ScannedItem<u32>>,
+    pub signatures: Vec<ScannedItem<Signature>>,
     pub raw_strings: Vec<String>,
 
     /// References from other files
@@ -55,6 +59,7 @@ impl Default for ScanResult {
             file_hashes64: Default::default(),
             string_hashes: Default::default(),
             wordlist_hashes: Default::default(),
+            signatures: Default::default(),
             raw_strings: Default::default(),
             references: Default::default(),
             secondary_class: None,
@@ -63,7 +68,7 @@ impl Default for ScanResult {
 }
 
 #[derive(Clone, bincode::Encode, bincode::Decode, Debug)]
-pub struct ScannedHash<T: Sized + bincode::Encode + bincode::Decode<()>> {
+pub struct ScannedItem<T: Sized + bincode::Encode + bincode::Decode<()>> {
     pub offset: u64,
     pub hash: T,
 }
@@ -111,6 +116,13 @@ pub fn scan_file(
         let m: [u8; 4] = data[offset..offset + 4].try_into().unwrap();
         let value = u32_from_endian(context.endian, m);
 
+        if context.signatures.contains_key(&Signature::U32(value)) {
+            r.signatures.push(ScannedItem {
+                offset: offset as u64,
+                hash: Signature::U32(value),
+            });
+        }
+
         if matches!(
             value,
             0x80809fbd | // Pre-BL
@@ -134,13 +146,12 @@ pub fn scan_file(
                 }
             })();
 
-            if let Some((count, class)) = array {
-                if let Some(class) = get_class_by_id(class) {
-                    if class.block_tags {
-                        let array_size = class.array_size(count as usize).unwrap_or(count as usize);
-                        blocked_ranges.push(array_offset..array_offset + array_size as u64);
-                    }
-                }
+            if let Some((count, class)) = array
+                && let Some(class) = get_class_by_id(class)
+                && class.block_tags
+            {
+                let array_size = class.array_size(count as usize).unwrap_or(count as usize);
+                blocked_ranges.push(array_offset..array_offset + array_size as u64);
             }
         }
     }
@@ -166,7 +177,7 @@ pub fn scan_file(
             && hash.is_pkg_file()
             && context.valid_file_hashes.binary_search(&hash).is_ok()
         {
-            r.file_hashes.push(ScannedHash {
+            r.file_hashes.push(ScannedItem {
                 offset: offset as u64,
                 hash,
             });
@@ -184,14 +195,14 @@ pub fn scan_file(
         }
 
         if value != 0x811c9dc5 && context.known_string_hashes.binary_search(&value).is_ok() {
-            r.string_hashes.push(ScannedHash {
+            r.string_hashes.push(ScannedItem {
                 offset: offset as u64,
                 hash: value,
             });
         }
 
         if value != 0x811c9dc5 && context.known_wordlist_hashes.binary_search(&value).is_ok() {
-            r.wordlist_hashes.push(ScannedHash {
+            r.wordlist_hashes.push(ScannedItem {
                 offset: offset as u64,
                 hash: value,
             });
@@ -201,12 +212,19 @@ pub fn scan_file(
             let m: [u8; 8] = data[offset..offset + 8].try_into().unwrap();
             let value64 = u64_from_endian(context.endian, m);
 
+            if context.signatures.contains_key(&Signature::U64(value64)) {
+                r.signatures.push(ScannedItem {
+                    offset: offset as u64,
+                    hash: Signature::U64(value64),
+                });
+            }
+
             let hash = TagHash64(value64);
             {
                 profiling::scope!("check 64 bit hash");
                 if context.valid_file_hashes64.binary_search(&hash).is_ok() {
                     profiling::scope!("insert 64 bit hash");
-                    r.file_hashes64.push(ScannedHash {
+                    r.file_hashes64.push(ScannedItem {
                         offset: offset as u64,
                         hash,
                     });
@@ -428,20 +446,19 @@ pub fn load_tag_cache() -> TagCache {
                 };
 
                 let mut scan_result = scan_file(context, &data, Some(&e), scanner_mode);
-                if let GameVersion::Destiny(v) = version {
-                    if v.is_d1() {
-                        if let Some(entry) = pkg.entry(t) {
-                            let ref_tag = TagHash(entry.reference);
-                            if context.valid_file_hashes.contains(&ref_tag) {
-                                scan_result.file_hashes.insert(
-                                    0,
-                                    ScannedHash {
-                                        offset: u64::MAX,
-                                        hash: ref_tag,
-                                    },
-                                );
-                            }
-                        }
+                if let GameVersion::Destiny(v) = version
+                    && v.is_d1()
+                    && let Some(entry) = pkg.entry(t)
+                {
+                    let ref_tag = TagHash(entry.reference);
+                    if context.valid_file_hashes.contains(&ref_tag) {
+                        scan_result.file_hashes.insert(
+                            0,
+                            ScannedItem {
+                                offset: u64::MAX,
+                                hash: ref_tag,
+                            },
+                        );
                     }
                 }
                 results.insert(hash, scan_result);
@@ -454,6 +471,7 @@ pub fn load_tag_cache() -> TagCache {
 
     let mut cache = transform_tag_cache(cache);
     cache.wordlist_hash = scanner_context.wordlist_hash;
+    cache.signatures_hash = scanner_context.signatures_hash;
 
     *SCANNER_PROGRESS.write() = ScanStatus::WritingCache;
     info!("Compressing tag cache...");

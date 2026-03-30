@@ -3263,9 +3263,11 @@ name = "quicktag-scanner"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "arc-swap",
  "bincode 2.0.1",
  "binrw",
  "chrono",
+ "hex",
  "itertools 0.14.0",
  "lazy_static",
  "log",

@@ -39,7 +39,8 @@ use log::error;
 use poll_promise::Promise;
 use quicktag_core::classes::get_class_by_id;
 use quicktag_core::tagtypes::TagType;
-use quicktag_scanner::{ScanResult, ScannedHash, TagCache, read_raw_string_blob};
+use quicktag_scanner::signatures::{SIGNATURE_LIST, Signature};
+use quicktag_scanner::{ScanResult, ScannedItem, TagCache, read_raw_string_blob};
 use quicktag_strings::localized::{RawStringHashCache, StringCache};
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::fmt::Write;
@@ -1071,6 +1072,7 @@ impl View for TagView {
             || !self.raw_strings.is_empty()
             || !self.raw_string_hashes.is_empty()
             || !self.arrays.is_empty()
+            || !self.scan.signatures.is_empty()
         {
             egui::SidePanel::right("tv_right_panel")
                 .resizable(true)
@@ -1078,6 +1080,28 @@ impl View for TagView {
                 .show_inside(ui, |ui| {
                     ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
                     egui::ScrollArea::vertical().show(ui, |ui| {
+                        if !self.scan.signatures.is_empty() {
+                            CollapsingHeader::new(egui::RichText::new("Signatures").strong())
+                                .default_open(true)
+                                .show(ui, |ui| {
+                                    ui.group(|ui| {
+                                        for sig in &self.scan.signatures {
+                                            if let Some(string) = SIGNATURE_LIST.load().get(&sig.hash) {
+                                                ui.selectable_label(
+                                                    false,
+                                                    RichText::new(format!(
+                                                        "'{}' {:X?} @ 0x{:X}",
+                                                        string, sig.hash, sig.offset
+                                                    )).color(Color32::GREEN),
+                                                )
+                                                .string_context(string, None)
+                                                .clicked();
+                                            }
+                                        }
+                                    });
+                                });
+                        }
+
                         CollapsingHeader::new(egui::RichText::new("Arrays").strong())
                             .default_open(true)
                             .show(ui, |ui| {
@@ -1413,6 +1437,7 @@ impl Hash for ExtendedTagHash {
 pub struct ExtendedScanResult {
     pub successful: bool,
     pub file_hashes: Vec<ScannedHashWithEntry<ExtendedTagHash>>,
+    pub signatures: Vec<ScannedItem<Signature>>,
 
     /// References from other files
     pub references: Vec<(TagHash, Option<UEntryHeader>)>,
@@ -1448,6 +1473,7 @@ impl ExtendedScanResult {
         ExtendedScanResult {
             successful: s.successful,
             file_hashes: file_hashes_combined,
+            signatures: s.signatures,
             references: s
                 .references
                 .into_iter()
@@ -1937,7 +1963,7 @@ fn search_for_tag(
     let mut results = vec![];
 
     let mut hashes = references.file_hashes.clone();
-    hashes.extend(references.file_hashes64.iter().map(|r| ScannedHash {
+    hashes.extend(references.file_hashes64.iter().map(|r| ScannedItem {
         offset: r.offset,
         hash: ExtendedTagHash::Hash64(r.hash).hash32(),
     }));
