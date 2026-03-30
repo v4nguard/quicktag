@@ -3,7 +3,7 @@ use std::fmt::Display;
 use epaint::Color32;
 use tiger_pkg::{DestinyVersion, GameVersion, MarathonVersion, package_manager};
 
-#[derive(PartialEq, Copy, Clone)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TagType {
     TextureOld,
     Texture2D { is_header: bool },

@@ -433,10 +433,7 @@ pub fn create_stringmap_d2() -> anyhow::Result<StringCache> {
             | DestinyVersion::Destiny2TheFinalShape
             | DestinyVersion::Destiny2TheEdgeOfFate => 0x808099EF,
         },
-        GameVersion::Marathon(MarathonVersion::MarathonAlpha) => {
-            error!("Marathon Alpha is not supported");
-            return Ok(StringCache::default());
-        }
+        GameVersion::Marathon(MarathonVersion::MarathonAlpha) => 0x8080B9B8,
     };
 
     let old_format = matches!(package_manager().version, GameVersion::Destiny(v) if v <= DestinyVersion::Destiny2BeyondLight);
