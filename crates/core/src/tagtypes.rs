@@ -204,29 +204,16 @@ impl TagType {
         Self::from_type_subtype_for_version(package_manager().version, t, st)
     }
     pub fn from_type_subtype_for_version(version: GameVersion, t: u8, st: u8) -> TagType {
-        // TODO: Change this match to use ordered version checking after destiny-pkg 0.11
-        match version {
-            GameVersion::Destiny(DestinyVersion::DestinyInternalAlpha) => {
+        match version.engine_version() {
+            tiger_pkg::version::EngineVersion::TigerD1Indev => {
                 Self::from_type_subtype_devalpha(t, st)
             }
-            GameVersion::Destiny(DestinyVersion::DestinyFirstLookAlpha)
-            | GameVersion::Destiny(DestinyVersion::DestinyTheTakenKing)
-            | GameVersion::Destiny(DestinyVersion::DestinyRiseOfIron) => {
-                Self::from_type_subtype_d1(t, st)
-            }
-            GameVersion::Destiny(DestinyVersion::Destiny2Beta)
-            | GameVersion::Destiny(DestinyVersion::Destiny2Forsaken)
-            | GameVersion::Destiny(DestinyVersion::Destiny2Shadowkeep) => {
-                Self::from_type_subtype_sk(t, st)
-            }
-            GameVersion::Destiny(DestinyVersion::Destiny2BeyondLight)
-            | GameVersion::Destiny(DestinyVersion::Destiny2WitchQueen)
-            | GameVersion::Destiny(DestinyVersion::Destiny2Lightfall)
-            | GameVersion::Destiny(DestinyVersion::Destiny2TheFinalShape)
-            | GameVersion::Destiny(DestinyVersion::Destiny2TheEdgeOfFate)
-            | GameVersion::Marathon(MarathonVersion::MarathonAlpha) => {
-                Self::from_type_subtype_lf(t, st)
-            }
+            tiger_pkg::version::EngineVersion::TigerD1Alpha
+            | tiger_pkg::version::EngineVersion::TigerD1v1
+            | tiger_pkg::version::EngineVersion::TigerD1v2 => Self::from_type_subtype_d1(t, st),
+            tiger_pkg::version::EngineVersion::TigerD2v1 => Self::from_type_subtype_sk(t, st),
+            tiger_pkg::version::EngineVersion::TigerD2v2
+            | tiger_pkg::version::EngineVersion::TigerGoliath => Self::from_type_subtype_lf(t, st),
         }
     }
 

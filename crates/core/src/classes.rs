@@ -7,6 +7,7 @@ use std::{
 use anyhow::Context;
 use arc_swap::ArcSwap;
 use bytemuck::{Pod, Zeroable};
+use log::info;
 use rustc_hash::FxHashMap;
 use tiger_pkg::{
     DestinyVersion, Endian, GameVersion, TagHash, package_manager, package_manager_checked,
@@ -243,7 +244,7 @@ pub const CLASSES_DESTINY_BL: &[TagClass] = &[
     class!(0x8080695B s_map_decals),
 ];
 
-pub const CLASSES_MARATHON: &[TagClass] = &[
+pub const CLASSES_GOLIATH: &[TagClass] = &[
     class!(0x80802976 s_pingable_component),
     class!(0x808050B3 s_labeled_sound_container),
     class!(0x8080A996 s_umbra_cluster_mapping_thing),
@@ -318,13 +319,49 @@ pub fn get_class_by_id(id: u32) -> Option<TagClass> {
 }
 
 pub fn load_schemafile() {
-    let Ok(schemafile) = std::fs::read_to_string("schema.txt") else {
-        return;
+    CLASS_MAP_FROM_FILE.store(Default::default());
+    if let Ok(schemafile) = std::fs::read_to_string("schema.txt") {
+        load_schemafile_from_str(&schemafile);
     };
 
-    match parse_schemafile(&schemafile) {
+    let schema_path = version_schemafile_path();
+    match std::fs::read_to_string(&schema_path) {
+        Ok(data) => load_schemafile_from_str(&data),
+        Err(_) => {
+            info!("Version-specific schema '{schema_path}' not found");
+        }
+    }
+}
+
+pub fn version_schemafile_path() -> String {
+    let version_code = match package_manager().version {
+        GameVersion::Destiny(ver) => match ver {
+            DestinyVersion::DestinyInternalAlpha => "d1_devalpha",
+            DestinyVersion::DestinyFirstLookAlpha => "d1_fla",
+            DestinyVersion::DestinyTheTakenKing => "d1_ttk",
+            DestinyVersion::DestinyRiseOfIron => "d1",
+            DestinyVersion::Destiny2Beta => "d2_beta",
+            DestinyVersion::Destiny2Forsaken => "d2_fs",
+            DestinyVersion::Destiny2Shadowkeep => "d2_sk",
+            DestinyVersion::Destiny2BeyondLight => "d2",
+            DestinyVersion::Destiny2WitchQueen => "d2",
+            DestinyVersion::Destiny2Lightfall => "d2",
+            DestinyVersion::Destiny2TheFinalShape => "d2",
+            DestinyVersion::Destiny2TheEdgeOfFate => "d2",
+            DestinyVersion::Destiny2Renegades => "d2",
+        },
+        GameVersion::Marathon(_) => "goliath",
+    };
+
+    format!("schema_{}.txt", version_code)
+}
+
+fn load_schemafile_from_str(data: &str) {
+    match parse_schemafile(data) {
         Ok(o) => {
-            CLASS_MAP_FROM_FILE.store(Arc::new(o));
+            let mut existing = (**CLASS_MAP_FROM_FILE.load()).clone();
+            existing.extend(o);
+            CLASS_MAP_FROM_FILE.store(Arc::new(existing));
             REFRESHED_THIS_FRAME.store(true, std::sync::atomic::Ordering::Relaxed);
         }
         Err(e) => {
@@ -399,20 +436,14 @@ pub fn initialize_reference_names() {
     let mut new_classes: FxHashMap<u32, TagClass> =
         CLASSES_BASE.iter().map(|c| (c.id, c.clone())).collect();
 
-    let version_specific = match package_manager().version {
-        GameVersion::Destiny(DestinyVersion::DestinyInternalAlpha) => CLASSES_DESTINY_DEVALPHA,
-        GameVersion::Destiny(DestinyVersion::DestinyTheTakenKing) => CLASSES_DESTINY_TTK,
-        GameVersion::Destiny(DestinyVersion::DestinyFirstLookAlpha)
-        | GameVersion::Destiny(DestinyVersion::DestinyRiseOfIron) => CLASSES_DESTINY_ROI,
-        GameVersion::Destiny(DestinyVersion::Destiny2Beta)
-        | GameVersion::Destiny(DestinyVersion::Destiny2Forsaken)
-        | GameVersion::Destiny(DestinyVersion::Destiny2Shadowkeep) => CLASSES_DESTINY_SK,
-        GameVersion::Destiny(DestinyVersion::Destiny2BeyondLight)
-        | GameVersion::Destiny(DestinyVersion::Destiny2WitchQueen)
-        | GameVersion::Destiny(DestinyVersion::Destiny2Lightfall)
-        | GameVersion::Destiny(DestinyVersion::Destiny2TheFinalShape)
-        | GameVersion::Destiny(DestinyVersion::Destiny2TheEdgeOfFate) => CLASSES_DESTINY_BL,
-        GameVersion::Marathon(_) => CLASSES_MARATHON,
+    let version_specific = match package_manager().version.engine_version() {
+        tiger_pkg::version::EngineVersion::TigerD1Indev
+        | tiger_pkg::version::EngineVersion::TigerD1Alpha => CLASSES_DESTINY_DEVALPHA,
+        tiger_pkg::version::EngineVersion::TigerD1v1 => CLASSES_DESTINY_TTK,
+        tiger_pkg::version::EngineVersion::TigerD1v2 => CLASSES_DESTINY_ROI,
+        tiger_pkg::version::EngineVersion::TigerD2v1 => CLASSES_DESTINY_SK,
+        tiger_pkg::version::EngineVersion::TigerD2v2 => CLASSES_DESTINY_BL,
+        tiger_pkg::version::EngineVersion::TigerGoliath => CLASSES_GOLIATH,
     };
 
     new_classes.extend(version_specific.iter().map(|c| (c.id, c.clone())));

@@ -136,18 +136,36 @@ impl QuickTagApp {
         cc.egui_ctx
             .options_mut(|o| o.theme_preference = egui::ThemePreference::Dark);
         let mut fonts = egui::FontDefinitions::default();
-        fonts.font_data.insert(
-            "Destiny_Keys".into(),
-            Arc::new(egui::FontData::from_static(include_bytes!(
-                "../../Destiny_Keys.otf"
-            ))),
-        );
+        match package_manager().version {
+            tiger_pkg::GameVersion::Destiny(_) => {
+                fonts.font_data.insert(
+                    "Destiny_Keys".into(),
+                    Arc::new(egui::FontData::from_static(include_bytes!(
+                        "../../Destiny_Keys.otf"
+                    ))),
+                );
 
-        fonts
-            .families
-            .entry(egui::FontFamily::Proportional)
-            .or_default()
-            .insert(1, "Destiny_Keys".to_owned());
+                fonts
+                    .families
+                    .entry(egui::FontFamily::Proportional)
+                    .or_default()
+                    .insert(1, "Destiny_Keys".to_owned());
+            }
+            tiger_pkg::GameVersion::Marathon(_) => {
+                fonts.font_data.insert(
+                    "goliath_symbols_pc".into(),
+                    Arc::new(egui::FontData::from_static(include_bytes!(
+                        "../../goliath_symbols_pc.otf"
+                    ))),
+                );
+
+                fonts
+                    .families
+                    .entry(egui::FontFamily::Proportional)
+                    .or_default()
+                    .insert(1, "goliath_symbols_pc".to_owned());
+            }
+        }
 
         cc.egui_ctx.set_fonts(fonts);
 
@@ -156,6 +174,16 @@ impl QuickTagApp {
 
         let (tx, rx) = std::sync::mpsc::channel();
         let mut schemafile_watcher = notify::recommended_watcher(tx).unwrap();
+        let version_schema_path = quicktag_core::classes::version_schemafile_path();
+        if !Path::new(&version_schema_path).exists() {
+            std::fs::File::create(&version_schema_path).expect("Failed to create schema file");
+        }
+        schemafile_watcher
+            .watch(
+                Path::new(&version_schema_path),
+                notify::RecursiveMode::NonRecursive,
+            )
+            .unwrap();
         if !Path::new("schema.txt").exists() {
             std::fs::File::create("schema.txt").expect("Failed to create schema file");
         }

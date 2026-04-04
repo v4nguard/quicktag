@@ -394,46 +394,27 @@ pub fn decode_text(data: &[u8], cipher: u16) -> String {
 }
 
 pub fn create_stringmap() -> anyhow::Result<StringCache> {
-    // TODO: Change this match to use ordered version checking after destiny-pkg 0.11
-    match package_manager().version {
+    match package_manager().version.engine_version() {
+        tiger_pkg::version::EngineVersion::TigerD1Indev => create_stringmap_d1_devalpha(),
+        tiger_pkg::version::EngineVersion::TigerD1Alpha => create_stringmap_d1_firstlook(),
+        tiger_pkg::version::EngineVersion::TigerD1v1 => create_stringmap_d1(),
         // cohae: Rise of Iron uses the same string format as D2
-        GameVersion::Destiny(DestinyVersion::DestinyRiseOfIron)
-        | GameVersion::Destiny(DestinyVersion::Destiny2Beta)
-        | GameVersion::Destiny(DestinyVersion::Destiny2Forsaken)
-        | GameVersion::Destiny(DestinyVersion::Destiny2Shadowkeep)
-        | GameVersion::Destiny(DestinyVersion::Destiny2BeyondLight)
-        | GameVersion::Destiny(DestinyVersion::Destiny2WitchQueen)
-        | GameVersion::Destiny(DestinyVersion::Destiny2Lightfall)
-        | GameVersion::Destiny(DestinyVersion::Destiny2TheFinalShape)
-        | GameVersion::Destiny(DestinyVersion::Destiny2TheEdgeOfFate)
-        | GameVersion::Marathon(MarathonVersion::MarathonAlpha) => create_stringmap_d2(),
-        GameVersion::Destiny(DestinyVersion::DestinyFirstLookAlpha) => {
-            create_stringmap_d1_firstlook()
-        }
-        GameVersion::Destiny(DestinyVersion::DestinyTheTakenKing) => create_stringmap_d1(),
-        GameVersion::Destiny(DestinyVersion::DestinyInternalAlpha) => {
-            create_stringmap_d1_devalpha()
-        }
+        tiger_pkg::version::EngineVersion::TigerD1v2
+        | tiger_pkg::version::EngineVersion::TigerD2v1
+        | tiger_pkg::version::EngineVersion::TigerD2v2
+        | tiger_pkg::version::EngineVersion::TigerGoliath => create_stringmap_d2(),
     }
 }
 
 pub fn create_stringmap_d2() -> anyhow::Result<StringCache> {
-    let reference_type = match package_manager().version {
-        GameVersion::Destiny(v) => match v {
-            DestinyVersion::DestinyInternalAlpha
-            | DestinyVersion::DestinyFirstLookAlpha
-            | DestinyVersion::DestinyTheTakenKing
-            | DestinyVersion::DestinyRiseOfIron => 0x8080035A,
-            DestinyVersion::Destiny2Beta
-            | DestinyVersion::Destiny2Forsaken
-            | DestinyVersion::Destiny2Shadowkeep => 0x80809A88,
-            DestinyVersion::Destiny2BeyondLight
-            | DestinyVersion::Destiny2WitchQueen
-            | DestinyVersion::Destiny2Lightfall
-            | DestinyVersion::Destiny2TheFinalShape
-            | DestinyVersion::Destiny2TheEdgeOfFate => 0x808099EF,
-        },
-        GameVersion::Marathon(MarathonVersion::MarathonAlpha) => 0x8080B9B8,
+    let reference_type = match package_manager().version.engine_version() {
+        tiger_pkg::version::EngineVersion::TigerD1Indev
+        | tiger_pkg::version::EngineVersion::TigerD1Alpha
+        | tiger_pkg::version::EngineVersion::TigerD1v1
+        | tiger_pkg::version::EngineVersion::TigerD1v2 => 0x8080035A,
+        tiger_pkg::version::EngineVersion::TigerD2v1 => 0x80809A88,
+        tiger_pkg::version::EngineVersion::TigerD2v2 => 0x808099EF,
+        tiger_pkg::version::EngineVersion::TigerGoliath => 0x8080B9B8,
     };
 
     let old_format = matches!(package_manager().version, GameVersion::Destiny(v) if v <= DestinyVersion::Destiny2BeyondLight);

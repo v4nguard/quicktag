@@ -6,9 +6,9 @@ use eframe::egui::{Key, Widget};
 use eframe::wgpu::naga::FastIndexMap;
 use egui_extras::{Column, TableBuilder};
 use std::time::{Duration, Instant};
-use tiger_pkg::DestinyVersion;
-use tiger_pkg::{GameVersion, TagHash, manager::PackagePath};
-use tiger_pkg::{MarathonVersion, package_manager};
+use tiger_pkg::package_manager;
+use tiger_pkg::version::EngineVersion;
+use tiger_pkg::{TagHash, manager::PackagePath};
 
 struct PackageAudio {
     pub streams: Vec<(TagHash, f32)>,
@@ -25,7 +25,7 @@ enum AudioSorting {
 }
 
 impl AudioSorting {
-    pub fn to_string(&self) -> &str {
+    pub fn to_string(self) -> &'static str {
         match self {
             AudioSorting::IndexAsc => "Index ⬆",
             AudioSorting::IndexDesc => "Index ⬇",
@@ -36,60 +36,25 @@ impl AudioSorting {
 }
 
 fn wwise_stream_type() -> (u8, u8) {
-    match package_manager().version {
-        GameVersion::Destiny(v) => match v {
-            DestinyVersion::DestinyInternalAlpha => (2, 16),
-            DestinyVersion::DestinyFirstLookAlpha
-            | DestinyVersion::DestinyTheTakenKing
-            | DestinyVersion::DestinyRiseOfIron => (8, 21),
-            DestinyVersion::Destiny2Beta
-            | DestinyVersion::Destiny2Forsaken
-            | DestinyVersion::Destiny2Shadowkeep => (26, 6),
-            DestinyVersion::Destiny2BeyondLight
-            | DestinyVersion::Destiny2WitchQueen
-            | DestinyVersion::Destiny2Lightfall
-            | DestinyVersion::Destiny2TheFinalShape
-            | DestinyVersion::Destiny2TheEdgeOfFate => (26, 7),
-        },
-        // Same as post-BeyondLight
-        GameVersion::Marathon(MarathonVersion::MarathonAlpha) => (26, 7),
-    }
-}
-
-pub fn wwise_bank_type() -> (u8, u8) {
-    match package_manager().version {
-        GameVersion::Destiny(v) => match v {
-            DestinyVersion::DestinyInternalAlpha => (0, 15),
-            DestinyVersion::DestinyTheTakenKing
-            | DestinyVersion::DestinyFirstLookAlpha
-            | DestinyVersion::DestinyRiseOfIron => (0, 20),
-            DestinyVersion::Destiny2Beta
-            | DestinyVersion::Destiny2Forsaken
-            | DestinyVersion::Destiny2Shadowkeep => (26, 5),
-            DestinyVersion::Destiny2BeyondLight
-            | DestinyVersion::Destiny2WitchQueen
-            | DestinyVersion::Destiny2Lightfall
-            | DestinyVersion::Destiny2TheFinalShape
-            | DestinyVersion::Destiny2TheEdgeOfFate => (26, 6),
-        },
-        // Same as post-BeyondLight
-        GameVersion::Marathon(MarathonVersion::MarathonAlpha) => (26, 6),
+    match package_manager().version.engine_version() {
+        EngineVersion::TigerD1Indev => (2, 16),
+        EngineVersion::TigerD1Alpha | EngineVersion::TigerD1v1 | EngineVersion::TigerD1v2 => {
+            (8, 21)
+        }
+        EngineVersion::TigerD2v1 => (26, 6),
+        EngineVersion::TigerD2v2 | EngineVersion::TigerGoliath => (26, 7),
     }
 }
 
 pub fn wwise_event_type() -> Option<u32> {
-    match package_manager().version {
-        GameVersion::Destiny(v) => match v {
-            DestinyVersion::Destiny2Shadowkeep => Some(0x80809802),
-            DestinyVersion::Destiny2BeyondLight
-            | DestinyVersion::Destiny2WitchQueen
-            | DestinyVersion::Destiny2Lightfall
-            | DestinyVersion::Destiny2TheFinalShape
-            | DestinyVersion::Destiny2TheEdgeOfFate => Some(0x80809738),
-            DestinyVersion::DestinyRiseOfIron => Some(0x8080080A),
-            _ => None,
-        },
-        GameVersion::Marathon(MarathonVersion::MarathonAlpha) => Some(0x8080B128),
+    match package_manager().version.engine_version() {
+        EngineVersion::TigerD1Indev => None,
+        EngineVersion::TigerD1Alpha => None,
+        EngineVersion::TigerD1v1 => None,
+        EngineVersion::TigerD1v2 => Some(0x8080080A),
+        EngineVersion::TigerD2v1 => Some(0x80809802),
+        EngineVersion::TigerD2v2 => Some(0x80809738),
+        EngineVersion::TigerGoliath => Some(0x8080B128),
     }
 }
 

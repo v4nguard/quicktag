@@ -4,7 +4,9 @@ use binrw::{BinReaderExt, VecArgs};
 use eframe::egui::{self, Color32, RichText};
 use egui_extras::{Column, TableBuilder};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use tiger_pkg::{DestinyVersion, GameVersion, MarathonVersion, TagHash, package_manager};
+use tiger_pkg::{
+    DestinyVersion, GameVersion, MarathonVersion, TagHash, package_manager, version::EngineVersion,
+};
 
 use crate::gui::{
     View, ViewAction, audio_list::wwise_event_type, common::ResponseExt, get_string_for_hash,
@@ -35,8 +37,8 @@ impl AudioEventView {
                     let data = package_manager().read_tag(*t).expect("Failed to read tag");
                     let mut data = Cursor::new(data);
 
-                    match package_manager().version {
-                        GameVersion::Marathon(MarathonVersion::MarathonAlpha) => {
+                    match package_manager().version.engine_version() {
+                        EngineVersion::TigerGoliath => {
                             data.set_position(0x8);
                             let bank_hash: u32 = data.read_le().unwrap();
                             let name = get_string_for_hash(bank_hash);
@@ -57,7 +59,7 @@ impl AudioEventView {
                                 streams,
                             }
                         }
-                        v if v >= GameVersion::Destiny(DestinyVersion::Destiny2BeyondLight) => {
+                        EngineVersion::TigerD2v2 => {
                             data.set_position(0x18);
                             let bank_tag: TagHash = data.read_le().unwrap();
                             let bank_hash =
@@ -80,7 +82,7 @@ impl AudioEventView {
                                 streams,
                             }
                         }
-                        GameVersion::Destiny(DestinyVersion::Destiny2Shadowkeep) => {
+                        EngineVersion::TigerD2v1 => {
                             data.set_position(0x14);
                             let bank_tag: TagHash = data.read_le().unwrap();
                             let bank_hash =
@@ -102,7 +104,7 @@ impl AudioEventView {
                                 streams,
                             }
                         }
-                        GameVersion::Destiny(DestinyVersion::DestinyRiseOfIron) => {
+                        EngineVersion::TigerD1v2 => {
                             data.set_position(0x34);
                             let bank_tag: TagHash = data.read_le().unwrap();
                             let bank_hash =

@@ -57,14 +57,12 @@ fn parse_sigfile(s: &str) -> anyhow::Result<FxHashMap<Signature, String>> {
         let sig = parts.next().context("Missing signature")?;
         let name = parts.join(",");
 
-        let signature = if sig.starts_with("0x") {
+        let signature = if let Ok(int) = u32::from_str_radix(sig.trim_start_matches("0x"), 16) {
+            Signature::U32(int)
+        } else {
             let int = u64::from_str_radix(sig.trim_start_matches("0x"), 16)
                 .context("Invalid 64-bit hex key")?;
             Signature::U64(int)
-        } else {
-            let int = u32::from_str_radix(sig.trim_start_matches("0x"), 16)
-                .context("Invalid 32-bit hex key")?;
-            Signature::U32(int)
         };
 
         signatures.insert(signature, name);

@@ -46,8 +46,10 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use std::fmt::Write;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
-use tiger_pkg::{DestinyVersion, Version, package_manager};
-use tiger_pkg::{GameVersion, PackagePlatform, TagHash, TagHash64, package::UEntryHeader};
+use tiger_pkg::{
+    DestinyVersion, GameVersion, PackagePlatform, TagHash, TagHash64, Version,
+    package::UEntryHeader, package_manager,
+};
 
 #[derive(Copy, Clone, PartialEq)]
 enum TagViewMode {
@@ -1616,21 +1618,22 @@ fn traverse_tag(
     let mut localized_string_hashes = vec![];
     let mut raw_string_hashes = vec![];
     if options.show_strings {
-        let tag_data = package_manager().read_tag(tag).unwrap();
-        for (i, b) in tag_data.chunks_exact(4).enumerate() {
-            let v: [u8; 4] = b.try_into().unwrap();
-            let hash = u32::from_le_bytes(v);
+        if let Ok(tag_data) = package_manager().read_tag(tag) {
+            for (i, b) in tag_data.chunks_exact(4).enumerate() {
+                let v: [u8; 4] = b.try_into().unwrap();
+                let hash = u32::from_le_bytes(v);
 
-            if let Some(v) = options.localized_strings.get(&hash) {
-                localized_string_hashes.push(v[0].clone());
-            }
+                if let Some(v) = options.localized_strings.get(&hash) {
+                    localized_string_hashes.push(v[0].clone());
+                }
 
-            if let Some(v) = options.raw_strings.get(&hash) {
-                raw_string_hashes.push(v[0].clone());
-            }
+                if let Some(v) = options.raw_strings.get(&hash) {
+                    raw_string_hashes.push(v[0].clone());
+                }
 
-            if hash == 0x80800065 {
-                raw_strings.extend(read_raw_string_blob(&tag_data, i as u64 * 4));
+                if hash == 0x80800065 {
+                    raw_strings.extend(read_raw_string_blob(&tag_data, i as u64 * 4));
+                }
             }
         }
     }
