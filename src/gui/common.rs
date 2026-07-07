@@ -300,7 +300,11 @@ pub fn open_audio_file_in_default_application(tag: TagHash) {
 
         let path = std::env::temp_dir().join(format!("{tag}.ogg"));
         if let Ok(f) = File::create(&path) {
-            converter.generate_ogg(f);
+            if let Err(e) = converter.generate_ogg(f) {
+                error!("Failed to generate ogg: {e}");
+                return;
+            }
+            opener::open(path).ok();
         }
     });
 }
