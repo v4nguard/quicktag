@@ -147,6 +147,7 @@ impl AudioPlayer {
     pub fn stop(&self) {
         self.playing.write().take();
         self.sink.stop();
+        self.sink.clear();
     }
 
     async fn load_audio_task(hash: TagHash) -> Option<LoadedAudioFile> {

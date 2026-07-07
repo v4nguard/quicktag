@@ -120,6 +120,7 @@ pub struct AudioView {
     autoplay: bool,
     autoplay_timer: Instant,
     autoplay_interval: f32,
+    stop_playback: bool,
     sorting: AudioSorting,
 }
 
@@ -145,6 +146,7 @@ impl AudioView {
             autoplay: false,
             autoplay_timer: Instant::now(),
             autoplay_interval: 1.0,
+            stop_playback: false,
             sorting: AudioSorting::IndexAsc,
         }
     }
@@ -215,18 +217,10 @@ impl View for AudioView {
             row_changed = true;
         }
 
-        // Abort autoplay
-        if self.autoplay && row_changed {
+        if row_changed {
+            self.stop_playback = false;
+            // Abort autoplay
             self.autoplay = false;
-        }
-
-        if self.autoplay {
-            ui.ctx().request_repaint_after(Duration::from_millis(200));
-            if self.autoplay_timer.elapsed().as_secs_f32() >= self.autoplay_interval {
-                self.current_row = self.current_row.wrapping_add(1);
-                row_changed = true;
-                self.autoplay_timer = Instant::now();
-            }
         }
 
         if self.selected_audio.is_some() {
@@ -257,7 +251,20 @@ impl View for AudioView {
                 {
                     self.apply_sorting();
                 }
+                if ui.button("Stop").clicked() {
+                    self.autoplay = false;
+                    self.stop_playback = true;
+                }
             });
+        }
+
+        if self.autoplay {
+            ui.ctx().request_repaint_after(Duration::from_millis(200));
+            if self.autoplay_timer.elapsed().as_secs_f32() >= self.autoplay_interval {
+                self.current_row = self.current_row.wrapping_add(1);
+                row_changed = true;
+                self.autoplay_timer = Instant::now();
+            }
         }
 
         if let Some(audio) = &self.selected_audio {
@@ -319,7 +326,12 @@ impl View for AudioView {
                     })
                 });
 
-            if let Some((t, _)) = audio.streams.get(self.current_row) {
+            if row_changed {
+                self.stop_playback = false;
+            }
+            if self.stop_playback {
+                AudioPlayer::instance().stop();
+            } else if let Some((t, _)) = audio.streams.get(self.current_row) {
                 AudioPlayer::instance().play(*t);
             }
         }
